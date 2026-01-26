@@ -1,0 +1,225 @@
+//! Radio group widget
+//!
+//! A group of radio buttons for single-selection from multiple choices.
+//! Supports keyboard navigation (Up/Down arrows, Space to select).
+//!
+//! # Example
+//!
+//! ```ignore
+//! use ccf_gpui_widgets::widgets::RadioGroup;
+//!
+//! let radio = cx.new(|cx| {
+//!     RadioGroup::new(cx)
+//!         .choices(vec!["Small".to_string(), "Medium".to_string(), "Large".to_string()])
+//!         .selected_value("Medium")
+//! });
+//!
+//! // Subscribe to changes
+//! cx.subscribe(&radio, |this, _radio, event: &RadioGroupEvent, cx| {
+//!     if let RadioGroupEvent::Change(value) = event {
+//!         println!("Selected: {}", value);
+//!     }
+//! }).detach();
+//! ```
+
+use gpui::prelude::*;
+use gpui::*;
+
+use crate::theme::{get_theme_or, Theme};
+
+/// Events emitted by RadioGroup
+#[derive(Clone, Debug)]
+pub enum RadioGroupEvent {
+    /// Selected value changed
+    Change(String),
+}
+
+/// Radio group widget for single-selection
+pub struct RadioGroup {
+    choices: Vec<String>,
+    selected: String,
+    focus_handle: FocusHandle,
+    highlight_index: usize,
+    custom_theme: Option<Theme>,
+}
+
+impl EventEmitter<RadioGroupEvent> for RadioGroup {}
+
+impl Focusable for RadioGroup {
+    fn focus_handle(&self, _cx: &App) -> FocusHandle {
+        self.focus_handle.clone()
+    }
+}
+
+impl RadioGroup {
+    /// Create a new radio group
+    pub fn new(cx: &mut Context<Self>) -> Self {
+        Self {
+            choices: Vec::new(),
+            selected: String::new(),
+            focus_handle: cx.focus_handle(),
+            highlight_index: 0,
+            custom_theme: None,
+        }
+    }
+
+    /// Set choices (builder pattern)
+    pub fn choices(mut self, choices: Vec<String>) -> Self {
+        self.choices = choices;
+        if !self.choices.is_empty() && self.selected.is_empty() {
+            self.selected = self.choices[0].clone();
+        }
+        self
+    }
+
+    /// Set selected value (builder pattern)
+    pub fn selected_value(mut self, value: &str) -> Self {
+        if let Some(index) = self.choices.iter().position(|c| c == value) {
+            self.selected = value.to_string();
+            self.highlight_index = index;
+        }
+        self
+    }
+
+    /// Set custom theme (builder pattern)
+    pub fn theme(mut self, theme: Theme) -> Self {
+        self.custom_theme = Some(theme);
+        self
+    }
+
+    /// Get the currently selected value
+    pub fn selected(&self) -> &str {
+        &self.selected
+    }
+
+    /// Set selected value programmatically
+    pub fn set_selected(&mut self, value: &str, cx: &mut Context<Self>) {
+        if let Some(index) = self.choices.iter().position(|c| c == value) {
+            if self.selected != value {
+                self.selected = value.to_string();
+                self.highlight_index = index;
+                cx.emit(RadioGroupEvent::Change(value.to_string()));
+                cx.notify();
+            }
+        }
+    }
+
+    /// Get the focus handle
+    pub fn focus_handle(&self) -> &FocusHandle {
+        &self.focus_handle
+    }
+
+    fn select_by_index(&mut self, cx: &mut Context<Self>) {
+        if let Some(choice) = self.choices.get(self.highlight_index).cloned() {
+            if self.selected != choice {
+                self.selected = choice.clone();
+                cx.emit(RadioGroupEvent::Change(choice));
+            }
+        }
+    }
+}
+
+impl Render for RadioGroup {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) -> impl IntoElement {
+        let theme = get_theme_or(cx, self.custom_theme.as_ref());
+        let focus_handle = self.focus_handle.clone();
+        let is_focused = self.focus_handle.is_focused(window);
+        let highlight_index = self.highlight_index;
+        let num_choices = self.choices.len();
+
+        div()
+            .id("ccf_radio_group")
+            .track_focus(&focus_handle)
+            .on_key_down(cx.listener(move |radio_group, event: &KeyDownEvent, _window, cx| {
+                match event.keystroke.key.as_str() {
+                    "up" => {
+                        if radio_group.highlight_index > 0 {
+                            radio_group.highlight_index -= 1;
+                        } else if num_choices > 0 {
+                            radio_group.highlight_index = num_choices - 1;
+                        }
+                        radio_group.select_by_index(cx);
+                        cx.notify();
+                    }
+                    "down" => {
+                        if radio_group.highlight_index < num_choices.saturating_sub(1) {
+                            radio_group.highlight_index += 1;
+                        } else {
+                            radio_group.highlight_index = 0;
+                        }
+                        radio_group.select_by_index(cx);
+                        cx.notify();
+                    }
+                    "space" => {
+                        radio_group.select_by_index(cx);
+                        cx.notify();
+                    }
+                    _ => {}
+                }
+            }))
+            .flex()
+            .flex_col()
+            .gap_1()
+            .p_2()
+            .bg(rgb(theme.bg_input))
+            .border_1()
+            .border_color(if is_focused { rgb(theme.border_focus) } else { rgb(theme.border_input) })
+            .rounded_md()
+            .children(self.choices.iter().enumerate().map(|(idx, choice)| {
+                let choice_clone = choice.clone();
+                let is_selected = self.selected == *choice;
+                let is_highlighted = is_focused && idx == highlight_index;
+
+                div()
+                    .id(("ccf_radio_choice", idx))
+                    .flex()
+                    .flex_row()
+                    .gap_2()
+                    .items_center()
+                    .py_1()
+                    .px_1()
+                    .cursor_pointer()
+                    .rounded_sm()
+                    .when(is_highlighted, |d| d.bg(rgb(theme.bg_input_hover)))
+                    .when(!is_highlighted, |d| d.hover(|d| d.bg(rgb(theme.bg_input_hover))))
+                    .on_click(cx.listener(move |radio_group, _event, window, cx| {
+                        radio_group.focus_handle.focus(window);
+                        radio_group.selected = choice_clone.clone();
+                        radio_group.highlight_index = idx;
+                        cx.emit(RadioGroupEvent::Change(choice_clone.clone()));
+                        cx.notify();
+                    }))
+                    .child(
+                        // Radio button (circle)
+                        div()
+                            .w(px(16.))
+                            .h(px(16.))
+                            .border_1()
+                            .border_color(rgb(theme.border_checkbox))
+                            .rounded(px(8.))
+                            .when(is_selected, |d| {
+                                d.child(
+                                    div()
+                                        .flex()
+                                        .items_center()
+                                        .justify_center()
+                                        .size_full()
+                                        .child(
+                                            div()
+                                                .w(px(8.))
+                                                .h(px(8.))
+                                                .bg(rgb(theme.accent))
+                                                .rounded(px(4.))
+                                        )
+                                )
+                            })
+                    )
+                    .child(
+                        div()
+                            .text_sm()
+                            .text_color(rgb(theme.text_value))
+                            .child(choice.clone())
+                    )
+            }))
+    }
+}

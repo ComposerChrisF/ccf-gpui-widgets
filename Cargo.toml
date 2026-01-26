@@ -1,0 +1,32 @@
+[package]
+name = "ccf-gpui-widgets"
+version = "0.1.0"
+edition = "2021"
+description = "Reusable GPUI widgets for building desktop applications"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/ccf-tools/ccf-gpui-widgets"
+keywords = ["gpui", "widgets", "ui", "gui"]
+categories = ["gui"]
+
+[dependencies]
+gpui = "0.2.2"
+smol = "2.0"
+
+[dependencies.rfd]
+version = "0.15"
+optional = true
+
+[dependencies.dirs]
+version = "5.0"
+optional = true
+
+[features]
+default = []
+file-picker = ["dep:rfd", "dep:dirs"]
+full = ["file-picker"]
+
+[dev-dependencies]
+# For examples
+
+[package.metadata.docs.rs]
+all-features = true
