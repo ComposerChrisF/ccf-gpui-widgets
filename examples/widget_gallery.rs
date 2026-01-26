@@ -877,7 +877,7 @@ fn main() {
         // Set the global theme
         cx.set_global(Theme::dark());
 
-        // Register all widget keybindings
+        // Register all widget keybindings (includes Tab/Shift+Tab navigation)
         register_all_keybindings(cx);
 
         // Create the window

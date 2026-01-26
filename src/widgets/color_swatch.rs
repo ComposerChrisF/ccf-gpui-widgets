@@ -25,6 +25,7 @@ use gpui::prelude::*;
 use gpui::*;
 
 use crate::theme::{get_theme_or, Theme};
+use super::focus_navigation::{FocusNext, FocusPrev};
 
 /// Events emitted by ColorSwatch
 #[derive(Clone, Debug)]
@@ -55,7 +56,7 @@ impl ColorSwatch {
         Self {
             value: "#000000".to_string(),
             placeholder: "#000000".to_string(),
-            focus_handle: cx.focus_handle(),
+            focus_handle: cx.focus_handle().tab_stop(true),
             custom_theme: None,
         }
     }
@@ -169,15 +170,36 @@ impl Render for ColorSwatch {
                     .border_color(if is_focused { rgb(theme.border_focus) } else { rgb(theme.border_input) })
                     .rounded_md()
                     .track_focus(&focus_handle)
-                    .on_key_down(cx.listener(|swatch, event: &KeyDownEvent, _window, cx| {
-                        if let Some(key_char) = event.keystroke.key_char.as_ref() {
-                            if key_char.chars().all(|c| c.is_ascii_hexdigit() || c == '#') {
-                                swatch.value.push_str(key_char);
+                    .tab_stop(true)
+                    // Focus navigation (Tab / Shift+Tab)
+                    .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
+                        window.focus_next();
+                    }))
+                    .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
+                        window.focus_prev();
+                    }))
+                    .on_key_down(cx.listener(|swatch, event: &KeyDownEvent, window, cx| {
+                        match event.keystroke.key.as_str() {
+                            "tab" => {
+                                if event.keystroke.modifiers.shift {
+                                    window.focus_prev();
+                                } else {
+                                    window.focus_next();
+                                }
+                                return;
+                            }
+                            "backspace" => {
+                                swatch.value.pop();
                                 cx.emit(ColorSwatchEvent::Change(swatch.value.clone()));
                             }
-                        } else if event.keystroke.key.as_str() == "backspace" {
-                            swatch.value.pop();
-                            cx.emit(ColorSwatchEvent::Change(swatch.value.clone()));
+                            _ => {
+                                if let Some(key_char) = event.keystroke.key_char.as_ref() {
+                                    if key_char.chars().all(|c| c.is_ascii_hexdigit() || c == '#') {
+                                        swatch.value.push_str(key_char);
+                                        cx.emit(ColorSwatchEvent::Change(swatch.value.clone()));
+                                    }
+                                }
+                            }
                         }
                         cx.notify();
                     }))

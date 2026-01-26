@@ -34,6 +34,7 @@ use gpui::prelude::*;
 use gpui::*;
 
 use crate::theme::{get_theme_or, Theme};
+use super::focus_navigation::{FocusNext, FocusPrev};
 
 // Actions for keyboard handling
 actions!(
@@ -191,7 +192,7 @@ impl TextInput {
             selection: None,
             selection_anchor: None,
             placeholder: None,
-            focus_handle: cx.focus_handle(),
+            focus_handle: cx.focus_handle().tab_stop(true),
             select_on_focus: false,
             scroll_offset: 0.0,
             visible_width: 200.0,
@@ -806,6 +807,7 @@ impl Render for TextInput {
             .id("ccf_text_input")
             .key_context("CcfTextInput")
             .track_focus(&focus_handle)
+            .tab_stop(true)
             // Navigation actions
             .on_action(cx.listener(|this, _: &MoveLeft, _window, cx| {
                 this.move_left(cx);
@@ -877,8 +879,24 @@ impl Render for TextInput {
             .on_action(cx.listener(|_this, _: &Escape, _window, cx| {
                 cx.emit(TextInputEvent::Blur);
             }))
-            // Character input
-            .on_key_down(cx.listener(|this, event: &KeyDownEvent, _window, cx| {
+            // Focus navigation (Tab / Shift+Tab)
+            .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
+                window.focus_next();
+            }))
+            .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
+                window.focus_prev();
+            }))
+            // Character input (Tab handled separately for focus navigation)
+            .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
+                // Handle Tab for focus navigation
+                if event.keystroke.key == "tab" {
+                    if event.keystroke.modifiers.shift {
+                        window.focus_prev();
+                    } else {
+                        window.focus_next();
+                    }
+                    return;
+                }
                 if !event.keystroke.modifiers.alt
                     && !event.keystroke.modifiers.control
                     && !event.keystroke.modifiers.platform

@@ -9,6 +9,7 @@ mod radio_group;
 mod checkbox_group;
 mod color_swatch;
 mod collapsible;
+mod focus_navigation;
 
 #[cfg(feature = "file-picker")]
 mod file_picker;
@@ -25,6 +26,7 @@ pub use radio_group::{RadioGroup, RadioGroupEvent};
 pub use checkbox_group::{CheckboxGroup, CheckboxGroupEvent};
 pub use color_swatch::{ColorSwatch, ColorSwatchEvent};
 pub use collapsible::{Collapsible, CollapsibleEvent};
+pub use focus_navigation::{FocusNext, FocusPrev, register_keybindings as register_focus_navigation_keybindings};
 
 #[cfg(feature = "file-picker")]
 pub use file_picker::{FilePicker, FilePickerEvent, FileMode, MissingDirectories};
@@ -47,4 +49,5 @@ pub use directory_picker::{DirectoryPicker, DirectoryPickerEvent};
 pub fn register_all_keybindings(cx: &mut gpui::App) {
     register_text_input_keybindings(cx);
     register_dropdown_keybindings(cx);
+    register_focus_navigation_keybindings(cx);
 }

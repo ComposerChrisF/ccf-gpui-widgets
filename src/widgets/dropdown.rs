@@ -29,6 +29,7 @@ use gpui::prelude::*;
 use gpui::*;
 
 use crate::theme::{get_theme_or, Theme};
+use super::focus_navigation::{FocusNext, FocusPrev};
 
 // Actions for keyboard navigation
 actions!(ccf_dropdown, [CloseDropdown, SelectPrevious, SelectNext, ConfirmSelection, ToggleDropdown]);
@@ -84,7 +85,7 @@ impl Dropdown {
             choices: Vec::new(),
             selected_index: 0,
             is_open: false,
-            focus_handle: cx.focus_handle(),
+            focus_handle: cx.focus_handle().tab_stop(true),
             custom_theme: None,
         }
     }
@@ -212,6 +213,14 @@ impl Render for Dropdown {
             .relative()
             .key_context("CcfDropdown")
             .track_focus(&focus_handle)
+            .tab_stop(true)
+            // Focus navigation (Tab / Shift+Tab)
+            .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
+                window.focus_next();
+            }))
+            .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
+                window.focus_prev();
+            }))
             .on_action(cx.listener(|dropdown, _: &CloseDropdown, _window, cx| {
                 dropdown.close(cx);
             }))
@@ -227,6 +236,15 @@ impl Render for Dropdown {
             .on_action(cx.listener(|dropdown, _: &ToggleDropdown, window, cx| {
                 dropdown.toggle(cx);
                 dropdown.focus_handle.focus(window);
+            }))
+            .on_key_down(cx.listener(|_dropdown, event: &KeyDownEvent, window, _cx| {
+                if event.keystroke.key == "tab" {
+                    if event.keystroke.modifiers.shift {
+                        window.focus_prev();
+                    } else {
+                        window.focus_next();
+                    }
+                }
             }))
             .child(
                 // Dropdown button

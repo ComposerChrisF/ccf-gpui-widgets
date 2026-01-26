@@ -90,6 +90,23 @@ The library is functional and being used by clui.
 
 ---
 
+## Resolved Issues
+
+### Tab Navigation Fix (2026-01-26)
+
+**Issue**: Tab key navigation between widgets was not working.
+
+**Root Cause**: When using `.track_focus(&focus_handle)` on a div, the subsequent `.tab_stop(true)` call does not affect the already-tracked focus handle. GPUI only applies the div's tab_stop setting when creating a new handle (when `tracked_focus_handle.is_none()`).
+
+**Solution**: Set `tab_stop(true)` directly on the FocusHandle when creating it:
+```rust
+focus_handle: cx.focus_handle().tab_stop(true),
+```
+
+See `doc/TAB_STOP_SOLUTIONS.md` for full details.
+
+---
+
 ## Consumer Compatibility
 
 When making breaking changes:

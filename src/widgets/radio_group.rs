@@ -26,6 +26,7 @@ use gpui::prelude::*;
 use gpui::*;
 
 use crate::theme::{get_theme_or, Theme};
+use super::focus_navigation::{FocusNext, FocusPrev};
 
 /// Events emitted by RadioGroup
 #[derive(Clone, Debug)]
@@ -57,7 +58,7 @@ impl RadioGroup {
         Self {
             choices: Vec::new(),
             selected: String::new(),
-            focus_handle: cx.focus_handle(),
+            focus_handle: cx.focus_handle().tab_stop(true),
             highlight_index: 0,
             custom_theme: None,
         }
@@ -130,8 +131,23 @@ impl Render for RadioGroup {
         div()
             .id("ccf_radio_group")
             .track_focus(&focus_handle)
-            .on_key_down(cx.listener(move |radio_group, event: &KeyDownEvent, _window, cx| {
+            .tab_stop(true)
+            // Focus navigation (Tab / Shift+Tab)
+            .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
+                window.focus_next();
+            }))
+            .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
+                window.focus_prev();
+            }))
+            .on_key_down(cx.listener(move |radio_group, event: &KeyDownEvent, window, cx| {
                 match event.keystroke.key.as_str() {
+                    "tab" => {
+                        if event.keystroke.modifiers.shift {
+                            window.focus_prev();
+                        } else {
+                            window.focus_next();
+                        }
+                    }
                     "up" => {
                         if radio_group.highlight_index > 0 {
                             radio_group.highlight_index -= 1;

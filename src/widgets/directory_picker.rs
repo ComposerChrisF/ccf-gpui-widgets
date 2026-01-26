@@ -30,6 +30,7 @@ use gpui::*;
 
 #[cfg(feature = "file-picker")]
 use crate::theme::{get_theme_or, Theme};
+use super::focus_navigation::{FocusNext, FocusPrev};
 #[cfg(feature = "file-picker")]
 use crate::utils::path::{parse_path, PathInfo};
 #[cfg(feature = "file-picker")]
@@ -82,7 +83,7 @@ impl DirectoryPicker {
         Self {
             value: String::new(),
             placeholder: None,
-            focus_handle: cx.focus_handle(),
+            focus_handle: cx.focus_handle().tab_stop(true),
             is_editing: false,
             edit_state: None,
             custom_theme: None,
@@ -291,6 +292,23 @@ impl Render for DirectoryPicker {
                     .border_1()
                     .border_color(rgb(theme.border_default))
                     .track_focus(&focus_handle)
+                    .tab_stop(true)
+                    // Focus navigation (Tab / Shift+Tab)
+                    .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
+                        window.focus_next();
+                    }))
+                    .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
+                        window.focus_prev();
+                    }))
+                    .on_key_down(cx.listener(|_picker, event: &KeyDownEvent, window, _cx| {
+                        if event.keystroke.key == "tab" {
+                            if event.keystroke.modifiers.shift {
+                                window.focus_prev();
+                            } else {
+                                window.focus_next();
+                            }
+                        }
+                    }))
                     .drag_over::<ExternalPaths>({
                         let bg_hover = theme.bg_input_hover;
                         let border = theme.border_focus;
