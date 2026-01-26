@@ -28,5 +28,9 @@ full = ["file-picker"]
 [dev-dependencies]
 # For examples
 
+[[example]]
+name = "widget_gallery"
+path = "examples/widget_gallery.rs"
+
 [package.metadata.docs.rs]
 all-features = true

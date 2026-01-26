@@ -26,11 +26,23 @@ cargo build --features full
 cargo test
 
 # Check for compilation errors
-cargo check
+cargo check                 # Default features
+cargo check --features full # All features
 
 # Build documentation
 cargo doc --open
+
+# Running Clippy
+cargo clippy                 # Default features
+cargo clippy --features full # All features
+
+# Testing Clui with latest `ccf-gpui-widgets` changes
+cd ../clui && cargo check && cargo test
 ```
+
+### Crates dependent on `ccf-gpui-widgets`
+Since clui depends on this library, changes need coordination:                
+  - Test changes with cd ../clui && cargo check && cargo test                   
 
 ## Architecture
 
