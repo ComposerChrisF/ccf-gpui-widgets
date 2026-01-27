@@ -173,6 +173,12 @@ pub struct TextInput {
     blink_timer_active: bool,
     /// Optional custom theme
     custom_theme: Option<Theme>,
+    /// Whether currently dragging to select text
+    is_dragging: bool,
+    /// Whether auto-scroll timer is active
+    auto_scroll_active: bool,
+    /// Current auto-scroll speed (pixels per frame, positive = scroll right)
+    auto_scroll_speed: f32,
 }
 
 impl EventEmitter<TextInputEvent> for TextInput {}
@@ -202,6 +208,9 @@ impl TextInput {
             cursor_last_moved: Instant::now(),
             blink_timer_active: false,
             custom_theme: None,
+            is_dragging: false,
+            auto_scroll_active: false,
+            auto_scroll_speed: 0.0,
         }
     }
 
@@ -249,7 +258,7 @@ impl TextInput {
     }
 
     /// Set the content value
-    pub fn set_value(&mut self, value: &str, _window: &mut Window, cx: &mut Context<Self>) {
+    pub fn set_value(&mut self, value: &str, cx: &mut Context<Self>) {
         self.content = value.to_string();
         self.cursor = value.len();
         self.selection = None;
@@ -626,6 +635,8 @@ impl TextInput {
 
     /// Handle focus lost
     fn on_blur(&mut self, cx: &mut Context<Self>) {
+        // Stop any drag operation
+        self.stop_drag();
         // Don't clear selection or scroll_offset - they'll be hidden visually
         // but restored when focus returns
         cx.emit(TextInputEvent::Blur);
@@ -715,6 +726,85 @@ impl TextInput {
         let max_scroll = (content_width + cursor_width - actual_visible + margin).max(0.0);
         self.scroll_offset = self.scroll_offset.clamp(0.0, max_scroll);
     }
+
+    /// Handle drag move during text selection
+    /// Returns the auto-scroll speed (0 if no scrolling needed)
+    fn handle_drag_move(&mut self, mouse_x: f32, window: &Window) -> f32 {
+        if !self.is_dragging {
+            return 0.0;
+        }
+
+        let relative_x = mouse_x - self.content_origin_x;
+        let padding = 2.0;
+        let actual_visible = self.visible_width - padding;
+
+        // Calculate auto-scroll speed based on distance from edge
+        let scroll_speed = if relative_x < 0.0 {
+            // Mouse is left of the input - scroll left (negative)
+            self.calculate_scroll_speed(-relative_x)
+        } else if relative_x > actual_visible {
+            // Mouse is right of the input - scroll right (positive)
+            self.calculate_scroll_speed(relative_x - actual_visible)
+        } else {
+            0.0
+        };
+
+        // Update cursor position based on mouse x (clamped to visible area for cursor calculation)
+        let clamped_x = relative_x.clamp(0.0, actual_visible);
+        let new_cursor = self.cursor_at_x(clamped_x, window);
+        self.cursor = new_cursor;
+        self.update_selection();
+        self.reset_cursor_blink();
+
+        scroll_speed
+    }
+
+    /// Calculate scroll speed based on distance from edge
+    /// Uses an ease-out curve for acceleration
+    fn calculate_scroll_speed(&self, distance: f32) -> f32 {
+        let base_speed = 0.5; // pixels per frame at the edge
+        let max_speed = 20.0; // max pixels per frame
+        let max_distance = 100.0; // distance at which max speed is reached
+
+        let normalized = (distance / max_distance).min(1.0);
+        // Ease-out curve: fast start, slow end
+        let eased = 1.0 - (1.0 - normalized).powi(2);
+        base_speed + eased * (max_speed - base_speed)
+    }
+
+    /// Apply auto-scroll during drag
+    fn apply_auto_scroll(&mut self, window: &Window) {
+        if self.auto_scroll_speed == 0.0 {
+            return;
+        }
+
+        let content_width = self.x_for_cursor(self.content.len(), window);
+        let padding = 2.0;
+        let actual_visible = self.visible_width - padding;
+        let max_scroll = (content_width - actual_visible).max(0.0);
+
+        // Apply scroll
+        self.scroll_offset = (self.scroll_offset + self.auto_scroll_speed).clamp(0.0, max_scroll);
+
+        // Update cursor to match scroll direction
+        if self.auto_scroll_speed < 0.0 {
+            // Scrolling left - move cursor toward start
+            let new_cursor = self.cursor_at_x(0.0, window);
+            self.cursor = new_cursor;
+        } else {
+            // Scrolling right - move cursor toward end
+            let new_cursor = self.cursor_at_x(actual_visible, window);
+            self.cursor = new_cursor;
+        }
+        self.update_selection();
+    }
+
+    /// Stop drag operation
+    fn stop_drag(&mut self) {
+        self.is_dragging = false;
+        self.auto_scroll_active = false;
+        self.auto_scroll_speed = 0.0;
+    }
 }
 
 impl Render for TextInput {
@@ -724,8 +814,6 @@ impl Render for TextInput {
         let is_focused = self.focus_handle.is_focused(window);
         let content = self.content.clone();
         let placeholder = self.placeholder.clone();
-        let cursor = self.cursor;
-        let selection = self.selection;
         let has_content = !content.is_empty();
 
         // Set up focus-out subscription on first render
@@ -773,9 +861,18 @@ impl Render for TextInput {
             self.blink_timer_active = false;
         }
 
+        // Apply auto-scroll if active
+        if self.auto_scroll_active && self.is_dragging {
+            self.apply_auto_scroll(window);
+        }
+
         if is_focused {
             self.ensure_cursor_visible(window);
         }
+
+        // Re-capture cursor and selection after potential auto-scroll modification
+        let cursor = self.cursor;
+        let selection = self.selection;
 
         let cursor_x = self.x_for_cursor(cursor, window) - render_scroll_offset;
         let cursor_visible = is_focused && self.is_cursor_visible();
@@ -906,7 +1003,7 @@ impl Render for TextInput {
                     }
                 }
             }))
-            // Click to focus and position cursor
+            // Click to focus and position cursor, start drag
             .on_mouse_down(MouseButton::Left, cx.listener(|this, event: &MouseDownEvent, window, cx| {
                 let was_focused = this.focus_handle.is_focused(window);
                 this.focus_handle.focus(window);
@@ -924,14 +1021,65 @@ impl Render for TextInput {
                 let new_cursor = this.cursor_at_x(relative_x, window);
 
                 if event.modifiers.shift {
+                    // Shift+click extends selection
                     this.ensure_selection_anchor();
                     this.cursor = new_cursor;
                     this.update_selection();
                 } else {
+                    // Regular click starts a new selection
                     this.cursor = new_cursor;
                     this.clear_selection();
+                    // Set anchor for potential drag selection
+                    this.selection_anchor = Some(new_cursor);
                 }
+
+                // Start drag operation
+                this.is_dragging = true;
                 this.reset_cursor_blink();
+                cx.notify();
+            }))
+            // Drag to select text
+            .on_mouse_move(cx.listener(|this, event: &MouseMoveEvent, window, cx| {
+                if !this.is_dragging {
+                    return;
+                }
+
+                let mouse_x: f32 = event.position.x.into();
+                let scroll_speed = this.handle_drag_move(mouse_x, window);
+
+                // Update auto-scroll speed
+                this.auto_scroll_speed = scroll_speed;
+
+                // Start auto-scroll timer if needed
+                if scroll_speed != 0.0 && !this.auto_scroll_active {
+                    this.auto_scroll_active = true;
+                    let entity = cx.entity();
+                    window.spawn(cx, async move |async_cx| {
+                        loop {
+                            smol::Timer::after(Duration::from_millis(32)).await; // ~30fps
+                            let should_continue = async_cx
+                                .update_entity(&entity, |this, cx| {
+                                    if !this.auto_scroll_active || !this.is_dragging {
+                                        this.auto_scroll_active = false;
+                                        return false;
+                                    }
+                                    // Just trigger re-render - auto-scroll is applied in render
+                                    cx.notify();
+                                    true
+                                })
+                                .unwrap_or(false);
+                            if !should_continue {
+                                break;
+                            }
+                        }
+                    }).detach();
+                }
+
+                cx.notify();
+            }))
+            // Mouse up ends drag
+            .on_mouse_up(MouseButton::Left, cx.listener(|this, _event: &MouseUpEvent, _window, cx| {
+                this.stop_drag();
                 cx.notify();
             }))
             // Styling
@@ -959,14 +1107,11 @@ impl Render for TextInput {
                             move |bounds, _window, cx| {
                                 let width: f32 = bounds.size.width.into();
                                 let origin_x: f32 = bounds.origin.x.into();
-                                entity.update(cx, |this: &mut TextInput, cx| {
-                                    let width_changed = (this.visible_width - width).abs() > 1.0;
-                                    let origin_changed = (this.content_origin_x - origin_x).abs() > 1.0;
-                                    if width_changed || origin_changed {
-                                        this.visible_width = width;
-                                        this.content_origin_x = origin_x;
-                                        cx.notify();
-                                    }
+                                // Update measurement values without triggering re-render
+                                // to avoid potential render loops when used inside other widgets
+                                let _ = entity.update(cx, |this: &mut TextInput, _cx| {
+                                    this.visible_width = width;
+                                    this.content_origin_x = origin_x;
                                 });
                             },
                             |_, _, _, _| {},
