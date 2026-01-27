@@ -305,7 +305,7 @@ impl Theme {
 /// Get the theme from context, falling back to dark theme if not set
 pub fn get_theme(cx: &gpui::App) -> Theme {
     cx.try_global::<Theme>()
-        .map(|t| t.clone())
+        .cloned()
         .unwrap_or_else(Theme::dark)
 }
 

@@ -111,10 +111,10 @@ impl RadioGroup {
     }
 
     fn select_by_index(&mut self, cx: &mut Context<Self>) {
-        if let Some(choice) = self.choices.get(self.highlight_index).cloned() {
-            if self.selected != choice {
+        if let Some(choice) = self.choices.get(self.highlight_index) {
+            if self.selected != *choice {
                 self.selected = choice.clone();
-                cx.emit(RadioGroupEvent::Change(choice));
+                cx.emit(RadioGroupEvent::Change(self.selected.clone()));
             }
         }
     }
