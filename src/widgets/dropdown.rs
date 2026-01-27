@@ -297,7 +297,8 @@ impl Render for Dropdown {
                                 .hover(|d| d.bg(rgb(bg_light_hover)))
                         })
                         .child(choice.clone())
-                        .on_click(cx.listener(move |dropdown, _event, _window, cx| {
+                        // Use on_mouse_down to handle selection immediately and prevent click-through
+                        .on_mouse_down(MouseButton::Left, cx.listener(move |dropdown, _event, _window, cx| {
                             dropdown.selected_index = i;
                             dropdown.is_open = false;
                             cx.emit(DropdownEvent::Change(choice_clone.clone()));
@@ -313,6 +314,7 @@ impl Render for Dropdown {
                             .child(
                                 div()
                                     .id("ccf_dropdown_menu")
+                                    .occlude()  // Block all mouse events from reaching elements below
                                     .absolute()
                                     .top(px(2.))
                                     .left_0()

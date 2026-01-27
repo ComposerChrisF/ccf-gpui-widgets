@@ -37,6 +37,13 @@ The library is functional and being used by clui.
 - [x] Widget gallery quit on window close
 - [x] Documentation: docs/MOUSE_CAPTURE.md
 
+### ✅ Widget Bug Fixes (2026-01-26)
+- [x] Dropdown: Use `.occlude()` to block mouse events from reaching elements below open menu
+- [x] Dropdown: Changed to `on_mouse_down` for choice selection (snappier response)
+- [x] TextInput: Preserve selection and scroll offset when focus is lost
+- [x] TextInput: Restore selection/scroll when focus returns (via Tab or click)
+- [x] TextInput: Click on unfocused input with selection restores state instead of repositioning cursor
+
 ---
 
 ## Future Enhancements

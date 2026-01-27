@@ -626,8 +626,8 @@ impl TextInput {
 
     /// Handle focus lost
     fn on_blur(&mut self, cx: &mut Context<Self>) {
-        self.selection = None;
-        self.scroll_offset = 0.0;
+        // Don't clear selection or scroll_offset - they'll be hidden visually
+        // but restored when focus returns
         cx.emit(TextInputEvent::Blur);
         cx.notify();
     }
@@ -741,16 +741,10 @@ impl Render for TextInput {
         if is_focused && !self.was_focused {
             self.on_focus(cx);
         }
-        // Detect focus-out
-        if !is_focused && self.was_focused {
-            self.scroll_offset = 0.0;
-            self.selection = None;
-        }
         self.was_focused = is_focused;
 
-        if !is_focused {
-            self.scroll_offset = 0.0;
-        }
+        // Use actual scroll_offset when focused, 0 when unfocused (to show beginning of text)
+        let render_scroll_offset = if is_focused { self.scroll_offset } else { 0.0 };
 
         // Set up blink timer when focused
         if is_focused && !self.blink_timer_active {
@@ -783,20 +777,25 @@ impl Render for TextInput {
             self.ensure_cursor_visible(window);
         }
 
-        let cursor_x = self.x_for_cursor(cursor, window) - self.scroll_offset;
+        let cursor_x = self.x_for_cursor(cursor, window) - render_scroll_offset;
         let cursor_visible = is_focused && self.is_cursor_visible();
 
-        let selection_bounds: Option<(f32, f32)> = selection.and_then(|(start, end)| {
-            if start != end {
-                let start_x = self.x_for_cursor(start, window) - self.scroll_offset;
-                let end_x = self.x_for_cursor(end, window) - self.scroll_offset;
-                Some((start_x, end_x - start_x))
-            } else {
-                None
-            }
-        });
+        // Only show selection when focused
+        let selection_bounds: Option<(f32, f32)> = if is_focused {
+            selection.and_then(|(start, end)| {
+                if start != end {
+                    let start_x = self.x_for_cursor(start, window) - render_scroll_offset;
+                    let end_x = self.x_for_cursor(end, window) - render_scroll_offset;
+                    Some((start_x, end_x - start_x))
+                } else {
+                    None
+                }
+            })
+        } else {
+            None
+        };
 
-        let scroll_offset = self.scroll_offset;
+        let scroll_offset = render_scroll_offset;
         let selection_color = theme.selection;
         let text_black = theme.text_black;
         let text_placeholder = theme.text_placeholder;
@@ -909,7 +908,17 @@ impl Render for TextInput {
             }))
             // Click to focus and position cursor
             .on_mouse_down(MouseButton::Left, cx.listener(|this, event: &MouseDownEvent, window, cx| {
+                let was_focused = this.focus_handle.is_focused(window);
                 this.focus_handle.focus(window);
+
+                // If clicking to restore focus and there's a selection to restore,
+                // just restore focus without changing cursor/selection
+                if !was_focused && this.selection.is_some() {
+                    this.reset_cursor_blink();
+                    cx.notify();
+                    return;
+                }
+
                 let click_x: f32 = event.position.x.into();
                 let relative_x = (click_x - this.content_origin_x).max(0.0);
                 let new_cursor = this.cursor_at_x(relative_x, window);
