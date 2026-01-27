@@ -308,8 +308,8 @@ impl NumberStepper {
         snapped.clamp(min, max)
     }
 
-    fn increment(&mut self, multiplier: f64, cx: &mut Context<Self>) {
-        let step = self.step.unwrap_or(1.0) * multiplier;
+    fn adjust_value(&mut self, direction: f64, multiplier: f64, cx: &mut Context<Self>) {
+        let step = self.step.unwrap_or(1.0) * multiplier * direction;
         let new_value = self.normalize_value(self.value + step);
         if (self.value - new_value).abs() > f64::EPSILON {
             self.value = new_value;
@@ -318,14 +318,12 @@ impl NumberStepper {
         }
     }
 
+    fn increment(&mut self, multiplier: f64, cx: &mut Context<Self>) {
+        self.adjust_value(1.0, multiplier, cx);
+    }
+
     fn decrement(&mut self, multiplier: f64, cx: &mut Context<Self>) {
-        let step = self.step.unwrap_or(1.0) * multiplier;
-        let new_value = self.normalize_value(self.value - step);
-        if (self.value - new_value).abs() > f64::EPSILON {
-            self.value = new_value;
-            cx.emit(NumberStepperEvent::Change(self.value));
-            cx.notify();
-        }
+        self.adjust_value(-1.0, multiplier, cx);
     }
 
     // ===== Edit mode methods =====

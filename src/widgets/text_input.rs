@@ -805,6 +805,33 @@ impl TextInput {
         self.auto_scroll_active = false;
         self.auto_scroll_speed = 0.0;
     }
+
+    /// Spawn auto-scroll timer if scrolling is needed and timer isn't already active
+    fn spawn_auto_scroll_timer_if_needed(&mut self, scroll_speed: f32, window: &mut Window, cx: &mut Context<Self>) {
+        self.auto_scroll_speed = scroll_speed;
+        if scroll_speed != 0.0 && !self.auto_scroll_active {
+            self.auto_scroll_active = true;
+            let entity = cx.entity();
+            window.spawn(cx, async move |async_cx| {
+                loop {
+                    smol::Timer::after(Duration::from_millis(32)).await; // ~30fps
+                    let should_continue = async_cx
+                        .update_entity(&entity, |this, cx| {
+                            if !this.auto_scroll_active || !this.is_dragging {
+                                this.auto_scroll_active = false;
+                                return false;
+                            }
+                            cx.notify();
+                            true
+                        })
+                        .unwrap_or(false);
+                    if !should_continue {
+                        break;
+                    }
+                }
+            }).detach();
+        }
+    }
 }
 
 impl Render for TextInput {
@@ -1046,35 +1073,7 @@ impl Render for TextInput {
 
                 let mouse_x: f32 = event.position.x.into();
                 let scroll_speed = this.handle_drag_move(mouse_x, window);
-
-                // Update auto-scroll speed
-                this.auto_scroll_speed = scroll_speed;
-
-                // Start auto-scroll timer if needed
-                if scroll_speed != 0.0 && !this.auto_scroll_active {
-                    this.auto_scroll_active = true;
-                    let entity = cx.entity();
-                    window.spawn(cx, async move |async_cx| {
-                        loop {
-                            smol::Timer::after(Duration::from_millis(32)).await; // ~30fps
-                            let should_continue = async_cx
-                                .update_entity(&entity, |this, cx| {
-                                    if !this.auto_scroll_active || !this.is_dragging {
-                                        this.auto_scroll_active = false;
-                                        return false;
-                                    }
-                                    // Just trigger re-render - auto-scroll is applied in render
-                                    cx.notify();
-                                    true
-                                })
-                                .unwrap_or(false);
-                            if !should_continue {
-                                break;
-                            }
-                        }
-                    }).detach();
-                }
-
+                this.spawn_auto_scroll_timer_if_needed(scroll_speed, window, cx);
                 cx.notify();
             }))
             // Mouse up ends drag
@@ -1111,7 +1110,7 @@ impl Render for TextInput {
                                 let origin_x: f32 = bounds.origin.x.into();
                                 // Update measurement values without triggering re-render
                                 // to avoid potential render loops when used inside other widgets
-                                let _ = entity.update(cx, |this: &mut TextInput, _cx| {
+                                entity.update(cx, |this: &mut TextInput, _cx| {
                                     this.visible_width = width;
                                     this.content_origin_x = origin_x;
                                 });
@@ -1129,33 +1128,9 @@ impl Render for TextInput {
                                                 return;
                                             }
                                             let mouse_x: f32 = event.position.x.into();
-                                            let _ = entity_move.update(cx, |this: &mut TextInput, cx| {
+                                            entity_move.update(cx, |this: &mut TextInput, cx| {
                                                 let scroll_speed = this.handle_drag_move(mouse_x, window);
-                                                this.auto_scroll_speed = scroll_speed;
-
-                                                // Start auto-scroll timer if needed
-                                                if scroll_speed != 0.0 && !this.auto_scroll_active {
-                                                    this.auto_scroll_active = true;
-                                                    let entity = cx.entity();
-                                                    window.spawn(cx, async move |async_cx| {
-                                                        loop {
-                                                            smol::Timer::after(Duration::from_millis(32)).await;
-                                                            let should_continue = async_cx
-                                                                .update_entity(&entity, |this, cx| {
-                                                                    if !this.auto_scroll_active || !this.is_dragging {
-                                                                        this.auto_scroll_active = false;
-                                                                        return false;
-                                                                    }
-                                                                    cx.notify();
-                                                                    true
-                                                                })
-                                                                .unwrap_or(false);
-                                                            if !should_continue {
-                                                                break;
-                                                            }
-                                                        }
-                                                    }).detach();
-                                                }
+                                                this.spawn_auto_scroll_timer_if_needed(scroll_speed, window, cx);
                                                 cx.notify();
                                             });
                                         });
@@ -1166,7 +1141,7 @@ impl Render for TextInput {
                                             if phase != DispatchPhase::Capture {
                                                 return;
                                             }
-                                            let _ = entity_up.update(cx, |this: &mut TextInput, cx| {
+                                            entity_up.update(cx, |this: &mut TextInput, cx| {
                                                 this.stop_drag();
                                                 cx.notify();
                                             });

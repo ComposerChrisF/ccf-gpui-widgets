@@ -143,9 +143,11 @@ impl Dropdown {
         &self.focus_handle
     }
 
-    fn select_previous(&mut self, cx: &mut Context<Self>) {
-        if self.selected_index > 0 {
-            self.selected_index -= 1;
+    fn select_by_offset(&mut self, offset: isize, cx: &mut Context<Self>) {
+        let new_index = (self.selected_index as isize + offset)
+            .clamp(0, self.choices.len().saturating_sub(1) as isize) as usize;
+        if new_index != self.selected_index {
+            self.selected_index = new_index;
             if let Some(choice) = self.choices.get(self.selected_index) {
                 cx.emit(DropdownEvent::Change(choice.clone()));
             }
@@ -153,14 +155,12 @@ impl Dropdown {
         }
     }
 
+    fn select_previous(&mut self, cx: &mut Context<Self>) {
+        self.select_by_offset(-1, cx);
+    }
+
     fn select_next(&mut self, cx: &mut Context<Self>) {
-        if self.selected_index + 1 < self.choices.len() {
-            self.selected_index += 1;
-            if let Some(choice) = self.choices.get(self.selected_index) {
-                cx.emit(DropdownEvent::Change(choice.clone()));
-            }
-            cx.notify();
-        }
+        self.select_by_offset(1, cx);
     }
 
     fn close(&mut self, cx: &mut Context<Self>) {
