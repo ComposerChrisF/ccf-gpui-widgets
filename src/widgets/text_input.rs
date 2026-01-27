@@ -741,7 +741,7 @@ impl TextInput {
         // Calculate auto-scroll speed based on distance from edge
         let scroll_speed = if relative_x < 0.0 {
             // Mouse is left of the input - scroll left (negative)
-            self.calculate_scroll_speed(-relative_x)
+            -self.calculate_scroll_speed(-relative_x)
         } else if relative_x > actual_visible {
             // Mouse is right of the input - scroll right (positive)
             self.calculate_scroll_speed(relative_x - actual_visible)
@@ -1095,13 +1095,15 @@ impl Render for TextInput {
             .overflow_hidden()
             .child({
                 let entity = cx.entity();
+                let entity_paint = entity.clone();
+                let is_dragging = self.is_dragging;
 
                 div()
                     .size_full()
                     .flex()
                     .items_center()
                     .relative()
-                    // Measurement canvas
+                    // Measurement canvas and window-level drag handlers
                     .child(
                         canvas(
                             move |bounds, _window, cx| {
@@ -1114,7 +1116,64 @@ impl Render for TextInput {
                                     this.content_origin_x = origin_x;
                                 });
                             },
-                            |_, _, _, _| {},
+                            {
+                                let entity = entity_paint;
+                                move |_bounds, _, window, _cx| {
+                                    // Register window-level mouse handlers when dragging
+                                    // This captures mouse events even outside the element bounds
+                                    if is_dragging {
+                                        // Mouse move handler for drag selection
+                                        let entity_move = entity.clone();
+                                        window.on_mouse_event(move |event: &MouseMoveEvent, phase, window, cx| {
+                                            if phase != DispatchPhase::Capture {
+                                                return;
+                                            }
+                                            let mouse_x: f32 = event.position.x.into();
+                                            let _ = entity_move.update(cx, |this: &mut TextInput, cx| {
+                                                let scroll_speed = this.handle_drag_move(mouse_x, window);
+                                                this.auto_scroll_speed = scroll_speed;
+
+                                                // Start auto-scroll timer if needed
+                                                if scroll_speed != 0.0 && !this.auto_scroll_active {
+                                                    this.auto_scroll_active = true;
+                                                    let entity = cx.entity();
+                                                    window.spawn(cx, async move |async_cx| {
+                                                        loop {
+                                                            smol::Timer::after(Duration::from_millis(32)).await;
+                                                            let should_continue = async_cx
+                                                                .update_entity(&entity, |this, cx| {
+                                                                    if !this.auto_scroll_active || !this.is_dragging {
+                                                                        this.auto_scroll_active = false;
+                                                                        return false;
+                                                                    }
+                                                                    cx.notify();
+                                                                    true
+                                                                })
+                                                                .unwrap_or(false);
+                                                            if !should_continue {
+                                                                break;
+                                                            }
+                                                        }
+                                                    }).detach();
+                                                }
+                                                cx.notify();
+                                            });
+                                        });
+
+                                        // Mouse up handler to end drag
+                                        let entity_up = entity.clone();
+                                        window.on_mouse_event(move |_event: &MouseUpEvent, phase, _window, cx| {
+                                            if phase != DispatchPhase::Capture {
+                                                return;
+                                            }
+                                            let _ = entity_up.update(cx, |this: &mut TextInput, cx| {
+                                                this.stop_drag();
+                                                cx.notify();
+                                            });
+                                        });
+                                    }
+                                }
+                            },
                         )
                         .size_full()
                         .absolute()
