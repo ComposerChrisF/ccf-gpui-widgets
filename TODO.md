@@ -17,7 +17,7 @@ The library is functional and being used by clui.
 - [x] NumberStepper with +/- buttons, min/max/step
 - [x] RadioGroup for single selection
 - [x] CheckboxGroup for multi-selection
-- [x] ColorSwatch with hex input and preview
+- [x] ColorSwatch with hex input and preview (basic version)
 - [x] Collapsible section header
 - [x] FilePicker with native dialog, drag-drop, path validation
 - [x] DirectoryPicker with native dialog, drag-drop
@@ -43,6 +43,19 @@ The library is functional and being used by clui.
 - [x] TextInput: Preserve selection and scroll offset when focus is lost
 - [x] TextInput: Restore selection/scroll when focus returns (via Tab or click)
 - [x] TextInput: Click on unfocused input with selection restores state instead of repositioning cursor
+
+### ✅ ColorSwatch Enhancements (2026-01-27)
+- [x] Full color picker popup with 2D saturation/brightness canvas
+- [x] HSV color model (Photoshop-style picker behavior)
+- [x] Hue slider (0-359°, capped to prevent wrap-around)
+- [x] Alpha slider with checkerboard visualization
+- [x] RGB component sliders (R, G, B)
+- [x] Old/New color comparison with hex values
+- [x] CSS named color support (140 colors)
+- [x] Proper drag support using GPUI's drag API
+- [x] Persistent slider measurements across render frames
+- [x] Color utilities: Rgb, Rgba, Hsl, Hsv with conversions
+- [x] Documentation: docs/COLOR_PICKER.md
 
 ---
 

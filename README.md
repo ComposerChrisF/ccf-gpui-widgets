@@ -54,7 +54,7 @@ Application::new().run(|cx: &mut App| {
 | `NumberStepper` | Numeric input with +/- buttons |
 | `RadioGroup` | Single-selection from multiple choices |
 | `CheckboxGroup` | Multi-selection from multiple choices |
-| `ColorSwatch` | Color preview with hex input |
+| `ColorSwatch` | Color picker with hex input, HSV canvas, sliders, alpha support |
 | `Collapsible` | Expandable/collapsible section header |
 | `Tooltip` | Simple tooltip for hover text |
 
@@ -149,6 +149,32 @@ let stepper = cx.new(|cx| {
         .step(5.0)
 });
 ```
+
+### ColorSwatch
+
+```rust
+let swatch = cx.new(|cx| {
+    ColorSwatch::new(cx)
+        .with_value("#3b82f6")  // Initial color (hex or CSS name like "coral")
+        .with_alpha(true)       // Enable alpha channel
+});
+
+cx.subscribe(&swatch, |this, _swatch, event: &ColorSwatchEvent, cx| {
+    if let ColorSwatchEvent::Change(hex) = event {
+        println!("Color changed: {}", hex);  // e.g., "#3B82F6" or "#3B82F680"
+    }
+}).detach();
+```
+
+The color picker popup includes:
+- 2D saturation/brightness canvas (HSV model)
+- Hue slider (0-359°)
+- Alpha slider (when enabled)
+- RGB component sliders
+- Old/New color comparison
+- Hex value display
+
+Supports hex input (#RGB, #RRGGBB, #RRGGBBAA) and all 140 CSS named colors.
 
 ### FilePicker (requires `file-picker` feature)
 

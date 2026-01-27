@@ -24,7 +24,7 @@ pub use dropdown::{Dropdown, DropdownEvent, register_keybindings as register_dro
 pub use number_stepper::{NumberStepper, NumberStepperEvent, register_keybindings as register_number_stepper_keybindings};
 pub use radio_group::{RadioGroup, RadioGroupEvent};
 pub use checkbox_group::{CheckboxGroup, CheckboxGroupEvent};
-pub use color_swatch::{ColorSwatch, ColorSwatchEvent};
+pub use color_swatch::{ColorSwatch, ColorSwatchEvent, PickerMode};
 pub use collapsible::{Collapsible, CollapsibleEvent};
 pub use focus_navigation::{FocusNext, FocusPrev, register_keybindings as register_focus_navigation_keybindings};
 

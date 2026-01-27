@@ -41,6 +41,7 @@ struct WidgetGallery {
     radio_group: Entity<RadioGroup>,
     checkbox_group: Entity<CheckboxGroup>,
     color_swatch: Entity<ColorSwatch>,
+    color_swatch_alpha: Entity<ColorSwatch>,
 
     #[cfg(feature = "file-picker")]
     file_picker: Entity<FilePicker>,
@@ -141,6 +142,11 @@ impl WidgetGallery {
         });
 
         let color_swatch = cx.new(|cx| ColorSwatch::new(cx).with_value("#3b82f6"));
+        let color_swatch_alpha = cx.new(|cx| {
+            ColorSwatch::new(cx)
+                .with_value("coral")  // Using a CSS named color!
+                .with_alpha(true)
+        });
 
         #[cfg(feature = "file-picker")]
         let file_picker = cx.new(|cx| {
@@ -166,6 +172,7 @@ impl WidgetGallery {
             &radio_group,
             &checkbox_group,
             &color_swatch,
+            &color_swatch_alpha,
             #[cfg(feature = "file-picker")]
             &file_picker,
             #[cfg(feature = "file-picker")]
@@ -194,6 +201,7 @@ impl WidgetGallery {
             radio_group,
             checkbox_group,
             color_swatch,
+            color_swatch_alpha,
             #[cfg(feature = "file-picker")]
             file_picker,
             #[cfg(feature = "file-picker")]
@@ -216,6 +224,7 @@ impl WidgetGallery {
         radio_group: &Entity<RadioGroup>,
         checkbox_group: &Entity<CheckboxGroup>,
         color_swatch: &Entity<ColorSwatch>,
+        color_swatch_alpha: &Entity<ColorSwatch>,
         #[cfg(feature = "file-picker")] file_picker: &Entity<FilePicker>,
         #[cfg(feature = "file-picker")] directory_picker: &Entity<DirectoryPicker>,
     ) {
@@ -289,6 +298,14 @@ impl WidgetGallery {
         cx.subscribe(color_swatch, |this, _entity, event: &ColorSwatchEvent, cx| {
             this.log_event("ColorSwatch", format!("{:?}", event), cx);
         })
+        .detach();
+
+        cx.subscribe(
+            color_swatch_alpha,
+            |this, _entity, event: &ColorSwatchEvent, cx| {
+                this.log_event("ColorSwatch (alpha)", format!("{:?}", event), cx);
+            },
+        )
         .detach();
 
         // File picker events
@@ -595,14 +612,26 @@ impl WidgetGallery {
 
     fn render_color_section(&self, cx: &Context<Self>) -> impl IntoElement {
         let color_value = self.color_swatch.read(cx).value().to_string();
+        let alpha_value = self.color_swatch_alpha.read(cx).value().to_string();
 
-        div().child(Self::render_widget_row(
-            "Color Swatch",
-            "Hex color input with preview",
-            self.color_swatch.clone(),
-            Some(color_value),
-            cx,
-        ))
+        div()
+            .flex()
+            .flex_col()
+            .gap_2()
+            .child(Self::render_widget_row(
+                "Color Swatch",
+                "Click swatch to open picker, type hex or color names (red, coral, etc.)",
+                self.color_swatch.clone(),
+                Some(color_value),
+                cx,
+            ))
+            .child(Self::render_widget_row(
+                "Color (with alpha)",
+                "Alpha channel enabled (#RRGGBBAA format)",
+                self.color_swatch_alpha.clone(),
+                Some(alpha_value),
+                cx,
+            ))
     }
 
     fn render_tooltip_section(&self, cx: &Context<Self>) -> impl IntoElement {
