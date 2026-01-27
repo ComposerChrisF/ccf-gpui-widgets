@@ -26,6 +26,17 @@ The library is functional and being used by clui.
 - [x] README with usage examples
 - [x] Unit tests for path utilities
 
+### ✅ NumberStepper Enhancements (2026-01-26)
+- [x] Double-click to edit value as text, Enter/Tab/click-away to commit
+- [x] Click & drag on value for scrubber-style adjustment
+- [x] Mouse capture during drag (continues outside control bounds)
+- [x] Three drag sensitivities: normal, fast (Shift), slow (Alt/Option)
+- [x] Value resolution (snap to multiples)
+- [x] Display precision (independent of stored value)
+- [x] Unified visual design (single rounded box with separators)
+- [x] Widget gallery quit on window close
+- [x] Documentation: docs/MOUSE_CAPTURE.md
+
 ---
 
 ## Future Enhancements

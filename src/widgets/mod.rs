@@ -21,7 +21,7 @@ pub use text_input::{TextInput, TextInputEvent, register_keybindings as register
 pub use tooltip::Tooltip;
 pub use checkbox::{Checkbox, CheckboxEvent};
 pub use dropdown::{Dropdown, DropdownEvent, register_keybindings as register_dropdown_keybindings};
-pub use number_stepper::{NumberStepper, NumberStepperEvent};
+pub use number_stepper::{NumberStepper, NumberStepperEvent, register_keybindings as register_number_stepper_keybindings};
 pub use radio_group::{RadioGroup, RadioGroupEvent};
 pub use checkbox_group::{CheckboxGroup, CheckboxGroupEvent};
 pub use color_swatch::{ColorSwatch, ColorSwatchEvent};
@@ -49,5 +49,6 @@ pub use directory_picker::{DirectoryPicker, DirectoryPickerEvent};
 pub fn register_all_keybindings(cx: &mut gpui::App) {
     register_text_input_keybindings(cx);
     register_dropdown_keybindings(cx);
+    register_number_stepper_keybindings(cx);
     register_focus_navigation_keybindings(cx);
 }

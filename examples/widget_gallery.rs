@@ -104,6 +104,9 @@ impl WidgetGallery {
                 .min(0.0)
                 .max(100.0)
                 .step(1.0)
+                .resolution(1.0)           // Snap to integers
+                .display_precision(0)      // No decimal places
+                .drag_sensitivities(0.5, 2.0, 0.1)  // normal, fast, slow
         });
         let number_stepper_float = cx.new(|cx| {
             NumberStepper::new(cx)
@@ -111,7 +114,9 @@ impl WidgetGallery {
                 .min(-10.0)
                 .max(10.0)
                 .step(0.1)
-                .precision(2)
+                .resolution(0.1)           // Snap to 0.1
+                .display_precision(1)      // 1 decimal place
+                .drag_sensitivities(0.2, 0.5, 0.05)  // normal, fast, slow
         });
 
         let radio_group = cx.new(|cx| {
@@ -546,14 +551,14 @@ impl WidgetGallery {
             .child(Self::render_widget_row(
                 "Integer Stepper",
                 "Range: 0-100, step: 1",
-                self.number_stepper.clone(),
+                div().w(px(130.0)).child(self.number_stepper.clone()),
                 Some(int_value.to_string()),
                 cx,
             ))
             .child(Self::render_widget_row(
                 "Float Stepper",
                 "Range: -10 to 10, step: 0.1",
-                self.number_stepper_float.clone(),
+                div().w(px(130.0)).child(self.number_stepper_float.clone()),
                 Some(format!("{:.2}", float_value)),
                 cx,
             ))
@@ -879,6 +884,14 @@ fn main() {
 
         // Register all widget keybindings (includes Tab/Shift+Tab navigation)
         register_all_keybindings(cx);
+
+        // Quit application when all windows are closed
+        cx.on_window_closed(|cx| {
+            if cx.windows().is_empty() {
+                cx.quit();
+            }
+        })
+        .detach();
 
         // Create the window
         let window_options = WindowOptions {
