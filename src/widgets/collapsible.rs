@@ -53,9 +53,15 @@ impl Collapsible {
     }
 
     /// Set initial collapsed state (builder pattern)
-    pub fn collapsed(mut self, collapsed: bool) -> Self {
+    pub fn with_collapsed(mut self, collapsed: bool) -> Self {
         self.collapsed = collapsed;
         self
+    }
+
+    #[deprecated(since = "0.2.0", note = "Use `with_collapsed()` instead")]
+    /// Set initial collapsed state (builder pattern) - deprecated alias
+    pub fn collapsed(self, collapsed: bool) -> Self {
+        self.with_collapsed(collapsed)
     }
 
     /// Set custom theme (builder pattern)

@@ -127,6 +127,8 @@ pub struct ColorSwatch {
     original_value: String,
     /// Whether the text input needs to be synced with value
     needs_input_sync: bool,
+    /// Whether the current input is valid
+    input_is_valid: bool,
     /// Measured hue slider width (persists between frames)
     hue_slider_width: Rc<Cell<f32>>,
     /// Measured hue slider origin (persists between frames)
@@ -151,7 +153,7 @@ impl ColorSwatch {
         let hex_input = cx.new(|cx| {
             TextInput::new(cx)
                 .placeholder("#000000")
-                .value("#000000")
+                .with_value("#000000")
         });
 
         // Subscribe to text input events
@@ -185,6 +187,7 @@ impl ColorSwatch {
             current_alpha: 255,
             original_value: "#000000".to_string(),
             needs_input_sync: false,
+            input_is_valid: true,
             // Initial estimates, will be updated by prepaint
             hue_slider_width: Rc::new(Cell::new(200.0)),
             hue_slider_origin: Rc::new(Cell::new(0.0)),
@@ -293,9 +296,12 @@ impl ColorSwatch {
             self.current_hsv = rgb.to_hsv();
             // Update the value but don't update the text input (user is typing)
             self.value = format!("#{:02X}{:02X}{:02X}", rgb.r, rgb.g, rgb.b);
+            self.input_is_valid = true;
             cx.emit(ColorSwatchEvent::Change(self.value.clone()));
-            cx.notify();
+        } else {
+            self.input_is_valid = false;
         }
+        cx.notify();
     }
 
     /// Handle input commit (Enter/Blur) - parse named colors
@@ -310,13 +316,21 @@ impl ColorSwatch {
             } else {
                 format!("#{:02X}{:02X}{:02X}", rgba.r, rgba.g, rgba.b)
             };
+            self.input_is_valid = true;
             // Update text input to show hex value (convert named colors)
             self.hex_input.update(cx, |input, cx| {
                 input.set_value(&self.value, cx);
             });
             cx.emit(ColorSwatchEvent::Change(self.value.clone()));
+        } else {
+            self.input_is_valid = false;
         }
         cx.notify();
+    }
+
+    /// Check if the current input is valid
+    pub fn is_input_valid(&self) -> bool {
+        self.input_is_valid
     }
 
     /// Update from RGB values
@@ -502,9 +516,16 @@ impl Render for ColorSwatch {
                             }))
                     )
                     .child(
-                        // Hex color text input
+                        // Hex color text input with error border
                         div()
                             .flex_1()
+                            .border_2()
+                            .rounded_md()
+                            .border_color(if self.input_is_valid {
+                                rgba(0x00000000)
+                            } else {
+                                rgb(theme.border_error)
+                            })
                             .child(hex_input)
                     )
             )

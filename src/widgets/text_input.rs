@@ -221,10 +221,16 @@ impl TextInput {
     }
 
     /// Set initial value (builder pattern)
-    pub fn value(mut self, text: impl Into<String>) -> Self {
+    pub fn with_value(mut self, text: impl Into<String>) -> Self {
         self.content = text.into();
         self.cursor = self.content.len();
         self
+    }
+
+    #[deprecated(since = "0.2.0", note = "Use `with_value()` instead")]
+    /// Set initial value (builder pattern) - deprecated alias
+    pub fn value(self, text: impl Into<String>) -> Self {
+        self.with_value(text)
     }
 
     /// Set custom theme (builder pattern)

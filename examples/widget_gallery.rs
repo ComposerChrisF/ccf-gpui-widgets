@@ -84,11 +84,11 @@ impl WidgetGallery {
         let text_input_placeholder = cx.new(|cx| {
             TextInput::new(cx)
                 .placeholder("This input has a longer placeholder")
-                .value("Pre-filled value")
+                .with_value("Pre-filled value")
         });
 
         let checkbox = cx.new(Checkbox::new);
-        let checkbox_labeled = cx.new(|cx| Checkbox::new(cx).label("Enable feature").checked(true));
+        let checkbox_labeled = cx.new(|cx| Checkbox::new(cx).label("Enable feature").with_checked(true));
 
         let dropdown = cx.new(|cx| {
             Dropdown::new(cx).choices(vec![
@@ -127,7 +127,7 @@ impl WidgetGallery {
                     "Medium".to_string(),
                     "Large".to_string(),
                 ])
-                .selected_value("Medium")
+                .with_selected_value("Medium")
         });
 
         let checkbox_group = cx.new(|cx| {

@@ -47,7 +47,26 @@ impl Rgb {
         ((self.r as u32) << 16) | ((self.g as u32) << 8) | (self.b as u32)
     }
 
-    /// Convert to HSL
+    /// Convert RGB to HSL (Hue, Saturation, Lightness)
+    ///
+    /// # Algorithm
+    /// 1. Normalize RGB values from 0-255 to 0.0-1.0
+    /// 2. Find max and min of R, G, B components
+    /// 3. Calculate Lightness: L = (max + min) / 2
+    /// 4. If max == min (achromatic/grayscale), H = 0, S = 0
+    /// 5. Calculate Saturation based on Lightness:
+    ///    - If L <= 0.5: S = (max - min) / (max + min)
+    ///    - If L > 0.5:  S = (max - min) / (2 - max - min)
+    /// 6. Calculate Hue based on which component is max:
+    ///    - If R is max: H = (G - B) / (max - min), adjusted by +6 if G < B
+    ///    - If G is max: H = (B - R) / (max - min) + 2
+    ///    - If B is max: H = (R - G) / (max - min) + 4
+    /// 7. Convert H to degrees (multiply by 60)
+    ///
+    /// # Output Ranges
+    /// - Hue: 0-360 degrees
+    /// - Saturation: 0-100%
+    /// - Lightness: 0-100%
     pub fn to_hsl(&self) -> Hsl {
         let r = self.r as f32 / 255.0;
         let g = self.g as f32 / 255.0;
@@ -158,7 +177,33 @@ impl Hsl {
         }
     }
 
-    /// Convert to RGB
+    /// Convert HSL to RGB
+    ///
+    /// # Algorithm
+    /// 1. Normalize H to 0.0-1.0 (from 0-360), S and L to 0.0-1.0 (from 0-100)
+    /// 2. If S == 0 (achromatic/grayscale), R = G = B = L
+    /// 3. Calculate intermediate values p and q:
+    ///    - If L < 0.5: q = L * (1 + S)
+    ///    - If L >= 0.5: q = L + S - L * S
+    ///    - p = 2 * L - q
+    /// 4. Convert hue to RGB using `hue_to_rgb` helper for each channel:
+    ///    - R = hue_to_rgb(p, q, H + 1/3)
+    ///    - G = hue_to_rgb(p, q, H)
+    ///    - B = hue_to_rgb(p, q, H - 1/3)
+    ///
+    /// The `hue_to_rgb` helper divides the hue circle into segments:
+    /// - 0 to 1/6: Rising from p toward q
+    /// - 1/6 to 1/2: Plateau at q
+    /// - 1/2 to 2/3: Falling from q toward p
+    /// - 2/3 to 1: Plateau at p
+    ///
+    /// # Input Ranges
+    /// - Hue: 0-360 degrees
+    /// - Saturation: 0-100%
+    /// - Lightness: 0-100%
+    ///
+    /// # Output Ranges
+    /// - R, G, B: 0-255
     pub fn to_rgb(&self) -> Rgb {
         let h = self.h / 360.0;
         let s = self.s / 100.0;
@@ -217,7 +262,33 @@ impl Hsv {
         }
     }
 
-    /// Convert to RGB
+    /// Convert HSV to RGB
+    ///
+    /// # Algorithm
+    /// 1. Normalize H to 0.0-1.0 (from 0-360), S and V to 0.0-1.0 (from 0-100)
+    /// 2. If S == 0 (achromatic/grayscale), R = G = B = V
+    /// 3. Divide hue into 6 sectors (0-5) by multiplying normalized H by 6
+    /// 4. Calculate intermediate values:
+    ///    - i = floor(H * 6) - sector index
+    ///    - f = fractional part of H * 6
+    ///    - p = V * (1 - S) - minimum brightness
+    ///    - q = V * (1 - S * f) - descending edge
+    ///    - t = V * (1 - S * (1 - f)) - ascending edge
+    /// 5. Map RGB based on sector:
+    ///    - Sector 0 (red-yellow):     R=V, G=t, B=p
+    ///    - Sector 1 (yellow-green):   R=q, G=V, B=p
+    ///    - Sector 2 (green-cyan):     R=p, G=V, B=t
+    ///    - Sector 3 (cyan-blue):      R=p, G=q, B=V
+    ///    - Sector 4 (blue-magenta):   R=t, G=p, B=V
+    ///    - Sector 5 (magenta-red):    R=V, G=p, B=q
+    ///
+    /// # Input Ranges
+    /// - Hue: 0-360 degrees
+    /// - Saturation: 0-100%
+    /// - Value: 0-100%
+    ///
+    /// # Output Ranges
+    /// - R, G, B: 0-255
     pub fn to_rgb(&self) -> Rgb {
         let h = self.h / 360.0;
         let s = self.s / 100.0;
@@ -253,7 +324,24 @@ impl Hsv {
 }
 
 impl Rgb {
-    /// Convert to HSV
+    /// Convert RGB to HSV (Hue, Saturation, Value/Brightness)
+    ///
+    /// # Algorithm
+    /// 1. Normalize RGB values from 0-255 to 0.0-1.0
+    /// 2. Find max and min of R, G, B components
+    /// 3. Value = max (the brightest component)
+    /// 4. If max == min (achromatic/grayscale), H = 0, S = 0
+    /// 5. Calculate Saturation: S = (max - min) / max
+    /// 6. Calculate Hue based on which component is max:
+    ///    - If R is max: H = (G - B) / (max - min), adjusted by +6 if G < B
+    ///    - If G is max: H = (B - R) / (max - min) + 2
+    ///    - If B is max: H = (R - G) / (max - min) + 4
+    /// 7. Convert H to degrees (multiply by 60)
+    ///
+    /// # Output Ranges
+    /// - Hue: 0-360 degrees
+    /// - Saturation: 0-100%
+    /// - Value: 0-100%
     pub fn to_hsv(&self) -> Hsv {
         let r = self.r as f32 / 255.0;
         let g = self.g as f32 / 255.0;

@@ -74,12 +74,18 @@ impl RadioGroup {
     }
 
     /// Set selected value (builder pattern)
-    pub fn selected_value(mut self, value: &str) -> Self {
+    pub fn with_selected_value(mut self, value: &str) -> Self {
         if let Some(index) = self.choices.iter().position(|c| c == value) {
             self.selected = value.to_string();
             self.highlight_index = index;
         }
         self
+    }
+
+    #[deprecated(since = "0.2.0", note = "Use `with_selected_value()` instead")]
+    /// Set selected value (builder pattern) - deprecated alias
+    pub fn selected_value(self, value: &str) -> Self {
+        self.with_selected_value(value)
     }
 
     /// Set custom theme (builder pattern)

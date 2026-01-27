@@ -68,6 +68,8 @@ pub struct Dropdown {
     is_open: bool,
     focus_handle: FocusHandle,
     custom_theme: Option<Theme>,
+    /// Whether focus-out subscription has been set up
+    focus_out_subscribed: bool,
 }
 
 impl EventEmitter<DropdownEvent> for Dropdown {}
@@ -87,6 +89,7 @@ impl Dropdown {
             is_open: false,
             focus_handle: cx.focus_handle().tab_stop(true),
             custom_theme: None,
+            focus_out_subscribed: false,
         }
     }
 
@@ -103,11 +106,17 @@ impl Dropdown {
     }
 
     /// Set selected value by string (builder pattern)
-    pub fn selected_value(mut self, value: &str) -> Self {
+    pub fn with_selected_value(mut self, value: &str) -> Self {
         if let Some(index) = self.choices.iter().position(|c| c == value) {
             self.selected_index = index;
         }
         self
+    }
+
+    #[deprecated(since = "0.2.0", note = "Use `with_selected_value()` instead")]
+    /// Set selected value by string (builder pattern) - deprecated alias
+    pub fn selected_value(self, value: &str) -> Self {
+        self.with_selected_value(value)
     }
 
     /// Set custom theme (builder pattern)
@@ -187,9 +196,17 @@ impl Render for Dropdown {
         let theme = get_theme_or(cx, self.custom_theme.as_ref());
         let is_focused = self.focus_handle.is_focused(window);
 
-        // Close dropdown if it's open but we lost focus
-        if self.is_open && !is_focused {
-            self.is_open = false;
+        // Set up focus-out subscription once
+        if !self.focus_out_subscribed {
+            self.focus_out_subscribed = true;
+            let focus_handle = self.focus_handle.clone();
+            cx.on_focus_out(&focus_handle, window, |this: &mut Self, _event, _window, cx| {
+                if this.is_open {
+                    this.is_open = false;
+                    cx.emit(DropdownEvent::Close);
+                    cx.notify();
+                }
+            }).detach();
         }
 
         let selected = self.choices

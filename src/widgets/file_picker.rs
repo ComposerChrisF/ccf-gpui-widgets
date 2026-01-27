@@ -348,7 +348,7 @@ impl FilePicker {
         let value = self.value.clone();
         let edit_state = cx.new(|cx| {
             TextInput::new(cx)
-                .value(value)
+                .with_value(value)
                 .select_on_focus(true)
         });
 
