@@ -308,8 +308,8 @@ impl NumberStepper {
         snapped.clamp(min, max)
     }
 
-    fn increment(&mut self, cx: &mut Context<Self>) {
-        let step = self.step.unwrap_or(1.0);
+    fn increment(&mut self, multiplier: f64, cx: &mut Context<Self>) {
+        let step = self.step.unwrap_or(1.0) * multiplier;
         let new_value = self.normalize_value(self.value + step);
         if (self.value - new_value).abs() > f64::EPSILON {
             self.value = new_value;
@@ -318,8 +318,8 @@ impl NumberStepper {
         }
     }
 
-    fn decrement(&mut self, cx: &mut Context<Self>) {
-        let step = self.step.unwrap_or(1.0);
+    fn decrement(&mut self, multiplier: f64, cx: &mut Context<Self>) {
+        let step = self.step.unwrap_or(1.0) * multiplier;
         let new_value = self.normalize_value(self.value - step);
         if (self.value - new_value).abs() > f64::EPSILON {
             self.value = new_value;
@@ -547,7 +547,6 @@ impl Render for NumberStepper {
         let separator_color = theme.text_muted;  // Light color for visibility
         let text_color = theme.text_value;
         let button_text_color = theme.text_value;  // Light color for +/- buttons
-        let text_black = theme.text_black;
 
         // Build the center value element (without its own border/background)
         let value_element = if editing {
@@ -562,6 +561,7 @@ impl Render for NumberStepper {
             div()
                 .id("ccf_number_value")
                 .key_context("CcfNumberStepperEdit")
+                .track_focus(&focus_handle)
                 .px_2()
                 .py_1()
                 .flex_1()
@@ -622,7 +622,7 @@ impl Render for NumberStepper {
                         .child(
                             div()
                                 .text_sm()
-                                .text_color(rgb(text_black))
+                                .text_color(rgb(text_color))
                                 .whitespace_nowrap()
                                 .child(edit_buffer)
                         )
@@ -635,7 +635,7 @@ impl Render for NumberStepper {
                                     .bottom(px(2.))
                                     .left(px(cursor_offset))
                                     .w(px(1.))
-                                    .bg(rgb(text_black))
+                                    .bg(rgb(text_color))
                             )
                         })
                 )
@@ -711,6 +711,7 @@ impl Render for NumberStepper {
                 if stepper.editing {
                     return;
                 }
+                let multiplier = if event.keystroke.modifiers.shift { 10.0 } else { 1.0 };
                 match event.keystroke.key.as_str() {
                     "tab" => {
                         if event.keystroke.modifiers.shift {
@@ -719,8 +720,8 @@ impl Render for NumberStepper {
                             window.focus_next();
                         }
                     }
-                    "up" => stepper.increment(cx),
-                    "down" => stepper.decrement(cx),
+                    "up" => stepper.increment(multiplier, cx),
+                    "down" => stepper.decrement(multiplier, cx),
                     _ => {}
                 }
             }))
@@ -746,12 +747,13 @@ impl Render for NumberStepper {
                     .cursor_pointer()
                     .text_color(rgb(button_text_color))
                     .hover(|d| d.bg(rgb(theme.bg_hover)))
-                    .on_click(cx.listener(|stepper, _event, window, cx| {
+                    .on_click(cx.listener(|stepper, event: &ClickEvent, window, cx| {
                         stepper.focus_handle.focus(window);
                         if stepper.editing {
                             stepper.cancel_edit(cx);
                         }
-                        stepper.decrement(cx);
+                        let multiplier = if event.modifiers().shift { 10.0 } else { 1.0 };
+                        stepper.decrement(multiplier, cx);
                     }))
                     .child("−")  // Using proper minus sign
             )
@@ -773,12 +775,13 @@ impl Render for NumberStepper {
                     .cursor_pointer()
                     .text_color(rgb(button_text_color))
                     .hover(|d| d.bg(rgb(theme.bg_hover)))
-                    .on_click(cx.listener(|stepper, _event, window, cx| {
+                    .on_click(cx.listener(|stepper, event: &ClickEvent, window, cx| {
                         stepper.focus_handle.focus(window);
                         if stepper.editing {
                             stepper.cancel_edit(cx);
                         }
-                        stepper.increment(cx);
+                        let multiplier = if event.modifiers().shift { 10.0 } else { 1.0 };
+                        stepper.increment(multiplier, cx);
                     }))
                     .child("+")
             )
