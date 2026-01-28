@@ -34,7 +34,7 @@ The library is functional and being used by clui.
 - [x] Value resolution (snap to multiples)
 - [x] Display precision (independent of stored value)
 - [x] Unified visual design (single rounded box with separators)
-- [x] Widget gallery quit on window close
+- [x] Widget gallery: Cmd+Q/Cmd+W (Mac) and Ctrl+Q/Ctrl+W (other) to quit
 - [x] Documentation: docs/MOUSE_CAPTURE.md
 
 ### ✅ Widget Bug Fixes (2026-01-26)

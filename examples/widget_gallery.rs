@@ -10,6 +10,9 @@ use ccf_gpui_widgets::Theme;
 use std::collections::VecDeque;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+// Define global action for quitting the app
+actions!(widget_gallery, [Quit]);
+
 /// Maximum number of events to keep in the log
 const MAX_EVENT_LOG: usize = 50;
 
@@ -829,6 +832,7 @@ impl Render for WidgetGallery {
         let theme = get_theme(cx);
 
         div()
+            .id("widget-gallery-root")
             .flex()
             .flex_col()
             .size_full()
@@ -914,6 +918,19 @@ fn main() {
         // Register all widget keybindings (includes Tab/Shift+Tab navigation)
         register_all_keybindings(cx);
 
+        // Register Quit keybindings
+        // Mac: Cmd+Q/Cmd+W, Windows/Linux: Ctrl+Q/Ctrl+W
+        #[cfg(target_os = "macos")]
+        cx.bind_keys([
+            KeyBinding::new("cmd-q", Quit, None),
+            KeyBinding::new("cmd-w", Quit, None),
+        ]);
+        #[cfg(not(target_os = "macos"))]
+        cx.bind_keys([
+            KeyBinding::new("ctrl-q", Quit, None),
+            KeyBinding::new("ctrl-w", Quit, None),
+        ]);
+
         // Quit application when all windows are closed
         cx.on_window_closed(|cx| {
             if cx.windows().is_empty() {
@@ -938,6 +955,9 @@ fn main() {
 
         cx.open_window(window_options, |_window, cx| cx.new(WidgetGallery::new))
             .unwrap();
+
+        // Handle quit action (must be registered after window creation)
+        cx.on_action(|_: &Quit, cx| cx.quit());
 
         cx.activate(true);
     });
