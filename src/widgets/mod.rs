@@ -29,9 +29,18 @@ pub use collapsible::{Collapsible, CollapsibleEvent};
 pub use focus_navigation::{FocusNext, FocusPrev, register_keybindings as register_focus_navigation_keybindings};
 
 #[cfg(feature = "file-picker")]
-pub use file_picker::{FilePicker, FilePickerEvent, FileMode, MissingDirectories};
+pub use file_picker::{
+    FilePicker, FilePickerEvent, FileMode, MissingDirectories,
+    FilePickerValidation, ValidationDisplay, validate_file_path,
+    register_keybindings as register_file_picker_keybindings,
+};
 #[cfg(feature = "file-picker")]
-pub use directory_picker::{DirectoryPicker, DirectoryPickerEvent};
+pub use directory_picker::{
+    DirectoryPicker, DirectoryPickerEvent,
+    DirectoryPickerValidation, ValidationDisplay as DirectoryValidationDisplay,
+    validate_directory_path,
+    register_keybindings as register_directory_picker_keybindings,
+};
 
 /// Register all widget keybindings
 ///
@@ -52,4 +61,9 @@ pub fn register_all_keybindings(cx: &mut gpui::App) {
     register_number_stepper_keybindings(cx);
     register_color_swatch_keybindings(cx);
     register_focus_navigation_keybindings(cx);
+    #[cfg(feature = "file-picker")]
+    {
+        register_file_picker_keybindings(cx);
+        register_directory_picker_keybindings(cx);
+    }
 }

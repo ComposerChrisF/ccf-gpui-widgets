@@ -777,6 +777,7 @@ dependencies = [
  "gpui",
  "rfd",
  "smol",
+ "tempfile",
 ]
 
 [[package]]

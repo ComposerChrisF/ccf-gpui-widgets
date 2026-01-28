@@ -135,7 +135,9 @@ pub enum TextInputEvent {
     Change,
     /// Enter key pressed
     Enter,
-    /// Input lost focus (including Escape key)
+    /// Escape key pressed (use to cancel editing and return focus to parent)
+    Escape,
+    /// Input lost focus
     Blur,
     /// Input gained focus
     Focus,
@@ -1001,7 +1003,7 @@ impl Render for TextInput {
                 cx.emit(TextInputEvent::Enter);
             }))
             .on_action(cx.listener(|_this, _: &Escape, _window, cx| {
-                cx.emit(TextInputEvent::Blur);
+                cx.emit(TextInputEvent::Escape);
             }))
             // Focus navigation (Tab / Shift+Tab)
             .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {

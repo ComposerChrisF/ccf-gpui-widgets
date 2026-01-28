@@ -70,6 +70,18 @@ The library is functional and being used by clui.
 - [x] Light mode: Tooltip uses light background with dark text
 - [x] Theme: Added `with_*` builder methods for all 30+ fields
 
+### ✅ FilePicker & DirectoryPicker Enhancements (2026-01-28)
+- [x] Focus indicator on outer control when widget has focus but TextInput is inactive
+- [x] ESC key returns focus to picker (instead of losing focus entirely)
+- [x] TextInput emits separate `Escape` event (distinct from `Blur`)
+- [x] Browse button is keyboard accessible (Tab stop, Enter/Space to activate)
+- [x] Cmd+O / Ctrl+O shortcut to open file dialog (configurable via `.browse_shortcut(bool)`)
+- [x] Validation API: `validate()` returns enum with detailed state
+- [x] Validation API: `is_valid()` convenience method
+- [x] Standalone `validate_file_path()` and `validate_directory_path()` functions
+- [x] `ValidationDisplay` enum to control feedback visibility (Full/ColorsOnly/MessageOnly/Hidden)
+- [x] Unit tests for validation logic (15 new tests)
+
 ---
 
 ## Future Enhancements

@@ -36,11 +36,96 @@ use crate::utils::path::{parse_path, PathInfo};
 #[cfg(feature = "file-picker")]
 use crate::widgets::{TextInput, TextInputEvent};
 
+// Actions for keyboard handling
+#[cfg(feature = "file-picker")]
+actions!(
+    ccf_directory_picker,
+    [
+        BrowseDirectory,
+        ActivateButton,
+    ]
+);
+
+/// Register key bindings for directory picker
+///
+/// Call this once at application startup:
+/// ```ignore
+/// ccf_gpui_widgets::widgets::directory_picker::register_keybindings(cx);
+/// ```
+#[cfg(feature = "file-picker")]
+pub fn register_keybindings(cx: &mut App) {
+    // Browse shortcut (Cmd+O / Ctrl+O)
+    #[cfg(target_os = "macos")]
+    cx.bind_keys([
+        KeyBinding::new("cmd-o", BrowseDirectory, Some("CcfDirectoryPicker")),
+    ]);
+
+    #[cfg(not(target_os = "macos"))]
+    cx.bind_keys([
+        KeyBinding::new("ctrl-o", BrowseDirectory, Some("CcfDirectoryPicker")),
+    ]);
+
+    // Button activation (Enter/Space when button is focused)
+    cx.bind_keys([
+        KeyBinding::new("enter", ActivateButton, Some("CcfDirectoryPickerButton")),
+        KeyBinding::new("space", ActivateButton, Some("CcfDirectoryPickerButton")),
+    ]);
+}
+
 /// Events emitted by DirectoryPicker
 #[derive(Clone, Debug)]
 pub enum DirectoryPickerEvent {
     /// Directory path changed
     Change(String),
+}
+
+/// Validation state for DirectoryPicker
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum DirectoryPickerValidation {
+    /// No path entered
+    Empty,
+    /// Path exists and is a directory
+    Valid,
+    /// Path does not exist
+    PathDoesNotExist,
+    /// Path points to a file instead of a directory
+    IsFile,
+}
+
+/// Controls how validation feedback is displayed
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum ValidationDisplay {
+    /// Show colored path segments and explanation message (default)
+    #[default]
+    Full,
+    /// Show colored path segments only, hide explanation message
+    ColorsOnly,
+    /// Show explanation message only, no path coloring
+    MessageOnly,
+    /// Hide all validation feedback (no colors, no message)
+    Hidden,
+}
+
+/// Validate a directory path
+///
+/// This is a standalone function that can be used without a DirectoryPicker instance,
+/// useful for validation logic and testing.
+pub fn validate_directory_path(path: &str) -> DirectoryPickerValidation {
+    use std::path::Path;
+
+    if path.is_empty() {
+        return DirectoryPickerValidation::Empty;
+    }
+
+    let path = Path::new(path);
+
+    if path.is_dir() {
+        DirectoryPickerValidation::Valid
+    } else if path.is_file() {
+        DirectoryPickerValidation::IsFile
+    } else {
+        DirectoryPickerValidation::PathDoesNotExist
+    }
 }
 
 #[cfg(feature = "file-picker")]
@@ -82,9 +167,16 @@ pub struct DirectoryPicker {
     value: String,
     placeholder: Option<SharedString>,
     focus_handle: FocusHandle,
+    button_focus_handle: FocusHandle,
     is_editing: bool,
     edit_state: Option<Entity<TextInput>>,
     custom_theme: Option<Theme>,
+    /// Whether to refocus self on next render (after ESC from TextInput)
+    pending_refocus: bool,
+    /// Whether Cmd+O / Ctrl+O shortcut is enabled
+    browse_shortcut_enabled: bool,
+    /// How validation feedback is displayed
+    validation_display: ValidationDisplay,
 }
 
 #[cfg(feature = "file-picker")]
@@ -105,9 +197,13 @@ impl DirectoryPicker {
             value: String::new(),
             placeholder: None,
             focus_handle: cx.focus_handle().tab_stop(true),
+            button_focus_handle: cx.focus_handle().tab_stop(true),
             is_editing: false,
             edit_state: None,
             custom_theme: None,
+            pending_refocus: false,
+            browse_shortcut_enabled: true,
+            validation_display: ValidationDisplay::default(),
         }
     }
 
@@ -126,6 +222,24 @@ impl DirectoryPicker {
     /// Set custom theme (builder pattern)
     pub fn theme(mut self, theme: Theme) -> Self {
         self.custom_theme = Some(theme);
+        self
+    }
+
+    /// Enable or disable Cmd+O / Ctrl+O browse shortcut (builder pattern)
+    ///
+    /// The shortcut is enabled by default. Disable it if your application
+    /// uses Cmd+O for another purpose (e.g., opening files at the app level).
+    pub fn browse_shortcut(mut self, enabled: bool) -> Self {
+        self.browse_shortcut_enabled = enabled;
+        self
+    }
+
+    /// Set how validation feedback is displayed (builder pattern)
+    ///
+    /// Controls whether path coloring and/or explanation messages are shown.
+    /// Default is `ValidationDisplay::Full` (show both).
+    pub fn validation_display(mut self, display: ValidationDisplay) -> Self {
+        self.validation_display = display;
         self
     }
 
@@ -148,12 +262,33 @@ impl DirectoryPicker {
         &self.focus_handle
     }
 
-    fn compute_path_display(&self, path_info: &PathInfo, theme: &Theme) -> DirPathDisplayInfo {
+    /// Validate the current path and return the validation state
+    ///
+    /// Use this to check if the path is valid before taking action.
+    pub fn validate(&self) -> DirectoryPickerValidation {
+        validate_directory_path(&self.value)
+    }
+
+    /// Returns true if the current path is valid (exists and is a directory)
+    pub fn is_valid(&self) -> bool {
+        self.validate() == DirectoryPickerValidation::Valid
+    }
+
+    fn compute_path_display(&self, path_info: &PathInfo, theme: &Theme, validation_display: &ValidationDisplay) -> DirPathDisplayInfo {
         let mut info = DirPathDisplayInfo::new();
 
         if path_info.full_path.as_os_str().is_empty() {
             return info;
         }
+
+        // Check if colors and/or messages should be shown
+        let show_colors = matches!(validation_display, ValidationDisplay::Full | ValidationDisplay::ColorsOnly);
+        let show_message = matches!(validation_display, ValidationDisplay::Full | ValidationDisplay::MessageOnly);
+
+        // Helper to get the appropriate color (respects show_colors setting)
+        let color_or_muted = |color: u32| -> u32 {
+            if show_colors { color } else { theme.text_muted }
+        };
 
         if path_info.fully_exists() {
             info.add_segment(path_info.existing_canonical.to_string_lossy().to_string(), theme.text_muted);
@@ -161,8 +296,10 @@ impl DirectoryPicker {
             info.add_segment(path_info.existing_canonical.to_string_lossy().to_string(), theme.text_muted);
             let non_existing = path_info.non_existing_suffix.to_string_lossy();
             if !non_existing.is_empty() {
-                info.add_path_prefix(&non_existing, theme.error);
-                info.set_explanation("path does not exist", theme.error);
+                info.add_path_prefix(&non_existing, color_or_muted(theme.error));
+                if show_message {
+                    info.set_explanation("path does not exist", theme.error);
+                }
             }
         }
 
@@ -190,6 +327,12 @@ impl DirectoryPicker {
                         this.value = new_value;
                         cx.emit(DirectoryPickerEvent::Change(this.value.clone()));
                     }
+                    cx.notify();
+                }
+                TextInputEvent::Escape => {
+                    // Cancel editing and refocus the picker
+                    this.is_editing = false;
+                    this.pending_refocus = true;
                     cx.notify();
                 }
                 _ => {}
@@ -247,6 +390,12 @@ impl Render for DirectoryPicker {
         let theme = get_theme_or(cx, self.custom_theme.as_ref());
         let focus_handle = self.focus_handle.clone();
 
+        // Handle pending refocus (after ESC from TextInput)
+        if self.pending_refocus {
+            self.pending_refocus = false;
+            focus_handle.focus(window);
+        }
+
         // Handle focus lost during editing
         if self.is_editing {
             if let Some(edit_state) = &self.edit_state {
@@ -265,7 +414,7 @@ impl Render for DirectoryPicker {
             parse_path(&self.value)
         };
 
-        let path_display = self.compute_path_display(&path_info, &theme);
+        let path_display = self.compute_path_display(&path_info, &theme, &self.validation_display);
 
         let dirname = if !self.value.is_empty() {
             std::path::Path::new(&self.value)
@@ -279,12 +428,23 @@ impl Render for DirectoryPicker {
         let placeholder = self.placeholder.clone()
             .unwrap_or_else(|| SharedString::from("Click to enter path, or drag & drop"));
 
+        let button_focus_handle = self.button_focus_handle.clone();
+        let button_is_focused = button_focus_handle.is_focused(window);
+        let browse_shortcut_enabled = self.browse_shortcut_enabled;
+
         div()
             .id("ccf_directory_picker")
+            .key_context("CcfDirectoryPicker")
             .flex()
             .flex_row()
             .gap_2()
             .items_start()
+            // Handle Cmd+O / Ctrl+O to open directory dialog (when enabled)
+            .when(browse_shortcut_enabled, |d| {
+                d.on_action(cx.listener(|picker, _: &BrowseDirectory, window, cx| {
+                    picker.open_directory_dialog(window, cx);
+                }))
+            })
             .child(
                 // Path display area
                 div()
@@ -298,7 +458,11 @@ impl Render for DirectoryPicker {
                     .bg(rgb(theme.bg_input))
                     .rounded_md()
                     .border_1()
-                    .border_color(rgb(theme.border_default))
+                    .border_color(rgb(if !self.is_editing && focus_handle.is_focused(window) {
+                        theme.border_focus
+                    } else {
+                        theme.border_default
+                    }))
                     .track_focus(&focus_handle)
                     .tab_stop(true)
                     // Focus navigation (Tab / Shift+Tab)
@@ -418,7 +582,7 @@ impl Render for DirectoryPicker {
                         } else {
                             parse_path(&edit_text)
                         };
-                        let edit_display = self.compute_path_display(&edit_path_info, &theme);
+                        let edit_display = self.compute_path_display(&edit_path_info, &theme, &self.validation_display);
 
                         d.child(
                             div()
@@ -467,14 +631,42 @@ impl Render for DirectoryPicker {
                 // Browse button
                 div()
                     .id("ccf_directory_browse_button")
+                    .key_context("CcfDirectoryPickerButton")
+                    .track_focus(&button_focus_handle)
                     .px_3()
                     .py_2()
                     .bg(rgb(theme.bg_input_hover))
                     .rounded_md()
+                    .border_1()
+                    .border_color(rgb(if button_is_focused {
+                        theme.border_focus
+                    } else {
+                        theme.bg_input_hover // Match background when not focused
+                    }))
                     .cursor_pointer()
                     .hover(|d| d.bg(rgb(theme.bg_hover)))
                     .on_click(cx.listener(|picker, _event, window, cx| {
                         picker.open_directory_dialog(window, cx);
+                    }))
+                    // Handle Enter/Space when button is focused
+                    .on_action(cx.listener(|picker, _: &ActivateButton, window, cx| {
+                        picker.open_directory_dialog(window, cx);
+                    }))
+                    // Focus navigation
+                    .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
+                        window.focus_next();
+                    }))
+                    .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
+                        window.focus_prev();
+                    }))
+                    .on_key_down(cx.listener(|_picker, event: &KeyDownEvent, window, _cx| {
+                        if event.keystroke.key == "tab" {
+                            if event.keystroke.modifiers.shift {
+                                window.focus_prev();
+                            } else {
+                                window.focus_next();
+                            }
+                        }
                     }))
                     .child(
                         div()
@@ -483,5 +675,75 @@ impl Render for DirectoryPicker {
                             .child("Browse...")
                     )
             )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{validate_directory_path, DirectoryPickerValidation};
+    use std::fs::{self, File};
+    use std::io::Write;
+    use tempfile::TempDir;
+
+    fn setup_test_dir() -> TempDir {
+        let dir = TempDir::new().unwrap();
+        // Create a test file
+        let file_path = dir.path().join("test_file.txt");
+        let mut file = File::create(&file_path).unwrap();
+        writeln!(file, "test content").unwrap();
+        // Create a subdirectory
+        fs::create_dir(dir.path().join("subdir")).unwrap();
+        dir
+    }
+
+    #[test]
+    fn test_validate_empty_path() {
+        assert_eq!(
+            validate_directory_path(""),
+            DirectoryPickerValidation::Empty
+        );
+    }
+
+    #[test]
+    fn test_validate_existing_directory() {
+        let dir = setup_test_dir();
+        let subdir_path = dir.path().join("subdir");
+
+        assert_eq!(
+            validate_directory_path(subdir_path.to_str().unwrap()),
+            DirectoryPickerValidation::Valid
+        );
+    }
+
+    #[test]
+    fn test_validate_root_directory() {
+        let dir = setup_test_dir();
+
+        assert_eq!(
+            validate_directory_path(dir.path().to_str().unwrap()),
+            DirectoryPickerValidation::Valid
+        );
+    }
+
+    #[test]
+    fn test_validate_non_existing_path() {
+        let dir = setup_test_dir();
+        let missing_path = dir.path().join("missing_dir");
+
+        assert_eq!(
+            validate_directory_path(missing_path.to_str().unwrap()),
+            DirectoryPickerValidation::PathDoesNotExist
+        );
+    }
+
+    #[test]
+    fn test_validate_file_instead_of_directory() {
+        let dir = setup_test_dir();
+        let file_path = dir.path().join("test_file.txt");
+
+        assert_eq!(
+            validate_directory_path(file_path.to_str().unwrap()),
+            DirectoryPickerValidation::IsFile
+        );
     }
 }

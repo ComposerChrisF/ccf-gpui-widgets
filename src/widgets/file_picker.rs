@@ -40,6 +40,42 @@ use crate::widgets::{TextInput, TextInputEvent};
 #[cfg(feature = "file-picker")]
 use std::path::Path;
 
+// Actions for keyboard handling
+#[cfg(feature = "file-picker")]
+actions!(
+    ccf_file_picker,
+    [
+        BrowseFile,
+        ActivateButton,
+    ]
+);
+
+/// Register key bindings for file picker
+///
+/// Call this once at application startup:
+/// ```ignore
+/// ccf_gpui_widgets::widgets::file_picker::register_keybindings(cx);
+/// ```
+#[cfg(feature = "file-picker")]
+pub fn register_keybindings(cx: &mut App) {
+    // Browse shortcut (Cmd+O / Ctrl+O)
+    #[cfg(target_os = "macos")]
+    cx.bind_keys([
+        KeyBinding::new("cmd-o", BrowseFile, Some("CcfFilePicker")),
+    ]);
+
+    #[cfg(not(target_os = "macos"))]
+    cx.bind_keys([
+        KeyBinding::new("ctrl-o", BrowseFile, Some("CcfFilePicker")),
+    ]);
+
+    // Button activation (Enter/Space when button is focused)
+    cx.bind_keys([
+        KeyBinding::new("enter", ActivateButton, Some("CcfFilePickerButton")),
+        KeyBinding::new("space", ActivateButton, Some("CcfFilePickerButton")),
+    ]);
+}
+
 /// File picker modes
 #[derive(Clone, PartialEq, Default)]
 pub enum FileMode {
@@ -88,6 +124,91 @@ pub enum FilePickerEvent {
     Change(String),
 }
 
+/// Validation state for FilePicker
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum FilePickerValidation {
+    /// No path entered
+    Empty,
+    /// Path exists and is a file (Open mode) or will be created (Save mode with existing parent)
+    Valid,
+    /// Open mode: path does not exist
+    PathDoesNotExist,
+    /// Path points to a directory instead of a file
+    IsDirectory,
+    /// Save mode: file exists and will be overwritten
+    WillOverwrite,
+    /// Save mode: parent directory does not exist (with MissingDirectories::Error)
+    ParentDoesNotExist,
+    /// Save mode: directories will be created (with MissingDirectories::Create or Okay)
+    WillCreatePath,
+}
+
+/// Controls how validation feedback is displayed
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum ValidationDisplay {
+    /// Show colored path segments and explanation message (default)
+    #[default]
+    Full,
+    /// Show colored path segments only, hide explanation message
+    ColorsOnly,
+    /// Show explanation message only, no path coloring
+    MessageOnly,
+    /// Hide all validation feedback (no colors, no message)
+    Hidden,
+}
+
+/// Validate a file path for the given mode and missing directories policy
+///
+/// This is a standalone function that can be used without a FilePicker instance,
+/// useful for validation logic and testing.
+pub fn validate_file_path(
+    path: &str,
+    mode: &FileMode,
+    missing_directories: &MissingDirectories,
+) -> FilePickerValidation {
+    use std::path::Path;
+
+    if path.is_empty() {
+        return FilePickerValidation::Empty;
+    }
+
+    let path = Path::new(path);
+
+    // Check if path points to a directory (invalid for file picker)
+    if path.is_dir() {
+        return FilePickerValidation::IsDirectory;
+    }
+
+    match mode {
+        FileMode::Open => {
+            if path.is_file() {
+                FilePickerValidation::Valid
+            } else {
+                FilePickerValidation::PathDoesNotExist
+            }
+        }
+        FileMode::Save => {
+            if path.is_file() {
+                FilePickerValidation::WillOverwrite
+            } else {
+                // Check if parent directory exists
+                let parent_exists = path.parent().is_some_and(|p| p.exists() || p.as_os_str().is_empty());
+
+                if parent_exists {
+                    FilePickerValidation::Valid
+                } else {
+                    match missing_directories {
+                        MissingDirectories::Error => FilePickerValidation::ParentDoesNotExist,
+                        MissingDirectories::Create | MissingDirectories::Okay => {
+                            FilePickerValidation::WillCreatePath
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 #[cfg(feature = "file-picker")]
 struct PathSegment {
     text: String,
@@ -130,9 +251,16 @@ pub struct FilePicker {
     mode: FileMode,
     missing_directories: MissingDirectories,
     focus_handle: FocusHandle,
+    button_focus_handle: FocusHandle,
     is_editing: bool,
     edit_state: Option<Entity<TextInput>>,
     custom_theme: Option<Theme>,
+    /// Whether to refocus self on next render (after ESC from TextInput)
+    pending_refocus: bool,
+    /// Whether Cmd+O / Ctrl+O shortcut is enabled
+    browse_shortcut_enabled: bool,
+    /// How validation feedback is displayed
+    validation_display: ValidationDisplay,
 }
 
 #[cfg(feature = "file-picker")]
@@ -156,9 +284,13 @@ impl FilePicker {
             mode: FileMode::Open,
             missing_directories: MissingDirectories::Error,
             focus_handle: cx.focus_handle().tab_stop(true),
+            button_focus_handle: cx.focus_handle().tab_stop(true),
             is_editing: false,
             edit_state: None,
             custom_theme: None,
+            pending_refocus: false,
+            browse_shortcut_enabled: true,
+            validation_display: ValidationDisplay::default(),
         }
     }
 
@@ -195,6 +327,24 @@ impl FilePicker {
     /// Set custom theme (builder pattern)
     pub fn theme(mut self, theme: Theme) -> Self {
         self.custom_theme = Some(theme);
+        self
+    }
+
+    /// Enable or disable Cmd+O / Ctrl+O browse shortcut (builder pattern)
+    ///
+    /// The shortcut is enabled by default. Disable it if your application
+    /// uses Cmd+O for another purpose (e.g., opening files at the app level).
+    pub fn browse_shortcut(mut self, enabled: bool) -> Self {
+        self.browse_shortcut_enabled = enabled;
+        self
+    }
+
+    /// Set how validation feedback is displayed (builder pattern)
+    ///
+    /// Controls whether path coloring and/or explanation messages are shown.
+    /// Default is `ValidationDisplay::Full` (show both).
+    pub fn validation_display(mut self, display: ValidationDisplay) -> Self {
+        self.validation_display = display;
         self
     }
 
@@ -238,7 +388,29 @@ impl FilePicker {
         }
     }
 
-    fn compute_path_display(&self, path_info: &PathInfo, theme: &Theme) -> PathDisplayInfo {
+    /// Validate the current path and return the validation state
+    ///
+    /// Use this to check if the path is valid before taking action.
+    pub fn validate(&self) -> FilePickerValidation {
+        validate_file_path(&self.value, &self.mode, &self.missing_directories)
+    }
+
+    /// Returns true if the current path is valid for the configured mode
+    ///
+    /// For Open mode: path must exist and be a file.
+    /// For Save mode: path must not be a directory, and either:
+    ///   - Parent exists (file will be created or overwritten), or
+    ///   - MissingDirectories is Create/Okay (path will be created)
+    pub fn is_valid(&self) -> bool {
+        matches!(
+            self.validate(),
+            FilePickerValidation::Valid
+                | FilePickerValidation::WillOverwrite
+                | FilePickerValidation::WillCreatePath
+        )
+    }
+
+    fn compute_path_display(&self, path_info: &PathInfo, theme: &Theme, validation_display: &ValidationDisplay) -> PathDisplayInfo {
         let mut info = PathDisplayInfo::new();
 
         if path_info.full_path.as_os_str().is_empty() {
@@ -247,15 +419,26 @@ impl FilePicker {
 
         let full_path = &path_info.full_path;
 
+        // Check if colors and/or messages should be shown
+        let show_colors = matches!(validation_display, ValidationDisplay::Full | ValidationDisplay::ColorsOnly);
+        let show_message = matches!(validation_display, ValidationDisplay::Full | ValidationDisplay::MessageOnly);
+
+        // Helper to get the appropriate color (respects show_colors setting)
+        let color_or_muted = |color: u32| -> u32 {
+            if show_colors { color } else { theme.text_muted }
+        };
+
         // Special case: path points to a directory instead of a file
         if full_path.is_dir() {
             if let Some(parent) = full_path.parent() {
                 info.add_segment(parent.to_string_lossy().to_string(), theme.text_muted);
             }
             if let Some(dirname) = full_path.file_name() {
-                info.add_path_prefix(&dirname.to_string_lossy(), theme.warning);
+                info.add_path_prefix(&dirname.to_string_lossy(), color_or_muted(theme.warning));
             }
-            info.set_explanation("file expected, but path is a directory", theme.warning);
+            if show_message {
+                info.set_explanation("file expected, but path is a directory", theme.warning);
+            }
             return info;
         }
 
@@ -269,8 +452,10 @@ impl FilePicker {
                     info.add_segment(path_info.existing_canonical.to_string_lossy().to_string(), theme.text_muted);
                     let non_existing = path_info.non_existing_suffix.to_string_lossy();
                     if !non_existing.is_empty() {
-                        info.add_path_prefix(&non_existing, theme.error);
-                        info.set_explanation("path does not exist", theme.error);
+                        info.add_path_prefix(&non_existing, color_or_muted(theme.error));
+                        if show_message {
+                            info.set_explanation("path does not exist", theme.error);
+                        }
                     }
                 }
             }
@@ -280,9 +465,11 @@ impl FilePicker {
                         info.add_segment(parent.to_string_lossy().to_string(), theme.text_muted);
                     }
                     if let Some(filename) = full_path.file_name() {
-                        info.add_path_prefix(&filename.to_string_lossy(), theme.warning);
+                        info.add_path_prefix(&filename.to_string_lossy(), color_or_muted(theme.warning));
                     }
-                    info.set_explanation("file exists and will be overwritten", theme.warning);
+                    if show_message {
+                        info.set_explanation("file exists and will be overwritten", theme.warning);
+                    }
                 } else {
                     let parent_exists = full_path.parent().is_some_and(|p| p.exists());
 
@@ -291,9 +478,11 @@ impl FilePicker {
                             info.add_segment(parent.to_string_lossy().to_string(), theme.text_muted);
                         }
                         if let Some(filename) = full_path.file_name() {
-                            info.add_path_prefix(&filename.to_string_lossy(), theme.success);
+                            info.add_path_prefix(&filename.to_string_lossy(), color_or_muted(theme.success));
                         }
-                        info.set_explanation("file will be created", theme.success);
+                        if show_message {
+                            info.set_explanation("file will be created", theme.success);
+                        }
                     } else {
                         info.add_segment(path_info.existing_canonical.to_string_lossy().to_string(), theme.text_muted);
                         let non_existing = path_info.non_existing_suffix.to_string_lossy();
@@ -303,8 +492,10 @@ impl FilePicker {
                                 MissingDirectories::Okay => (theme.success, "path will be created by CLI"),
                                 MissingDirectories::Error => (theme.error, "path does not exist"),
                             };
-                            info.add_path_prefix(&non_existing, color);
-                            info.set_explanation(msg, color);
+                            info.add_path_prefix(&non_existing, color_or_muted(color));
+                            if show_message {
+                                info.set_explanation(msg, color);
+                            }
                         }
                     }
                 }
@@ -336,6 +527,12 @@ impl FilePicker {
                         this.value = new_value;
                         cx.emit(FilePickerEvent::Change(this.value.clone()));
                     }
+                    cx.notify();
+                }
+                TextInputEvent::Escape => {
+                    // Cancel editing and refocus the picker
+                    this.is_editing = false;
+                    this.pending_refocus = true;
                     cx.notify();
                 }
                 _ => {}
@@ -405,6 +602,12 @@ impl Render for FilePicker {
         let theme = get_theme_or(cx, self.custom_theme.as_ref());
         let focus_handle = self.focus_handle.clone();
 
+        // Handle pending refocus (after ESC from TextInput)
+        if self.pending_refocus {
+            self.pending_refocus = false;
+            focus_handle.focus(window);
+        }
+
         // Handle focus lost during editing
         if self.is_editing {
             if let Some(edit_state) = &self.edit_state {
@@ -423,7 +626,7 @@ impl Render for FilePicker {
             parse_path(&self.value)
         };
 
-        let path_display = self.compute_path_display(&path_info, &theme);
+        let path_display = self.compute_path_display(&path_info, &theme, &self.validation_display);
 
         let basename = if !self.value.is_empty() {
             Path::new(&self.value)
@@ -437,12 +640,23 @@ impl Render for FilePicker {
         let placeholder = self.placeholder.clone()
             .unwrap_or_else(|| SharedString::from("Click to enter path, or drag & drop"));
 
+        let button_focus_handle = self.button_focus_handle.clone();
+        let button_is_focused = button_focus_handle.is_focused(window);
+        let browse_shortcut_enabled = self.browse_shortcut_enabled;
+
         div()
             .id("ccf_file_picker")
+            .key_context("CcfFilePicker")
             .flex()
             .flex_row()
             .gap_2()
             .items_start()
+            // Handle Cmd+O / Ctrl+O to open file dialog (when enabled)
+            .when(browse_shortcut_enabled, |d| {
+                d.on_action(cx.listener(|picker, _: &BrowseFile, window, cx| {
+                    picker.open_file_dialog(window, cx);
+                }))
+            })
             .child(
                 // Path display area
                 div()
@@ -456,7 +670,11 @@ impl Render for FilePicker {
                     .bg(rgb(theme.bg_input))
                     .rounded_md()
                     .border_1()
-                    .border_color(rgb(theme.border_default))
+                    .border_color(rgb(if !self.is_editing && focus_handle.is_focused(window) {
+                        theme.border_focus
+                    } else {
+                        theme.border_default
+                    }))
                     .track_focus(&focus_handle)
                     .tab_stop(true)
                     // Focus navigation (Tab / Shift+Tab)
@@ -569,7 +787,7 @@ impl Render for FilePicker {
                         } else {
                             parse_path(&edit_text)
                         };
-                        let edit_display = self.compute_path_display(&edit_path_info, &theme);
+                        let edit_display = self.compute_path_display(&edit_path_info, &theme, &self.validation_display);
 
                         d.child(
                             div()
@@ -618,14 +836,42 @@ impl Render for FilePicker {
                 // Browse button
                 div()
                     .id("ccf_file_browse_button")
+                    .key_context("CcfFilePickerButton")
+                    .track_focus(&button_focus_handle)
                     .px_3()
                     .py_2()
                     .bg(rgb(theme.bg_input_hover))
                     .rounded_md()
+                    .border_1()
+                    .border_color(rgb(if button_is_focused {
+                        theme.border_focus
+                    } else {
+                        theme.bg_input_hover // Match background when not focused
+                    }))
                     .cursor_pointer()
                     .hover(|d| d.bg(rgb(theme.bg_hover)))
                     .on_click(cx.listener(|picker, _event, window, cx| {
                         picker.open_file_dialog(window, cx);
+                    }))
+                    // Handle Enter/Space when button is focused
+                    .on_action(cx.listener(|picker, _: &ActivateButton, window, cx| {
+                        picker.open_file_dialog(window, cx);
+                    }))
+                    // Focus navigation
+                    .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
+                        window.focus_next();
+                    }))
+                    .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
+                        window.focus_prev();
+                    }))
+                    .on_key_down(cx.listener(|_picker, event: &KeyDownEvent, window, _cx| {
+                        if event.keystroke.key == "tab" {
+                            if event.keystroke.modifiers.shift {
+                                window.focus_prev();
+                            } else {
+                                window.focus_next();
+                            }
+                        }
                     }))
                     .child(
                         div()
@@ -634,5 +880,135 @@ impl Render for FilePicker {
                             .child("Browse...")
                     )
             )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{validate_file_path, FilePickerValidation, FileMode, MissingDirectories};
+    use std::fs::{self, File};
+    use std::io::Write;
+    use tempfile::TempDir;
+
+    fn setup_test_dir() -> TempDir {
+        let dir = TempDir::new().unwrap();
+        // Create a test file
+        let file_path = dir.path().join("existing_file.txt");
+        let mut file = File::create(&file_path).unwrap();
+        writeln!(file, "test content").unwrap();
+        // Create a subdirectory
+        fs::create_dir(dir.path().join("subdir")).unwrap();
+        dir
+    }
+
+    #[test]
+    fn test_validate_empty_path() {
+        assert_eq!(
+            validate_file_path("", &FileMode::Open, &MissingDirectories::Error),
+            FilePickerValidation::Empty
+        );
+        assert_eq!(
+            validate_file_path("", &FileMode::Save, &MissingDirectories::Error),
+            FilePickerValidation::Empty
+        );
+    }
+
+    #[test]
+    fn test_validate_open_existing_file() {
+        let dir = setup_test_dir();
+        let file_path = dir.path().join("existing_file.txt");
+
+        assert_eq!(
+            validate_file_path(file_path.to_str().unwrap(), &FileMode::Open, &MissingDirectories::Error),
+            FilePickerValidation::Valid
+        );
+    }
+
+    #[test]
+    fn test_validate_open_non_existing_file() {
+        let dir = setup_test_dir();
+        let file_path = dir.path().join("non_existing.txt");
+
+        assert_eq!(
+            validate_file_path(file_path.to_str().unwrap(), &FileMode::Open, &MissingDirectories::Error),
+            FilePickerValidation::PathDoesNotExist
+        );
+    }
+
+    #[test]
+    fn test_validate_open_directory() {
+        let dir = setup_test_dir();
+        let subdir_path = dir.path().join("subdir");
+
+        assert_eq!(
+            validate_file_path(subdir_path.to_str().unwrap(), &FileMode::Open, &MissingDirectories::Error),
+            FilePickerValidation::IsDirectory
+        );
+    }
+
+    #[test]
+    fn test_validate_save_existing_file() {
+        let dir = setup_test_dir();
+        let file_path = dir.path().join("existing_file.txt");
+
+        assert_eq!(
+            validate_file_path(file_path.to_str().unwrap(), &FileMode::Save, &MissingDirectories::Error),
+            FilePickerValidation::WillOverwrite
+        );
+    }
+
+    #[test]
+    fn test_validate_save_new_file_parent_exists() {
+        let dir = setup_test_dir();
+        let file_path = dir.path().join("new_file.txt");
+
+        assert_eq!(
+            validate_file_path(file_path.to_str().unwrap(), &FileMode::Save, &MissingDirectories::Error),
+            FilePickerValidation::Valid
+        );
+    }
+
+    #[test]
+    fn test_validate_save_parent_missing_error() {
+        let dir = setup_test_dir();
+        let file_path = dir.path().join("missing_dir/new_file.txt");
+
+        assert_eq!(
+            validate_file_path(file_path.to_str().unwrap(), &FileMode::Save, &MissingDirectories::Error),
+            FilePickerValidation::ParentDoesNotExist
+        );
+    }
+
+    #[test]
+    fn test_validate_save_parent_missing_create() {
+        let dir = setup_test_dir();
+        let file_path = dir.path().join("missing_dir/new_file.txt");
+
+        assert_eq!(
+            validate_file_path(file_path.to_str().unwrap(), &FileMode::Save, &MissingDirectories::Create),
+            FilePickerValidation::WillCreatePath
+        );
+    }
+
+    #[test]
+    fn test_validate_save_parent_missing_okay() {
+        let dir = setup_test_dir();
+        let file_path = dir.path().join("missing_dir/new_file.txt");
+
+        assert_eq!(
+            validate_file_path(file_path.to_str().unwrap(), &FileMode::Save, &MissingDirectories::Okay),
+            FilePickerValidation::WillCreatePath
+        );
+    }
+
+    #[test]
+    fn test_validate_save_directory() {
+        let dir = setup_test_dir();
+        let subdir_path = dir.path().join("subdir");
+
+        assert_eq!(
+            validate_file_path(subdir_path.to_str().unwrap(), &FileMode::Save, &MissingDirectories::Error),
+            FilePickerValidation::IsDirectory
+        );
     }
 }
