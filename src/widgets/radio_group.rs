@@ -11,7 +11,7 @@
 //! let radio = cx.new(|cx| {
 //!     RadioGroup::new(cx)
 //!         .choices(vec!["Small".to_string(), "Medium".to_string(), "Large".to_string()])
-//!         .selected_value("Medium")
+//!         .with_selected_value("Medium")
 //! });
 //!
 //! // Subscribe to changes
@@ -80,12 +80,6 @@ impl RadioGroup {
             self.highlight_index = index;
         }
         self
-    }
-
-    #[deprecated(since = "0.2.0", note = "Use `with_selected_value()` instead")]
-    /// Set selected value (builder pattern) - deprecated alias
-    pub fn selected_value(self, value: &str) -> Self {
-        self.with_selected_value(value)
     }
 
     /// Set custom theme (builder pattern)

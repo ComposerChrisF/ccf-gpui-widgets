@@ -113,12 +113,6 @@ impl Dropdown {
         self
     }
 
-    #[deprecated(since = "0.2.0", note = "Use `with_selected_value()` instead")]
-    /// Set selected value by string (builder pattern) - deprecated alias
-    pub fn selected_value(self, value: &str) -> Self {
-        self.with_selected_value(value)
-    }
-
     /// Set custom theme (builder pattern)
     pub fn theme(mut self, theme: Theme) -> Self {
         self.custom_theme = Some(theme);

@@ -10,7 +10,7 @@
 //!
 //! let checkbox = cx.new(|cx| {
 //!     Checkbox::new(cx)
-//!         .checked(true)
+//!         .with_checked(true)
 //!         .label("Enable feature")
 //! });
 //!
@@ -66,12 +66,6 @@ impl Checkbox {
     pub fn with_checked(mut self, value: bool) -> Self {
         self.checked = value;
         self
-    }
-
-    #[deprecated(since = "0.2.0", note = "Use `with_checked()` instead")]
-    /// Set initial checked state (builder pattern) - deprecated alias
-    pub fn checked(self, value: bool) -> Self {
-        self.with_checked(value)
     }
 
     /// Set label text (builder pattern)
