@@ -55,6 +55,27 @@ struct DirPathDisplayInfo {
     explanation: Option<(String, u32)>,
 }
 
+#[cfg(feature = "file-picker")]
+impl DirPathDisplayInfo {
+    fn new() -> Self {
+        Self { segments: Vec::new(), explanation: None }
+    }
+
+    fn add_segment(&mut self, text: String, color: u32) {
+        if !text.is_empty() {
+            self.segments.push(PathSegment { text, color });
+        }
+    }
+
+    fn add_path_prefix(&mut self, text: &str, color: u32) {
+        self.add_segment(format!("/{}", text), color);
+    }
+
+    fn set_explanation(&mut self, msg: &str, color: u32) {
+        self.explanation = Some((msg.to_string(), color));
+    }
+}
+
 /// Directory picker widget
 #[cfg(feature = "file-picker")]
 pub struct DirectoryPicker {
@@ -128,37 +149,24 @@ impl DirectoryPicker {
     }
 
     fn compute_path_display(&self, path_info: &PathInfo, theme: &Theme) -> DirPathDisplayInfo {
-        let mut segments = Vec::new();
-        let mut explanation: Option<(String, u32)> = None;
+        let mut info = DirPathDisplayInfo::new();
 
         if path_info.full_path.as_os_str().is_empty() {
-            return DirPathDisplayInfo { segments, explanation };
+            return info;
         }
 
         if path_info.fully_exists() {
-            segments.push(PathSegment {
-                text: path_info.existing_canonical.to_string_lossy().to_string(),
-                color: theme.text_muted,
-            });
+            info.add_segment(path_info.existing_canonical.to_string_lossy().to_string(), theme.text_muted);
         } else {
-            let existing = path_info.existing_canonical.to_string_lossy().to_string();
-            if !existing.is_empty() {
-                segments.push(PathSegment {
-                    text: existing,
-                    color: theme.text_muted,
-                });
-            }
-            let non_existing = path_info.non_existing_suffix.to_string_lossy().to_string();
+            info.add_segment(path_info.existing_canonical.to_string_lossy().to_string(), theme.text_muted);
+            let non_existing = path_info.non_existing_suffix.to_string_lossy();
             if !non_existing.is_empty() {
-                segments.push(PathSegment {
-                    text: format!("/{}", non_existing),
-                    color: theme.error,
-                });
-                explanation = Some(("path does not exist".to_string(), theme.error));
+                info.add_path_prefix(&non_existing, theme.error);
+                info.set_explanation("path does not exist", theme.error);
             }
         }
 
-        DirPathDisplayInfo { segments, explanation }
+        info
     }
 
     fn start_editing(&mut self, window: &mut Window, cx: &mut Context<Self>) {

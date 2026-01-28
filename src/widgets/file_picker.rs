@@ -100,6 +100,27 @@ struct PathDisplayInfo {
     explanation: Option<(String, u32)>,
 }
 
+#[cfg(feature = "file-picker")]
+impl PathDisplayInfo {
+    fn new() -> Self {
+        Self { segments: Vec::new(), explanation: None }
+    }
+
+    fn add_segment(&mut self, text: String, color: u32) {
+        if !text.is_empty() {
+            self.segments.push(PathSegment { text, color });
+        }
+    }
+
+    fn add_path_prefix(&mut self, text: &str, color: u32) {
+        self.add_segment(format!("/{}", text), color);
+    }
+
+    fn set_explanation(&mut self, msg: &str, color: u32) {
+        self.explanation = Some((msg.to_string(), color));
+    }
+}
+
 /// File picker widget
 #[cfg(feature = "file-picker")]
 pub struct FilePicker {
@@ -218,128 +239,79 @@ impl FilePicker {
     }
 
     fn compute_path_display(&self, path_info: &PathInfo, theme: &Theme) -> PathDisplayInfo {
-        let mut segments = Vec::new();
-        let mut explanation: Option<(String, u32)> = None;
+        let mut info = PathDisplayInfo::new();
 
         if path_info.full_path.as_os_str().is_empty() {
-            return PathDisplayInfo { segments, explanation };
+            return info;
         }
 
         let full_path = &path_info.full_path;
-        let file_exists = full_path.exists() && full_path.is_file();
-        let is_directory = full_path.exists() && full_path.is_dir();
 
         // Special case: path points to a directory instead of a file
-        if is_directory {
+        if full_path.is_dir() {
             if let Some(parent) = full_path.parent() {
-                let parent_str = parent.to_string_lossy().to_string();
-                if !parent_str.is_empty() {
-                    segments.push(PathSegment {
-                        text: parent_str,
-                        color: theme.text_muted,
-                    });
-                }
+                info.add_segment(parent.to_string_lossy().to_string(), theme.text_muted);
             }
             if let Some(dirname) = full_path.file_name() {
-                segments.push(PathSegment {
-                    text: format!("/{}", dirname.to_string_lossy()),
-                    color: theme.warning,
-                });
+                info.add_path_prefix(&dirname.to_string_lossy(), theme.warning);
             }
-            return PathDisplayInfo {
-                segments,
-                explanation: Some(("file expected, but path is a directory".to_string(), theme.warning)),
-            };
+            info.set_explanation("file expected, but path is a directory", theme.warning);
+            return info;
         }
+
+        let file_exists = full_path.is_file();
 
         match &self.mode {
             FileMode::Open => {
                 if path_info.fully_exists() {
-                    segments.push(PathSegment {
-                        text: path_info.existing_canonical.to_string_lossy().to_string(),
-                        color: theme.text_muted,
-                    });
+                    info.add_segment(path_info.existing_canonical.to_string_lossy().to_string(), theme.text_muted);
                 } else {
-                    let existing = path_info.existing_canonical.to_string_lossy().to_string();
-                    if !existing.is_empty() {
-                        segments.push(PathSegment {
-                            text: existing,
-                            color: theme.text_muted,
-                        });
-                    }
-                    let non_existing = path_info.non_existing_suffix.to_string_lossy().to_string();
+                    info.add_segment(path_info.existing_canonical.to_string_lossy().to_string(), theme.text_muted);
+                    let non_existing = path_info.non_existing_suffix.to_string_lossy();
                     if !non_existing.is_empty() {
-                        segments.push(PathSegment {
-                            text: format!("/{}", non_existing),
-                            color: theme.error,
-                        });
-                        explanation = Some(("path does not exist".to_string(), theme.error));
+                        info.add_path_prefix(&non_existing, theme.error);
+                        info.set_explanation("path does not exist", theme.error);
                     }
                 }
             }
             FileMode::Save => {
                 if file_exists {
                     if let Some(parent) = full_path.parent() {
-                        let parent_str = parent.to_string_lossy().to_string();
-                        if !parent_str.is_empty() {
-                            segments.push(PathSegment {
-                                text: parent_str,
-                                color: theme.text_muted,
-                            });
-                        }
+                        info.add_segment(parent.to_string_lossy().to_string(), theme.text_muted);
                     }
                     if let Some(filename) = full_path.file_name() {
-                        segments.push(PathSegment {
-                            text: format!("/{}", filename.to_string_lossy()),
-                            color: theme.warning,
-                        });
+                        info.add_path_prefix(&filename.to_string_lossy(), theme.warning);
                     }
-                    explanation = Some(("file exists and will be overwritten".to_string(), theme.warning));
+                    info.set_explanation("file exists and will be overwritten", theme.warning);
                 } else {
-                    let parent_exists = full_path.parent().map(|p| p.exists()).unwrap_or(false);
+                    let parent_exists = full_path.parent().is_some_and(|p| p.exists());
 
                     if parent_exists {
                         if let Some(parent) = full_path.parent() {
-                            segments.push(PathSegment {
-                                text: parent.to_string_lossy().to_string(),
-                                color: theme.text_muted,
-                            });
+                            info.add_segment(parent.to_string_lossy().to_string(), theme.text_muted);
                         }
                         if let Some(filename) = full_path.file_name() {
-                            segments.push(PathSegment {
-                                text: format!("/{}", filename.to_string_lossy()),
-                                color: theme.success,
-                            });
+                            info.add_path_prefix(&filename.to_string_lossy(), theme.success);
                         }
-                        explanation = Some(("file will be created".to_string(), theme.success));
+                        info.set_explanation("file will be created", theme.success);
                     } else {
-                        let existing = path_info.existing_canonical.to_string_lossy().to_string();
-                        if !existing.is_empty() {
-                            segments.push(PathSegment {
-                                text: existing,
-                                color: theme.text_muted,
-                            });
-                        }
-
-                        let non_existing = path_info.non_existing_suffix.to_string_lossy().to_string();
+                        info.add_segment(path_info.existing_canonical.to_string_lossy().to_string(), theme.text_muted);
+                        let non_existing = path_info.non_existing_suffix.to_string_lossy();
                         if !non_existing.is_empty() {
                             let (color, msg) = match &self.missing_directories {
                                 MissingDirectories::Create => (theme.success, "path will be created"),
                                 MissingDirectories::Okay => (theme.success, "path will be created by CLI"),
                                 MissingDirectories::Error => (theme.error, "path does not exist"),
                             };
-                            segments.push(PathSegment {
-                                text: format!("/{}", non_existing),
-                                color,
-                            });
-                            explanation = Some((msg.to_string(), color));
+                            info.add_path_prefix(&non_existing, color);
+                            info.set_explanation(msg, color);
                         }
                     }
                 }
             }
         }
 
-        PathDisplayInfo { segments, explanation }
+        info
     }
 
     fn start_editing(&mut self, window: &mut Window, cx: &mut Context<Self>) {
