@@ -44,6 +44,21 @@ use crate::utils::color::{Rgb, Hsl, Hsv, parse_color, parse_color_alpha};
 use super::text_input::{TextInput, TextInputEvent};
 use super::focus_navigation::{FocusNext, FocusPrev};
 
+// Actions for keyboard navigation
+actions!(ccf_color_swatch, [ClosePicker]);
+
+/// Register key bindings for color swatch components
+///
+/// Call this once at application startup:
+/// ```ignore
+/// ccf_gpui_widgets::widgets::color_swatch::register_keybindings(cx);
+/// ```
+pub fn register_keybindings(cx: &mut App) {
+    cx.bind_keys([
+        KeyBinding::new("escape", ClosePicker, Some("CcfColorPicker")),
+    ]);
+}
+
 /// Drag state for saturation/lightness canvas
 #[derive(Clone)]
 struct SlDrag {
@@ -111,6 +126,8 @@ pub struct ColorSwatch {
     custom_theme: Option<Theme>,
     /// Focus handle (for focus navigation, not key capture)
     focus_handle: FocusHandle,
+    /// Focus handle for the picker popup (for ESC key handling)
+    picker_focus_handle: FocusHandle,
     /// Text input for hex editing
     hex_input: Entity<TextInput>,
     /// Whether picker popup is open
@@ -179,6 +196,7 @@ impl ColorSwatch {
             with_alpha: false,
             custom_theme: None,
             focus_handle: cx.focus_handle(),
+            picker_focus_handle: cx.focus_handle(),
             hex_input,
             is_picker_open: false,
             current_rgb: Rgb::new(0, 0, 0),
@@ -378,9 +396,10 @@ impl ColorSwatch {
     }
 
     /// Open the color picker popup
-    fn open_picker(&mut self, cx: &mut Context<Self>) {
+    fn open_picker(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.original_value = self.value.clone();
         self.is_picker_open = true;
+        self.picker_focus_handle.focus(window);
         cx.notify();
     }
 
@@ -469,6 +488,7 @@ impl Render for ColorSwatch {
         let border_checkbox = theme.border_checkbox;
         let border_input = theme.border_input;
         let text_black = theme.text_black;
+        let picker_focus_handle = self.picker_focus_handle.clone();
 
         div()
             .id("ccf_color_swatch")
@@ -507,11 +527,11 @@ impl Render for ColorSwatch {
                                     .absolute()
                                     .bg(color)
                             )
-                            .on_click(cx.listener(|this, _event, _window, cx| {
+                            .on_click(cx.listener(|this, _event, window, cx| {
                                 if this.is_picker_open {
                                     this.close_picker(cx);
                                 } else {
-                                    this.open_picker(cx);
+                                    this.open_picker(window, cx);
                                 }
                             }))
                     )
@@ -573,6 +593,11 @@ impl Render for ColorSwatch {
                             .child(
                                 div()
                                     .id("ccf_color_picker")
+                                    .key_context("CcfColorPicker")
+                                    .track_focus(&picker_focus_handle)
+                                    .on_action(cx.listener(|this, _: &ClosePicker, _window, cx| {
+                                        this.close_picker(cx);
+                                    }))
                                     .occlude()
                                     .absolute()
                                     .top(px(4.))  // Small gap below the main control

@@ -24,7 +24,7 @@ pub use dropdown::{Dropdown, DropdownEvent, register_keybindings as register_dro
 pub use number_stepper::{NumberStepper, NumberStepperEvent, register_keybindings as register_number_stepper_keybindings};
 pub use radio_group::{RadioGroup, RadioGroupEvent};
 pub use checkbox_group::{CheckboxGroup, CheckboxGroupEvent};
-pub use color_swatch::{ColorSwatch, ColorSwatchEvent, PickerMode};
+pub use color_swatch::{ColorSwatch, ColorSwatchEvent, PickerMode, register_keybindings as register_color_swatch_keybindings};
 pub use collapsible::{Collapsible, CollapsibleEvent};
 pub use focus_navigation::{FocusNext, FocusPrev, register_keybindings as register_focus_navigation_keybindings};
 
@@ -50,5 +50,6 @@ pub fn register_all_keybindings(cx: &mut gpui::App) {
     register_text_input_keybindings(cx);
     register_dropdown_keybindings(cx);
     register_number_stepper_keybindings(cx);
+    register_color_swatch_keybindings(cx);
     register_focus_navigation_keybindings(cx);
 }

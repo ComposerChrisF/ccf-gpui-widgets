@@ -7,6 +7,8 @@
 //!
 //! - **Double-click** the value display to edit directly
 //! - **Click and drag** horizontally on the value to scrub/adjust smoothly
+//!   - Drag sensitivity auto-scales to widget width when min/max are set
+//!   - Dragging across the full value display covers the entire range
 //!   - Hold **Shift** for fast adjustment (5x speed)
 //!   - Hold **Alt/Option** for slow/fine adjustment (0.1x speed)
 //! - **Up/Down arrow keys** to increment/decrement when focused
@@ -36,6 +38,8 @@
 //! }).detach();
 //! ```
 
+use std::cell::Cell;
+use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 use gpui::prelude::*;
@@ -106,6 +110,10 @@ pub struct NumberStepper {
     value_per_pixel_fast: f64,
     /// Slow/fine drag: value change per pixel (Alt/Option held)
     value_per_pixel_slow: f64,
+    /// Whether to auto-scale drag sensitivity based on widget width and value range
+    auto_scale_drag: bool,
+    /// Measured width of the value display area (for auto-scaling)
+    value_display_width: Rc<Cell<f32>>,
 
     // Edit mode state
     /// Whether we're in text editing mode
@@ -153,6 +161,8 @@ impl NumberStepper {
             value_per_pixel_normal: 0.5,
             value_per_pixel_fast: 2.5,   // 5x normal
             value_per_pixel_slow: 0.05,  // 0.1x normal
+            auto_scale_drag: true,
+            value_display_width: Rc::new(Cell::new(0.0)),
             editing: false,
             edit_buffer: String::new(),
             edit_cursor: 0,
@@ -241,6 +251,16 @@ impl NumberStepper {
         self.value_per_pixel_normal = value_per_pixel;
         self.value_per_pixel_fast = value_per_pixel * 5.0;
         self.value_per_pixel_slow = value_per_pixel * 0.1;
+        self
+    }
+
+    /// Disable auto-scaling of drag sensitivity based on widget width (builder pattern)
+    ///
+    /// By default, when both min and max are set, the drag sensitivity is automatically
+    /// calculated so that dragging across the value display covers the full range.
+    /// Call this method to use the configured fixed sensitivities instead.
+    pub fn manual_drag_sensitivity(mut self) -> Self {
+        self.auto_scale_drag = false;
         self
     }
 
@@ -472,13 +492,37 @@ impl NumberStepper {
             return;
         }
 
-        // Select value-per-pixel based on modifier keys
-        let value_per_pixel = if modifiers.shift {
-            self.value_per_pixel_fast
-        } else if modifiers.alt {
-            self.value_per_pixel_slow
+        // Calculate base value-per-pixel (auto-scale if enabled and range is defined)
+        let base_value_per_pixel = if self.auto_scale_drag
+            && self.min.is_some()
+            && self.max.is_some()
+        {
+            let range = self.max.unwrap() - self.min.unwrap();
+            let width = self.value_display_width.get();
+            if width > 0.0 {
+                range / width as f64
+            } else {
+                self.value_per_pixel_normal
+            }
         } else {
             self.value_per_pixel_normal
+        };
+
+        // Apply modifier-based scaling
+        let value_per_pixel = if modifiers.shift {
+            if self.auto_scale_drag && self.min.is_some() && self.max.is_some() {
+                base_value_per_pixel * 5.0 // 5x faster
+            } else {
+                self.value_per_pixel_fast
+            }
+        } else if modifiers.alt {
+            if self.auto_scale_drag && self.min.is_some() && self.max.is_some() {
+                base_value_per_pixel * 0.1 // 0.1x slower
+            } else {
+                self.value_per_pixel_slow
+            }
+        } else {
+            base_value_per_pixel
         };
 
         let delta_pixels = (x - self.drag_start_x) as f64;
@@ -639,8 +683,12 @@ impl Render for NumberStepper {
                 )
         } else {
             // Normal display mode
+            // Clone the width cell for the canvas closure
+            let width_cell = self.value_display_width.clone();
+
             div()
                 .id("ccf_number_value")
+                .relative()
                 .px_2()
                 .py_1()
                 .flex_1()
@@ -681,6 +729,18 @@ impl Render for NumberStepper {
                 .on_mouse_up_out(MouseButton::Left, cx.listener(|stepper, _event: &MouseUpEvent, _window, _cx| {
                     stepper.end_drag();
                 }))
+                // Canvas to measure width for auto-scaling drag sensitivity
+                .child(
+                    canvas(
+                        move |bounds, _window, _cx| {
+                            width_cell.set(bounds.size.width.into());
+                            bounds
+                        },
+                        |_, _, _, _| {},
+                    )
+                    .size_full()
+                    .absolute()
+                )
                 .child(display_value)
         };
 
