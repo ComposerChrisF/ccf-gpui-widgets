@@ -57,6 +57,19 @@ The library is functional and being used by clui.
 - [x] Color utilities: Rgb, Rgba, Hsl, Hsv with conversions
 - [x] Documentation: docs/COLOR_PICKER.md
 
+### ✅ Theme Consistency & Dark/Light Mode Fixes (2026-01-27)
+- [x] TextInput: Use `bg_input` background and `border_input` border (match NumberStepper)
+- [x] Dropdown button: Use `bg_input` background and `border_input` border
+- [x] Dropdown popup menu: Use theme-aware colors for dark/light mode
+- [x] Checkbox (unchecked): Use `bg_input` background instead of white
+- [x] Checkbox (checked): Use white checkmark for contrast on blue background
+- [x] CheckboxGroup: Same checkbox styling fixes
+- [x] ColorSwatch popup: Use `bg_secondary` background and `text_primary` for labels
+- [x] Text selection: Darker color (`0x264F78`) for contrast with white text
+- [x] Light mode: `border_input` changed to `0x444444` for visible borders
+- [x] Light mode: Tooltip uses light background with dark text
+- [x] Theme: Added `with_*` builder methods for all 30+ fields
+
 ---
 
 ## Future Enhancements

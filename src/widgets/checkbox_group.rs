@@ -218,10 +218,13 @@ impl Render for CheckboxGroup {
                                             .items_center()
                                             .justify_center()
                                             .size_full()
-                                            .text_color(rgb(theme.text_primary))
+                                            .text_color(rgb(theme.bg_white))
                                             .text_xs()
                                             .child("✓")
                                     )
+                            })
+                            .when(!is_selected, |d| {
+                                d.bg(rgb(theme.bg_input))
                             })
                     )
                     .child(

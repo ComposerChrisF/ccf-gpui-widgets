@@ -484,10 +484,10 @@ impl Render for ColorSwatch {
         let is_picker_open = self.is_picker_open;
         let hex_input = self.hex_input.clone();
 
-        let bg_white = theme.bg_white;
+        let bg_popup = theme.bg_secondary;
         let border_checkbox = theme.border_checkbox;
         let border_input = theme.border_input;
-        let text_black = theme.text_black;
+        let text_color = theme.text_primary;
         let picker_focus_handle = self.picker_focus_handle.clone();
 
         div()
@@ -604,7 +604,7 @@ impl Render for ColorSwatch {
                                     .left_0()
                                     .w(px(280.))
                                     .p_3()
-                                    .bg(rgb(bg_white))
+                                    .bg(rgb(bg_popup))
                                     .border_1()
                                     .border_color(rgb(border_input))
                                     .rounded_lg()
@@ -695,7 +695,7 @@ impl Render for ColorSwatch {
                                                 div()
                                                     .w(px(16.))
                                                     .text_xs()
-                                                    .text_color(rgb(text_black))
+                                                    .text_color(rgb(text_color))
                                                     .child("H")
                                             )
                                             .child(
@@ -764,7 +764,7 @@ impl Render for ColorSwatch {
                                                             .w(px(handle_width))
                                                             .bg(rgb(0xFFFFFF))
                                                             .border_1()
-                                                            .border_color(rgb(text_black))
+                                                            .border_color(rgb(0x333333))
                                                             .rounded_sm()
                                                     })
                                                     .on_drag(
@@ -793,7 +793,7 @@ impl Render for ColorSwatch {
                                                     div()
                                                         .w(px(16.))
                                                         .text_xs()
-                                                        .text_color(rgb(text_black))
+                                                        .text_color(rgb(text_color))
                                                         .child("A")
                                                 )
                                                 .child(
@@ -842,7 +842,7 @@ impl Render for ColorSwatch {
                                                                 .w(px(handle_width))
                                                                 .bg(rgb(0xFFFFFF))
                                                                 .border_1()
-                                                                .border_color(rgb(text_black))
+                                                                .border_color(rgb(0x333333))
                                                                 .rounded_sm()
                                                         })
                                                         .on_drag(
@@ -901,7 +901,7 @@ impl Render for ColorSwatch {
                                                     .child(
                                                         div()
                                                             .text_xs()
-                                                            .text_color(rgb(text_black))
+                                                            .text_color(rgb(text_color))
                                                             .child("Old")
                                                     )
                                                     .child(
@@ -925,7 +925,7 @@ impl Render for ColorSwatch {
                                                     .child(
                                                         div()
                                                             .text_xs()
-                                                            .text_color(rgb(text_black))
+                                                            .text_color(rgb(text_color))
                                                             .child(original_hex)
                                                     )
                                             )
@@ -938,7 +938,7 @@ impl Render for ColorSwatch {
                                                     .child(
                                                         div()
                                                             .text_xs()
-                                                            .text_color(rgb(text_black))
+                                                            .text_color(rgb(text_color))
                                                             .child("New")
                                                     )
                                                     .child(
@@ -962,7 +962,7 @@ impl Render for ColorSwatch {
                                                     .child(
                                                         div()
                                                             .text_xs()
-                                                            .text_color(rgb(text_black))
+                                                            .text_color(rgb(text_color))
                                                             .child(new_hex)
                                                     )
                                             )
@@ -1029,7 +1029,7 @@ impl ColorSwatch {
         // Handle moves within (0, track_width - visual_width)
         let handle_pos = (value / max) * (slider_width - handle_visual_width);
         let value_display = value.round() as i32;
-        let text_black = theme.text_black;
+        let text_color = theme.text_primary;
         let border_input = theme.border_input;
         let (start_color, end_color) = gradient_colors;
 
@@ -1046,7 +1046,7 @@ impl ColorSwatch {
                 div()
                     .w(px(16.))
                     .text_xs()
-                    .text_color(rgb(text_black))
+                    .text_color(rgb(text_color))
                     .child(label.to_string())
             )
             .child(
@@ -1087,7 +1087,7 @@ impl ColorSwatch {
                             .w(px(handle_content_width))
                             .bg(rgb(0xFFFFFF))
                             .border_1()
-                            .border_color(rgb(text_black))
+                            .border_color(rgb(0x333333))
                             .rounded_sm()
                     )
                     .on_drag(
@@ -1115,7 +1115,7 @@ impl ColorSwatch {
                 div()
                     .w(px(28.))
                     .text_xs()
-                    .text_color(rgb(text_black))
+                    .text_color(rgb(text_color))
                     .child(format!("{}", value_display))
             )
     }

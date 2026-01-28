@@ -170,14 +170,14 @@ impl Render for Checkbox {
                             .border_color(rgb(theme.primary))
                             .child(
                                 div()
-                                    .text_color(rgb(theme.text_primary))
+                                    .text_color(rgb(theme.bg_white))
                                     .text_sm()
                                     .child("✓")
                             )
                     })
                     .when(!checked, |d| {
-                        d.bg(rgb(theme.bg_white))
-                            .hover(|d| d.bg(rgb(theme.bg_light_hover)))
+                        d.bg(rgb(theme.bg_input))
+                            .hover(|d| d.bg(rgb(theme.bg_input_hover)))
                     })
             )
             .when_some(label, |d, label_text| {

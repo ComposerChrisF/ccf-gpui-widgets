@@ -921,10 +921,11 @@ impl Render for TextInput {
 
         let scroll_offset = render_scroll_offset;
         let selection_color = theme.selection;
-        let text_black = theme.text_black;
+        let text_color = theme.text_primary;
         let text_placeholder = theme.text_placeholder;
         let border_focus = theme.border_focus;
-        let bg_white = theme.bg_white;
+        let border_input = theme.border_input;
+        let bg_input = theme.bg_input;
 
         div()
             .id("ccf_text_input")
@@ -1085,10 +1086,10 @@ impl Render for TextInput {
             .w_full()
             .h(px(28.))
             .px_2()
-            .border_3()
-            .border_color(if is_focused { rgb(border_focus) } else { rgb(bg_white) })
+            .border_1()
+            .border_color(if is_focused { rgb(border_focus) } else { rgb(border_input) })
             .rounded_md()
-            .bg(rgb(bg_white))
+            .bg(rgb(bg_input))
             .cursor_text()
             .relative()
             .overflow_hidden()
@@ -1179,7 +1180,7 @@ impl Render for TextInput {
                                     .absolute()
                                     .left(px(-scroll_offset))
                                     .text_sm()
-                                    .text_color(rgb(text_black))
+                                    .text_color(rgb(text_color))
                                     .whitespace_nowrap()
                                     .child(content.clone())
                             )
@@ -1192,7 +1193,7 @@ impl Render for TextInput {
                                         .bottom(px(4.))
                                         .left(px(cursor_x))
                                         .w(px(1.))
-                                        .bg(rgb(text_black))
+                                        .bg(rgb(text_color))
                                 )
                             })
                     )

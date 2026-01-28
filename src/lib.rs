@@ -75,10 +75,14 @@
 //! let dark = Theme::dark();
 //! let light = Theme::light();
 //!
-//! // Customize with builder methods
+//! // Customize with builder methods (all ~30 fields have with_* methods)
 //! let custom = Theme::dark()
 //!     .with_accent(0x00ff00)
-//!     .with_primary(0xff0000);
+//!     .with_primary(0xff0000)
+//!     .with_bg_input(0x333333)
+//!     .with_border_input(0x666666)
+//!     .with_tooltip_bg(0x222222)
+//!     .with_selection(0x264F78);
 //! ```
 
 pub mod theme;

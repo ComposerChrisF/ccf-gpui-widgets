@@ -210,13 +210,13 @@ impl Render for Dropdown {
         let is_open = self.is_open;
         let focus_handle = self.focus_handle.clone();
 
+        let bg_input = theme.bg_input;
+        let bg_input_hover = theme.bg_input_hover;
         let bg_white = theme.bg_white;
-        let bg_light_hover = theme.bg_light_hover;
         let border_focus = theme.border_focus;
         let border_input = theme.border_input;
-        let text_black = theme.text_black;
-        let text_icon = theme.text_icon;
         let text_primary = theme.text_primary;
+        let text_muted = theme.text_muted;
         let primary = theme.primary;
 
         div()
@@ -268,19 +268,19 @@ impl Render for Dropdown {
                     .w_full()
                     .h(px(32.))
                     .px_3()
-                    .border_3()
-                    .border_color(if is_focused { rgb(border_focus) } else { rgb(bg_white) })
+                    .border_1()
+                    .border_color(if is_focused { rgb(border_focus) } else { rgb(border_input) })
                     .rounded_md()
                     .cursor_pointer()
-                    .bg(rgb(bg_white))
+                    .bg(rgb(bg_input))
                     .text_sm()
-                    .text_color(rgb(text_black))
-                    .hover(|d| d.bg(rgb(bg_light_hover)))
+                    .text_color(rgb(text_primary))
+                    .hover(|d| d.bg(rgb(bg_input_hover)))
                     .child(selected.clone())
                     .child(
                         div()
                             .text_xs()
-                            .text_color(rgb(text_icon))
+                            .text_color(rgb(text_muted))
                             .child("▼")
                     )
                     .on_click(cx.listener(move |dropdown, _event, window, cx| {
@@ -301,11 +301,11 @@ impl Render for Dropdown {
                         .cursor_pointer()
                         .text_sm()
                         .when(is_selected, |d| {
-                            d.bg(rgb(primary)).text_color(rgb(text_primary))
+                            d.bg(rgb(primary)).text_color(rgb(bg_white))
                         })
                         .when(!is_selected, |d| {
-                            d.text_color(rgb(text_black))
-                                .hover(|d| d.bg(rgb(bg_light_hover)))
+                            d.text_color(rgb(text_primary))
+                                .hover(|d| d.bg(rgb(bg_input_hover)))
                         })
                         .child(choice.clone())
                         // Use on_mouse_down to handle selection immediately and prevent click-through
@@ -334,7 +334,7 @@ impl Render for Dropdown {
                                     .border_1()
                                     .border_color(rgb(border_input))
                                     .rounded_md()
-                                    .bg(rgb(bg_white))
+                                    .bg(rgb(bg_input))
                                     .max_h(px(200.))
                                     .overflow_y_scroll()
                                     .shadow_lg()

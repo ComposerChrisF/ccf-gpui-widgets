@@ -178,8 +178,8 @@ impl Theme {
             tooltip_border: 0x444444,
             tooltip_text: 0xeeeeee,
 
-            // Selection color (light blue)
-            selection: 0xADD6FF,
+            // Selection color (dark blue for contrast with white text)
+            selection: 0x264F78,
         }
     }
 
@@ -212,7 +212,7 @@ impl Theme {
             // Border colors
             border_default: 0xcccccc,
             border_checkbox: 0xaaaaaa,
-            border_input: 0xcccccc,
+            border_input: 0x444444,
             border_menu: 0xdddddd,
             border_focus: 0x0078d4,
             border_error: 0xffcccc,
@@ -230,9 +230,9 @@ impl Theme {
             error_text: 0xdc3545,
 
             // Tooltip colors
-            tooltip_bg: 0x333333,
-            tooltip_border: 0x555555,
-            tooltip_text: 0xffffff,
+            tooltip_bg: 0xffffff,
+            tooltip_border: 0xaaaaaa,
+            tooltip_text: 0x333333,
 
             // Selection color
             selection: 0xADD6FF,
@@ -298,6 +298,180 @@ impl Theme {
     /// Set the primary text color
     pub fn with_text_primary(mut self, color: u32) -> Self {
         self.text_primary = color;
+        self
+    }
+
+    // Additional background color builders
+
+    /// Set the secondary background color
+    pub fn with_bg_secondary(mut self, color: u32) -> Self {
+        self.bg_secondary = color;
+        self
+    }
+
+    /// Set the input hover background color
+    pub fn with_bg_input_hover(mut self, color: u32) -> Self {
+        self.bg_input_hover = color;
+        self
+    }
+
+    /// Set the hover background color
+    pub fn with_bg_hover(mut self, color: u32) -> Self {
+        self.bg_hover = color;
+        self
+    }
+
+    /// Set the section header background color
+    pub fn with_bg_section_header(mut self, color: u32) -> Self {
+        self.bg_section_header = color;
+        self
+    }
+
+    /// Set the section header hover background color
+    pub fn with_bg_section_header_hover(mut self, color: u32) -> Self {
+        self.bg_section_header_hover = color;
+        self
+    }
+
+    /// Set the white background color
+    pub fn with_bg_white(mut self, color: u32) -> Self {
+        self.bg_white = color;
+        self
+    }
+
+    /// Set the light hover background color
+    pub fn with_bg_light_hover(mut self, color: u32) -> Self {
+        self.bg_light_hover = color;
+        self
+    }
+
+    // Additional text color builders
+
+    /// Set the label text color
+    pub fn with_text_label(mut self, color: u32) -> Self {
+        self.text_label = color;
+        self
+    }
+
+    /// Set the section header text color
+    pub fn with_text_section_header(mut self, color: u32) -> Self {
+        self.text_section_header = color;
+        self
+    }
+
+    /// Set the value text color
+    pub fn with_text_value(mut self, color: u32) -> Self {
+        self.text_value = color;
+        self
+    }
+
+    /// Set the muted text color
+    pub fn with_text_muted(mut self, color: u32) -> Self {
+        self.text_muted = color;
+        self
+    }
+
+    /// Set the placeholder text color
+    pub fn with_text_placeholder(mut self, color: u32) -> Self {
+        self.text_placeholder = color;
+        self
+    }
+
+    /// Set the dimmed text color
+    pub fn with_text_dimmed(mut self, color: u32) -> Self {
+        self.text_dimmed = color;
+        self
+    }
+
+    /// Set the icon text color
+    pub fn with_text_icon(mut self, color: u32) -> Self {
+        self.text_icon = color;
+        self
+    }
+
+    /// Set the dark text color
+    pub fn with_text_dark(mut self, color: u32) -> Self {
+        self.text_dark = color;
+        self
+    }
+
+    /// Set the black text color
+    pub fn with_text_black(mut self, color: u32) -> Self {
+        self.text_black = color;
+        self
+    }
+
+    // Additional border color builders
+
+    /// Set the default border color
+    pub fn with_border_default(mut self, color: u32) -> Self {
+        self.border_default = color;
+        self
+    }
+
+    /// Set the checkbox border color
+    pub fn with_border_checkbox(mut self, color: u32) -> Self {
+        self.border_checkbox = color;
+        self
+    }
+
+    /// Set the input border color
+    pub fn with_border_input(mut self, color: u32) -> Self {
+        self.border_input = color;
+        self
+    }
+
+    /// Set the menu border color
+    pub fn with_border_menu(mut self, color: u32) -> Self {
+        self.border_menu = color;
+        self
+    }
+
+    /// Set the error border color
+    pub fn with_border_error(mut self, color: u32) -> Self {
+        self.border_error = color;
+        self
+    }
+
+    // Additional accent color builders
+
+    /// Set the primary active color
+    pub fn with_primary_active(mut self, color: u32) -> Self {
+        self.primary_active = color;
+        self
+    }
+
+    /// Set the error text color
+    pub fn with_error_text(mut self, color: u32) -> Self {
+        self.error_text = color;
+        self
+    }
+
+    // Tooltip color builders
+
+    /// Set the tooltip background color
+    pub fn with_tooltip_bg(mut self, color: u32) -> Self {
+        self.tooltip_bg = color;
+        self
+    }
+
+    /// Set the tooltip border color
+    pub fn with_tooltip_border(mut self, color: u32) -> Self {
+        self.tooltip_border = color;
+        self
+    }
+
+    /// Set the tooltip text color
+    pub fn with_tooltip_text(mut self, color: u32) -> Self {
+        self.tooltip_text = color;
+        self
+    }
+
+    // Selection color builder
+
+    /// Set the selection highlight color
+    pub fn with_selection(mut self, color: u32) -> Self {
+        self.selection = color;
         self
     }
 }
