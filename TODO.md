@@ -144,6 +144,8 @@ The library is functional and being used by clui.
 
 3. **Theme mismatch**: If consumer doesn't set global theme, widgets use default dark theme which may not match consumer's UI.
 
+4. **Flexbox layout instability**: Scrollable flex containers need `w_full()` and `min_w_0()` to prevent layout issues. See `GPUI-LAYOUT-PATTERNS.md` for details.
+
 ---
 
 ## Resolved Issues

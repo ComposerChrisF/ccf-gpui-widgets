@@ -843,6 +843,8 @@ impl Render for WidgetGallery {
             .child(
                 div()
                     .id("main-content")
+                    .w_full()
+                    .min_w_0()
                     .flex_1()
                     .overflow_y_scroll()
                     .p_4()
