@@ -34,7 +34,7 @@ use super::focus_navigation::{FocusNext, FocusPrev};
 #[cfg(feature = "file-picker")]
 use crate::utils::path::{parse_path, PathInfo};
 #[cfg(feature = "file-picker")]
-use crate::widgets::{TextInput, TextInputEvent};
+use crate::widgets::{TextInput, TextInputEvent, Tooltip};
 
 // Actions for keyboard handling
 #[cfg(feature = "file-picker")]
@@ -129,35 +129,62 @@ pub fn validate_directory_path(path: &str) -> DirectoryPickerValidation {
 }
 
 #[cfg(feature = "file-picker")]
-struct PathSegment {
-    text: String,
+struct PathHighlight {
+    start: usize,
+    end: usize,
     color: u32,
 }
 
 #[cfg(feature = "file-picker")]
 struct DirPathDisplayInfo {
-    segments: Vec<PathSegment>,
+    full_text: String,
+    highlights: Vec<PathHighlight>,
     explanation: Option<(String, u32)>,
 }
 
 #[cfg(feature = "file-picker")]
 impl DirPathDisplayInfo {
     fn new() -> Self {
-        Self { segments: Vec::new(), explanation: None }
+        Self {
+            full_text: String::new(),
+            highlights: Vec::new(),
+            explanation: None,
+        }
     }
 
-    fn add_segment(&mut self, text: String, color: u32) {
+    fn add_segment(&mut self, text: &str, color: u32) {
         if !text.is_empty() {
-            self.segments.push(PathSegment { text, color });
+            let start = self.full_text.len();
+            self.full_text.push_str(text);
+            let end = self.full_text.len();
+            self.highlights.push(PathHighlight { start, end, color });
         }
     }
 
     fn add_path_prefix(&mut self, text: &str, color: u32) {
-        self.add_segment(format!("/{}", text), color);
+        let start = self.full_text.len();
+        self.full_text.push('/');
+        self.full_text.push_str(text);
+        let end = self.full_text.len();
+        self.highlights.push(PathHighlight { start, end, color });
     }
 
     fn set_explanation(&mut self, msg: &str, color: u32) {
         self.explanation = Some((msg.to_string(), color));
+    }
+
+    fn to_styled_text(&self) -> StyledText {
+        let highlights: Vec<(std::ops::Range<usize>, HighlightStyle)> = self
+            .highlights
+            .iter()
+            .map(|h| (h.start..h.end, HighlightStyle::color(rgb(h.color).into())))
+            .collect();
+
+        StyledText::new(self.full_text.clone()).with_highlights(highlights)
+    }
+
+    fn is_empty(&self) -> bool {
+        self.full_text.is_empty()
     }
 }
 
@@ -167,7 +194,8 @@ pub struct DirectoryPicker {
     value: String,
     placeholder: Option<SharedString>,
     focus_handle: FocusHandle,
-    button_focus_handle: FocusHandle,
+    edit_button_focus_handle: FocusHandle,
+    browse_button_focus_handle: FocusHandle,
     is_editing: bool,
     edit_state: Option<Entity<TextInput>>,
     custom_theme: Option<Theme>,
@@ -196,8 +224,9 @@ impl DirectoryPicker {
         Self {
             value: String::new(),
             placeholder: None,
-            focus_handle: cx.focus_handle().tab_stop(true),
-            button_focus_handle: cx.focus_handle().tab_stop(true),
+            focus_handle: cx.focus_handle(),
+            edit_button_focus_handle: cx.focus_handle().tab_stop(true),
+            browse_button_focus_handle: cx.focus_handle().tab_stop(true),
             is_editing: false,
             edit_state: None,
             custom_theme: None,
@@ -291,9 +320,9 @@ impl DirectoryPicker {
         };
 
         if path_info.fully_exists() {
-            info.add_segment(path_info.existing_canonical.to_string_lossy().to_string(), theme.text_muted);
+            info.add_segment(&path_info.existing_canonical.to_string_lossy(), theme.text_muted);
         } else {
-            info.add_segment(path_info.existing_canonical.to_string_lossy().to_string(), theme.text_muted);
+            info.add_segment(&path_info.existing_canonical.to_string_lossy(), theme.text_muted);
             let non_existing = path_info.non_existing_suffix.to_string_lossy();
             if !non_existing.is_empty() {
                 info.add_path_prefix(&non_existing, color_or_muted(theme.error));
@@ -388,12 +417,11 @@ impl DirectoryPicker {
 impl Render for DirectoryPicker {
     fn render(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) -> impl IntoElement {
         let theme = get_theme_or(cx, self.custom_theme.as_ref());
-        let focus_handle = self.focus_handle.clone();
 
         // Handle pending refocus (after ESC from TextInput)
         if self.pending_refocus {
             self.pending_refocus = false;
-            focus_handle.focus(window);
+            self.edit_button_focus_handle.focus(window);
         }
 
         // Handle focus lost during editing
@@ -428,22 +456,34 @@ impl Render for DirectoryPicker {
         let placeholder = self.placeholder.clone()
             .unwrap_or_else(|| SharedString::from("Click to enter path, or drag & drop"));
 
-        let button_focus_handle = self.button_focus_handle.clone();
-        let button_is_focused = button_focus_handle.is_focused(window);
         let browse_shortcut_enabled = self.browse_shortcut_enabled;
+        let edit_button_focus_handle = self.edit_button_focus_handle.clone();
+        let edit_button_is_focused = edit_button_focus_handle.is_focused(window);
+        let browse_button_focus_handle = self.browse_button_focus_handle.clone();
+        let browse_button_is_focused = browse_button_focus_handle.is_focused(window);
 
         div()
             .id("ccf_directory_picker")
             .key_context("CcfDirectoryPicker")
             .flex()
             .flex_row()
-            .gap_2()
-            .items_start()
+            .bg(rgb(theme.bg_input))
+            .rounded_md()
+            .border_1()
+            .border_color(rgb(theme.border_default))
             // Handle Cmd+O / Ctrl+O to open directory dialog (when enabled)
             .when(browse_shortcut_enabled, |d| {
                 d.on_action(cx.listener(|picker, _: &BrowseDirectory, window, cx| {
                     picker.open_directory_dialog(window, cx);
                 }))
+            })
+            .drag_over::<ExternalPaths>({
+                let bg_hover = theme.bg_input_hover;
+                let border = theme.border_focus;
+                move |d, _, _, _| {
+                    d.bg(rgb(bg_hover))
+                        .border_color(rgb(border))
+                }
             })
             .child(
                 // Path display area
@@ -453,42 +493,9 @@ impl Render for DirectoryPicker {
                     .flex_col()
                     .flex_1()
                     .min_w_0()
+                    .min_h(px(52.))
                     .px_3()
                     .py_2()
-                    .bg(rgb(theme.bg_input))
-                    .rounded_md()
-                    .border_1()
-                    .border_color(rgb(if !self.is_editing && focus_handle.is_focused(window) {
-                        theme.border_focus
-                    } else {
-                        theme.border_default
-                    }))
-                    .track_focus(&focus_handle)
-                    .tab_stop(true)
-                    // Focus navigation (Tab / Shift+Tab)
-                    .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
-                        window.focus_next();
-                    }))
-                    .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
-                        window.focus_prev();
-                    }))
-                    .on_key_down(cx.listener(|_picker, event: &KeyDownEvent, window, _cx| {
-                        if event.keystroke.key == "tab" {
-                            if event.keystroke.modifiers.shift {
-                                window.focus_prev();
-                            } else {
-                                window.focus_next();
-                            }
-                        }
-                    }))
-                    .drag_over::<ExternalPaths>({
-                        let bg_hover = theme.bg_input_hover;
-                        let border = theme.border_focus;
-                        move |d, _, _, _| {
-                            d.bg(rgb(bg_hover))
-                                .border_color(rgb(border))
-                        }
-                    })
                     .on_drop(cx.listener(|picker, paths: &ExternalPaths, _window, cx| {
                         if let Some(path) = paths.paths().first() {
                             let dir_path = if path.is_dir() {
@@ -519,13 +526,14 @@ impl Render for DirectoryPicker {
                         .child(
                             div()
                                 .text_sm()
-                                .font_weight(FontWeight::SEMIBOLD)
+                                .italic()
                                 .text_color(rgb(theme.text_dimmed))
                                 .child("No directory selected")
                         )
                         .child(
                             div()
                                 .text_xs()
+                                .italic()
                                 .text_color(rgb(theme.text_dimmed))
                                 .line_height(relative(1.4))
                                 .child(placeholder.clone())
@@ -546,22 +554,15 @@ impl Render for DirectoryPicker {
                                 .text_color(rgb(theme.text_label))
                                 .child(dirname.clone().unwrap_or_default())
                         )
-                        .child(
-                            div()
-                                .text_xs()
-                                .flex()
-                                .flex_row()
-                                .flex_wrap()
-                                .overflow_x_hidden()
-                                .children(
-                                    path_display.segments.iter().map(|segment| {
-                                        div()
-                                            .text_color(rgb(segment.color))
-                                            .line_height(relative(1.4))
-                                            .child(segment.text.clone())
-                                    })
-                                )
-                        )
+                        .when(!path_display.is_empty(), |d| {
+                            d.child(
+                                div()
+                                    .text_xs()
+                                    .min_w_0()
+                                    .line_height(relative(1.4))
+                                    .child(path_display.to_styled_text())
+                            )
+                        })
                         .when_some(path_display.explanation.clone(), |d, (msg, color)| {
                             d.child(
                                 div()
@@ -593,26 +594,14 @@ impl Render for DirectoryPicker {
                                 .child(
                                     div()
                                         .text_xs()
-                                        .flex()
-                                        .flex_row()
-                                        .flex_wrap()
-                                        .overflow_x_hidden()
-                                        .when(!edit_path_info.full_path.as_os_str().is_empty(), |d| {
-                                            d.children(
-                                                edit_display.segments.iter().map(|segment| {
-                                                    div()
-                                                        .text_color(rgb(segment.color))
-                                                        .line_height(relative(1.4))
-                                                        .child(segment.text.clone())
-                                                })
-                                            )
+                                        .min_w_0()
+                                        .line_height(relative(1.4))
+                                        .when(!edit_display.is_empty(), |d| {
+                                            d.child(edit_display.to_styled_text())
                                         })
-                                        .when(edit_path_info.full_path.as_os_str().is_empty(), |d| {
-                                            d.child(
-                                                div()
-                                                    .text_color(rgb(theme.text_dimmed))
-                                                    .child("(empty path)")
-                                            )
+                                        .when(edit_display.is_empty(), |d| {
+                                            d.text_color(rgb(theme.text_dimmed))
+                                                .child("(empty path)")
                                         })
                                 )
                                 .when_some(edit_display.explanation.clone(), |d, (msg, color)| {
@@ -628,51 +617,117 @@ impl Render for DirectoryPicker {
                     })
             )
             .child(
-                // Browse button
+                // Icon buttons (Edit and Browse)
                 div()
-                    .id("ccf_directory_browse_button")
-                    .key_context("CcfDirectoryPickerButton")
-                    .track_focus(&button_focus_handle)
-                    .px_3()
-                    .py_2()
-                    .bg(rgb(theme.bg_input_hover))
-                    .rounded_md()
-                    .border_1()
-                    .border_color(rgb(if button_is_focused {
-                        theme.border_focus
-                    } else {
-                        theme.bg_input_hover // Match background when not focused
-                    }))
-                    .cursor_pointer()
-                    .hover(|d| d.bg(rgb(theme.bg_hover)))
-                    .on_click(cx.listener(|picker, _event, window, cx| {
-                        picker.open_directory_dialog(window, cx);
-                    }))
-                    // Handle Enter/Space when button is focused
-                    .on_action(cx.listener(|picker, _: &ActivateButton, window, cx| {
-                        picker.open_directory_dialog(window, cx);
-                    }))
-                    // Focus navigation
-                    .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
-                        window.focus_next();
-                    }))
-                    .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
-                        window.focus_prev();
-                    }))
-                    .on_key_down(cx.listener(|_picker, event: &KeyDownEvent, window, _cx| {
-                        if event.keystroke.key == "tab" {
-                            if event.keystroke.modifiers.shift {
-                                window.focus_prev();
-                            } else {
-                                window.focus_next();
-                            }
-                        }
-                    }))
+                    .flex()
+                    .flex_col()
+                    .border_l_1()
+                    .border_color(rgb(theme.border_default))
                     .child(
+                        // Edit button
                         div()
-                            .text_sm()
-                            .text_color(rgb(theme.text_label))
-                            .child("Browse...")
+                            .id("ccf_directory_edit_button")
+                            .flex_1()
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .key_context("CcfDirectoryPickerButton")
+                            .track_focus(&edit_button_focus_handle)
+                            .px_2()
+                            .bg(rgb(theme.bg_input_hover))
+                            .border_1()
+                            .border_color(rgb(if edit_button_is_focused {
+                                theme.border_focus
+                            } else {
+                                theme.bg_input_hover // Invisible border when not focused
+                            }))
+                            .cursor_pointer()
+                            .hover(|d| d.bg(rgb(theme.bg_hover)))
+                            .on_click(cx.listener(|picker, _event, window, cx| {
+                                picker.start_editing(window, cx);
+                                cx.notify();
+                            }))
+                            .on_action(cx.listener(|picker, _: &ActivateButton, window, cx| {
+                                picker.start_editing(window, cx);
+                                cx.notify();
+                            }))
+                            .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
+                                window.focus_next();
+                            }))
+                            .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
+                                window.focus_prev();
+                            }))
+                            .on_key_down(cx.listener(|_picker, event: &KeyDownEvent, window, _cx| {
+                                if event.keystroke.key == "tab" {
+                                    if event.keystroke.modifiers.shift {
+                                        window.focus_prev();
+                                    } else {
+                                        window.focus_next();
+                                    }
+                                }
+                            }))
+                            .tooltip(|_window, cx| cx.new(|_cx| Tooltip::new("Edit path")).into())
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .text_color(rgb(theme.text_label))
+                                    .child("✎")
+                            )
+                    )
+                    .child(
+                        // Divider between buttons
+                        div()
+                            .h(px(1.))
+                            .bg(rgb(theme.border_default))
+                    )
+                    .child(
+                        // Browse button
+                        div()
+                            .id("ccf_directory_browse_button")
+                            .flex_1()
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .key_context("CcfDirectoryPickerButton")
+                            .track_focus(&browse_button_focus_handle)
+                            .px_2()
+                            .bg(rgb(theme.bg_input_hover))
+                            .border_1()
+                            .border_color(rgb(if browse_button_is_focused {
+                                theme.border_focus
+                            } else {
+                                theme.bg_input_hover // Invisible border when not focused
+                            }))
+                            .cursor_pointer()
+                            .hover(|d| d.bg(rgb(theme.bg_hover)))
+                            .on_click(cx.listener(|picker, _event, window, cx| {
+                                picker.open_directory_dialog(window, cx);
+                            }))
+                            .on_action(cx.listener(|picker, _: &ActivateButton, window, cx| {
+                                picker.open_directory_dialog(window, cx);
+                            }))
+                            .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
+                                window.focus_next();
+                            }))
+                            .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
+                                window.focus_prev();
+                            }))
+                            .on_key_down(cx.listener(|_picker, event: &KeyDownEvent, window, _cx| {
+                                if event.keystroke.key == "tab" {
+                                    if event.keystroke.modifiers.shift {
+                                        window.focus_prev();
+                                    } else {
+                                        window.focus_next();
+                                    }
+                                }
+                            }))
+                            .tooltip(|_window, cx| cx.new(|_cx| Tooltip::new("Select directory...")).into())
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .text_color(rgb(theme.text_label))
+                                    .child("📂")
+                            )
                     )
             )
     }

@@ -82,6 +82,15 @@ The library is functional and being used by clui.
 - [x] `ValidationDisplay` enum to control feedback visibility (Full/ColorsOnly/MessageOnly/Hidden)
 - [x] Unit tests for validation logic (15 new tests)
 
+### ✅ FilePicker & DirectoryPicker UI Redesign (2026-01-29)
+- [x] Path display uses StyledText with TextRuns for proper word-wrap at `/` boundaries
+- [x] Unified border around entire control (text area + buttons)
+- [x] Compact icon buttons (✎ Edit, 📂 Select/💾 Save) with tooltips
+- [x] Buttons stretch to match text area height
+- [x] Text area no longer focusable (use Edit button instead)
+- [x] Empty state uses italic text
+- [x] Blue focus outline on buttons (consistent with other widgets)
+
 ---
 
 ## Future Enhancements
