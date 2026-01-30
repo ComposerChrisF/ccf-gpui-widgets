@@ -33,10 +33,10 @@ pub use checkbox_group::{CheckboxGroup, CheckboxGroupEvent};
 pub use color_swatch::{ColorSwatch, ColorSwatchEvent, PickerMode, register_keybindings as register_color_swatch_keybindings};
 pub use collapsible::{Collapsible, CollapsibleEvent};
 pub use focus_navigation::{FocusNext, FocusPrev, register_keybindings as register_focus_navigation_keybindings};
-pub use button::{primary_button, secondary_button};
+pub use button::{primary_button, secondary_button, register_keybindings as register_button_keybindings};
 pub use password_input::{PasswordInput, PasswordInputEvent};
-pub use tab_bar::{TabBar, TabBarEvent, TabItem};
-pub use repeatable_text_input::{RepeatableTextInput, RepeatableTextInputEvent};
+pub use tab_bar::{TabBar, TabBarEvent, TabItem, register_keybindings as register_tab_bar_keybindings};
+pub use repeatable_text_input::{RepeatableTextInput, RepeatableTextInputEvent, ActivateButton as RepeatableActivateButton, register_keybindings as register_repeatable_text_input_keybindings};
 
 #[cfg(feature = "file-picker")]
 pub use file_picker::{
@@ -73,6 +73,9 @@ pub fn register_all_keybindings(cx: &mut gpui::App) {
     register_number_stepper_keybindings(cx);
     register_color_swatch_keybindings(cx);
     register_focus_navigation_keybindings(cx);
+    register_tab_bar_keybindings(cx);
+    register_repeatable_text_input_keybindings(cx);
+    register_button_keybindings(cx);
     #[cfg(feature = "file-picker")]
     {
         register_file_picker_keybindings(cx);

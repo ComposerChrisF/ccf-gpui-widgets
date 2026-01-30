@@ -82,6 +82,9 @@ pub struct Theme {
     pub border_menu: u32,
     /// Focus/active border
     pub border_focus: u32,
+    /// Focus border for colored backgrounds (e.g., primary buttons)
+    /// Should contrast with primary/accent colored elements
+    pub border_focus_on_color: u32,
     /// Error border
     pub border_error: u32,
 
@@ -191,6 +194,7 @@ impl Theme {
             border_input: 0x999999,
             border_menu: 0xcccccc,
             border_focus: 0x0078d4,
+            border_focus_on_color: 0xffffff, // White for contrast on colored backgrounds
             border_error: 0x662222,
 
             // Accent colors
@@ -268,6 +272,7 @@ impl Theme {
             border_input: 0x444444,
             border_menu: 0xdddddd,
             border_focus: 0x0078d4,
+            border_focus_on_color: 0xffffff, // White for contrast on colored backgrounds
             border_error: 0xffcccc,
 
             // Accent colors
@@ -336,6 +341,12 @@ impl Theme {
     /// Set the focus border color
     pub fn with_border_focus(mut self, color: u32) -> Self {
         self.border_focus = color;
+        self
+    }
+
+    /// Set the focus border color for colored backgrounds
+    pub fn with_border_focus_on_color(mut self, color: u32) -> Self {
+        self.border_focus_on_color = color;
         self
     }
 

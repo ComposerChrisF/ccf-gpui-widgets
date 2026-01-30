@@ -34,6 +34,23 @@ use gpui::prelude::*;
 use gpui::*;
 use crate::theme::{get_theme, Theme};
 use super::text_input::{TextInput, TextInputEvent};
+use super::focus_navigation::{FocusNext, FocusPrev};
+
+// Actions for button activation
+actions!(ccf_repeatable_text_input, [ActivateButton]);
+
+/// Register key bindings for repeatable text input buttons
+///
+/// Call this once at application startup:
+/// ```ignore
+/// ccf_gpui_widgets::widgets::repeatable_text_input::register_keybindings(cx);
+/// ```
+pub fn register_keybindings(cx: &mut App) {
+    cx.bind_keys([
+        KeyBinding::new("enter", ActivateButton, Some("CcfRepeatableButton")),
+        KeyBinding::new("space", ActivateButton, Some("CcfRepeatableButton")),
+    ]);
+}
 
 /// Events emitted by RepeatableTextInput
 #[derive(Debug, Clone)]
@@ -55,6 +72,10 @@ pub struct RepeatableTextInput {
     initial_values: Vec<String>,
     /// Each entry is a TextInput entity
     entries: Vec<Entity<TextInput>>,
+    /// Focus handles for remove buttons (one per entry)
+    remove_focus_handles: Vec<FocusHandle>,
+    /// Focus handle for the add button
+    add_focus_handle: FocusHandle,
     /// Whether entries have been initialized
     initialized: bool,
     /// Minimum number of entries (cannot remove below this)
@@ -64,11 +85,13 @@ pub struct RepeatableTextInput {
 
 impl RepeatableTextInput {
     /// Create a new repeatable text input
-    pub fn new(_cx: &mut Context<Self>) -> Self {
+    pub fn new(cx: &mut Context<Self>) -> Self {
         Self {
             placeholder: None,
             initial_values: Vec::new(),
             entries: Vec::new(),
+            remove_focus_handles: Vec::new(),
+            add_focus_handle: cx.focus_handle().tab_stop(true),
             initialized: false,
             min_entries: 1,
             custom_theme: None,
@@ -161,6 +184,8 @@ impl RepeatableTextInput {
         for value in values {
             let entry = self.create_entry(Some(&value), cx);
             self.entries.push(entry);
+            // Create a focus handle for the remove button
+            self.remove_focus_handles.push(cx.focus_handle().tab_stop(true));
         }
     }
 
@@ -168,6 +193,8 @@ impl RepeatableTextInput {
         let index = self.entries.len();
         let entry = self.create_entry(None, cx);
         self.entries.push(entry);
+        // Create a focus handle for the new remove button
+        self.remove_focus_handles.push(cx.focus_handle().tab_stop(true));
         cx.emit(RepeatableTextInputEvent::EntryAdded(index));
         cx.emit(RepeatableTextInputEvent::Change(self.values(cx)));
         cx.notify();
@@ -176,6 +203,7 @@ impl RepeatableTextInput {
     fn remove_entry(&mut self, index: usize, cx: &mut Context<Self>) {
         if self.entries.len() > self.min_entries && index < self.entries.len() {
             self.entries.remove(index);
+            self.remove_focus_handles.remove(index);
             cx.emit(RepeatableTextInputEvent::EntryRemoved(index));
             cx.emit(RepeatableTextInputEvent::Change(self.values(cx)));
             cx.notify();
@@ -190,13 +218,24 @@ impl RepeatableTextInput {
 impl EventEmitter<RepeatableTextInputEvent> for RepeatableTextInput {}
 
 impl Render for RepeatableTextInput {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<'_, Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) -> impl IntoElement {
         // Initialize entries on first render
         self.initialize_entries(cx);
 
         let theme = self.get_theme(cx);
         let entries_count = self.entries.len();
         let can_remove = entries_count > self.min_entries;
+        let add_focused = self.add_focus_handle.is_focused(window);
+
+        // Collect entries with their remove button focus handles
+        let entry_data: Vec<_> = self.entries.iter()
+            .zip(self.remove_focus_handles.iter())
+            .enumerate()
+            .map(|(index, (entry, focus_handle))| {
+                let is_focused = focus_handle.is_focused(window);
+                (index, entry.clone(), focus_handle.clone(), is_focused)
+            })
+            .collect();
 
         div()
             .flex()
@@ -208,9 +247,7 @@ impl Render for RepeatableTextInput {
                     .flex()
                     .flex_col()
                     .gap_2()
-                    .children(self.entries.iter().enumerate().map(|(index, entry)| {
-                        let entry = entry.clone();
-
+                    .children(entry_data.into_iter().map(|(index, entry, focus_handle, is_focused)| {
                         div()
                             .flex()
                             .flex_row()
@@ -224,15 +261,31 @@ impl Render for RepeatableTextInput {
                             )
                             .when(can_remove, |d| {
                                 d.child(
-                                    // Remove button
+                                    // Remove button - height matches text input (28px)
                                     div()
                                         .id(SharedString::from(format!("repeatable_remove_{}", index)))
-                                        .px_2()
-                                        .py_1()
+                                        .key_context("CcfRepeatableButton")
+                                        .track_focus(&focus_handle)
+                                        .flex()
+                                        .items_center()
+                                        .justify_center()
+                                        .h(px(28.))
+                                        .w(px(28.))
                                         .bg(rgb(theme.delete_bg))
                                         .rounded_md()
                                         .cursor_pointer()
                                         .hover(|d| d.bg(rgb(theme.delete_bg_hover)))
+                                        .border_2()
+                                        .border_color(if is_focused { rgb(theme.border_focus) } else { rgba(0x00000000) })
+                                        .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
+                                            window.focus_next();
+                                        }))
+                                        .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
+                                            window.focus_prev();
+                                        }))
+                                        .on_action(cx.listener(move |this, _: &ActivateButton, _window, cx| {
+                                            this.remove_entry(index, cx);
+                                        }))
                                         .on_click(cx.listener(move |this, _event, _window, cx| {
                                             this.remove_entry(index, cx);
                                         }))
@@ -252,14 +305,31 @@ impl Render for RepeatableTextInput {
                     .flex()
                     .flex_row()
                     .child(
+                        // Add button - height matches text input (28px)
                         div()
                             .id("repeatable_add_button")
-                            .px_2()
-                            .py_1()
+                            .key_context("CcfRepeatableButton")
+                            .track_focus(&self.add_focus_handle)
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .h(px(28.))
+                            .w(px(28.))
                             .bg(rgb(theme.bg_input_hover))
                             .rounded_md()
                             .cursor_pointer()
                             .hover(|d| d.bg(rgb(theme.bg_hover)))
+                            .border_2()
+                            .border_color(if add_focused { rgb(theme.border_focus) } else { rgba(0x00000000) })
+                            .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
+                                window.focus_next();
+                            }))
+                            .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
+                                window.focus_prev();
+                            }))
+                            .on_action(cx.listener(|this, _: &ActivateButton, _window, cx| {
+                                this.add_entry(cx);
+                            }))
                             .on_click(cx.listener(|this, _event, _window, cx| {
                                 this.add_entry(cx);
                             }))

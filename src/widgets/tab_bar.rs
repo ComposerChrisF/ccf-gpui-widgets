@@ -1,13 +1,17 @@
 //! Generic tab bar widget for switching between views
 //!
 //! A tab bar that can display any type implementing the `TabItem` trait.
-//! Supports left-click tab switching and right-click context menus.
+//! Supports left-click tab switching, right-click context menus, and keyboard navigation.
+//! Use `register_keybindings()` at app startup to enable keyboard shortcuts.
 //!
 //! # Example
 //!
 //! ```ignore
 //! use ccf_gpui_widgets::widgets::{TabBar, TabBarEvent, TabItem};
 //! use gpui::*;
+//!
+//! // Register keybindings at app startup
+//! ccf_gpui_widgets::widgets::tab_bar::register_keybindings(cx);
 //!
 //! #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 //! pub enum MyTab {
@@ -55,6 +59,23 @@
 use gpui::prelude::*;
 use gpui::*;
 use crate::theme::{get_theme, Theme};
+use super::focus_navigation::{FocusNext, FocusPrev};
+
+// Actions for keyboard navigation
+actions!(ccf_tab_bar, [SelectPreviousTab, SelectNextTab]);
+
+/// Register key bindings for tab bar components
+///
+/// Call this once at application startup:
+/// ```ignore
+/// ccf_gpui_widgets::widgets::tab_bar::register_keybindings(cx);
+/// ```
+pub fn register_keybindings(cx: &mut App) {
+    cx.bind_keys([
+        KeyBinding::new("left", SelectPreviousTab, Some("CcfTabBar")),
+        KeyBinding::new("right", SelectNextTab, Some("CcfTabBar")),
+    ]);
+}
 
 /// Trait for items that can be displayed as tabs
 ///
@@ -100,7 +121,7 @@ impl<T: TabItem> TabBar<T> {
         Self {
             tabs,
             active,
-            focus_handle: cx.focus_handle(),
+            focus_handle: cx.focus_handle().tab_stop(true),
             custom_theme: None,
         }
     }
@@ -130,6 +151,38 @@ impl<T: TabItem> TabBar<T> {
     fn get_theme(&self, cx: &App) -> Theme {
         self.custom_theme.clone().unwrap_or_else(|| get_theme(cx))
     }
+
+    /// Select the previous tab (wraps around)
+    fn select_previous(&mut self, cx: &mut Context<Self>) {
+        if self.tabs.is_empty() {
+            return;
+        }
+        let current_index = self.tabs.iter().position(|t| *t == self.active).unwrap_or(0);
+        let new_index = if current_index == 0 {
+            self.tabs.len() - 1
+        } else {
+            current_index - 1
+        };
+        self.active = self.tabs[new_index].clone();
+        cx.emit(TabBarEvent::TabSelected(self.active.clone()));
+        cx.notify();
+    }
+
+    /// Select the next tab (wraps around)
+    fn select_next(&mut self, cx: &mut Context<Self>) {
+        if self.tabs.is_empty() {
+            return;
+        }
+        let current_index = self.tabs.iter().position(|t| *t == self.active).unwrap_or(0);
+        let new_index = if current_index >= self.tabs.len() - 1 {
+            0
+        } else {
+            current_index + 1
+        };
+        self.active = self.tabs[new_index].clone();
+        cx.emit(TabBarEvent::TabSelected(self.active.clone()));
+        cx.notify();
+    }
 }
 
 impl<T: TabItem> EventEmitter<TabBarEvent<T>> for TabBar<T> {}
@@ -141,18 +194,38 @@ impl<T: TabItem> Focusable for TabBar<T> {
 }
 
 impl<T: TabItem> Render for TabBar<T> {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<'_, Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) -> impl IntoElement {
         let theme = self.get_theme(cx);
         let active_tab = self.active.clone();
+        let is_focused = self.focus_handle.is_focused(window);
 
         div()
+            .id("ccf_tab_bar")
+            .key_context("CcfTabBar")
+            .track_focus(&self.focus_handle)
             .flex()
             .flex_row()
             .bg(rgb(theme.bg_secondary))
+            // Focus navigation (Tab / Shift+Tab)
+            .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
+                window.focus_next();
+            }))
+            .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
+                window.focus_prev();
+            }))
+            // Tab navigation (Left / Right arrows)
+            .on_action(cx.listener(|this, _: &SelectPreviousTab, _window, cx| {
+                this.select_previous(cx);
+            }))
+            .on_action(cx.listener(|this, _: &SelectNextTab, _window, cx| {
+                this.select_next(cx);
+            }))
             .children(self.tabs.clone().into_iter().map(|tab| {
                 let is_active = tab == active_tab;
                 let tab_for_click = tab.clone();
                 let tab_for_context = tab.clone();
+                // Show focus ring only on the active tab when the tab bar is focused
+                let show_focus_ring = is_active && is_focused;
 
                 div()
                     .id(tab.id())
@@ -176,6 +249,11 @@ impl<T: TabItem> Render for TabBar<T> {
                                 d.bg(rgb(theme.bg_tab_hover))
                                     .text_color(rgb(theme.text_muted))
                             })
+                    })
+                    // Focus ring on active tab only
+                    .when(show_focus_ring, |d| {
+                        d.border_2()
+                            .border_color(rgb(theme.border_focus))
                     })
                     .on_click(cx.listener(move |this, _event: &ClickEvent, _window, cx| {
                         this.active = tab_for_click.clone();

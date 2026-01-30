@@ -114,6 +114,19 @@ The library is functional and being used by clui.
 - [x] PasswordInput: Both text input and toggle button are proper tab stops
 - [x] Widget gallery: Shows actual typed value for demo purposes
 
+### ✅ Keyboard Navigation Improvements (2026-01-30)
+- [x] Button: Added `.focusable()` and `.tab_stop()` for keyboard navigation
+- [x] Button: Added FocusNext/FocusPrev action handlers for Tab/Shift+Tab
+- [x] Button: Primary button uses `border_focus_on_color` for visible focus on colored backgrounds
+- [x] Button: Disabled buttons excluded from tab order
+- [x] TabBar: Added tab stop with focus handle tracking
+- [x] TabBar: Added left/right arrow key navigation (wraps around)
+- [x] TabBar: Focus ring displays only on active tab, not whole bar
+- [x] RepeatableTextInput: +/- buttons are focusable tab stops
+- [x] RepeatableTextInput: Button height matches text input (28px)
+- [x] RepeatableFilePicker: +/- buttons are focusable tab stops
+- [x] Theme: Added `border_focus_on_color` for focus on colored backgrounds
+
 ---
 
 ## Future Enhancements
