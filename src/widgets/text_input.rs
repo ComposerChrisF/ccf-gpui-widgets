@@ -34,6 +34,7 @@ use gpui::prelude::*;
 use gpui::*;
 
 use crate::theme::{get_theme_or, Theme};
+use super::editing_core::EditingCore;
 use super::focus_navigation::{FocusNext, FocusPrev};
 
 // Actions for keyboard handling
@@ -148,14 +149,8 @@ const MASK_CHAR: &str = "\u{25CF}"; // ● Black circle
 
 /// Text input widget state
 pub struct TextInput {
-    /// The text content
-    content: String,
-    /// Cursor position (byte index into content)
-    cursor: usize,
-    /// Selection range (start, end) where start <= end
-    selection: Option<(usize, usize)>,
-    /// The anchor point for selection extension
-    selection_anchor: Option<usize>,
+    /// Core editing logic
+    core: EditingCore<String>,
     /// Placeholder text
     placeholder: Option<SharedString>,
     /// Focus handle for keyboard focus
@@ -184,8 +179,6 @@ pub struct TextInput {
     auto_scroll_active: bool,
     /// Current auto-scroll speed (pixels per frame, positive = scroll right)
     auto_scroll_speed: f32,
-    /// Whether to mask content with bullet characters (for password input)
-    masked: bool,
     /// Whether to render without border/background (for embedding in other controls)
     borderless: bool,
 }
@@ -202,10 +195,7 @@ impl TextInput {
     /// Create a new text input
     pub fn new(cx: &mut Context<Self>) -> Self {
         Self {
-            content: String::new(),
-            cursor: 0,
-            selection: None,
-            selection_anchor: None,
+            core: EditingCore::new(),
             placeholder: None,
             focus_handle: cx.focus_handle().tab_stop(true),
             select_on_focus: false,
@@ -220,7 +210,6 @@ impl TextInput {
             is_dragging: false,
             auto_scroll_active: false,
             auto_scroll_speed: 0.0,
-            masked: false,
             borderless: false,
         }
     }
@@ -233,8 +222,8 @@ impl TextInput {
 
     /// Set initial value (builder pattern)
     pub fn with_value(mut self, text: impl Into<String>) -> Self {
-        self.content = text.into();
-        self.cursor = self.content.len();
+        let text = text.into();
+        self.core.set_content(&text);
         self
     }
 
@@ -255,18 +244,18 @@ impl TextInput {
     /// When masked, the input displays bullet characters instead of the actual text,
     /// while retaining full editing functionality (cursor movement, selection, etc.)
     pub fn masked(mut self, masked: bool) -> Self {
-        self.masked = masked;
+        self.core.set_masked(masked);
         self
     }
 
     /// Check if this input is in masked mode
     pub fn is_masked(&self) -> bool {
-        self.masked
+        self.core.is_masked()
     }
 
     /// Set masked mode programmatically
     pub fn set_masked(&mut self, masked: bool, cx: &mut Context<Self>) {
-        self.masked = masked;
+        self.core.set_masked(masked);
         cx.notify();
     }
 
@@ -281,35 +270,35 @@ impl TextInput {
 
     /// Get the display content (masked or real)
     fn display_content(&self) -> String {
-        if self.masked {
-            MASK_CHAR.repeat(self.content.chars().count())
+        if self.core.is_masked() {
+            MASK_CHAR.repeat(self.core.content().chars().count())
         } else {
-            self.content.clone()
+            self.core.content().to_string()
         }
     }
 
     /// Convert a byte index in content to a byte index in display content
     fn content_byte_to_display_byte(&self, content_pos: usize) -> usize {
-        if !self.masked || self.content.is_empty() {
+        if !self.core.is_masked() || self.core.content().is_empty() {
             return content_pos;
         }
-        let char_count = self.content[..content_pos].chars().count();
+        let char_count = self.core.content()[..content_pos].chars().count();
         char_count * MASK_CHAR.len()
     }
 
     /// Convert a byte index in display content to a byte index in content
     fn display_byte_to_content_byte(&self, display_pos: usize) -> usize {
-        if !self.masked || self.content.is_empty() {
+        if !self.core.is_masked() || self.core.content().is_empty() {
             return display_pos;
         }
         let mask_char_len = MASK_CHAR.len();
         let char_index = display_pos / mask_char_len;
         // Convert char index to byte index in content
-        self.content
+        self.core.content()
             .char_indices()
             .nth(char_index)
             .map(|(i, _)| i)
-            .unwrap_or(self.content.len())
+            .unwrap_or(self.core.content().len())
     }
 
     /// Reset cursor blink timer
@@ -327,15 +316,12 @@ impl TextInput {
 
     /// Get the current content
     pub fn content(&self) -> &str {
-        &self.content
+        self.core.content()
     }
 
     /// Set the content value
     pub fn set_value(&mut self, value: &str, cx: &mut Context<Self>) {
-        self.content = value.to_string();
-        self.cursor = value.len();
-        self.selection = None;
-        self.selection_anchor = None;
+        self.core.set_content(value);
         self.scroll_offset = 0.0;
         cx.emit(TextInputEvent::Change);
         cx.notify();
@@ -352,375 +338,23 @@ impl TextInput {
         self.focus_handle.clone()
     }
 
-    /// Get selected text
-    fn selected_text(&self) -> Option<&str> {
-        if let Some((start, end)) = self.selection {
-            if start != end {
-                return Some(&self.content[start..end]);
-            }
-        }
-        None
-    }
-
-    /// Delete selected text and return whether deletion occurred
-    fn delete_selection(&mut self) -> bool {
-        if let Some((start, end)) = self.selection {
-            if start != end {
-                self.content.replace_range(start..end, "");
-                self.cursor = start;
-                self.selection = None;
-                self.selection_anchor = None;
-                return true;
-            }
-        }
-        false
-    }
-
-    /// Insert text at cursor (replacing selection if any)
-    fn insert_text(&mut self, text: &str, cx: &mut Context<Self>) {
-        self.delete_selection();
-        self.content.insert_str(self.cursor, text);
-        self.cursor += text.len();
-        self.reset_cursor_blink();
-        cx.emit(TextInputEvent::Change);
-    }
-
-    /// Clear selection state
-    fn clear_selection(&mut self) {
-        self.selection = None;
-        self.selection_anchor = None;
-    }
-
-    /// Handle deletion with selection check
-    fn handle_delete_selection(&mut self, cx: &mut Context<Self>) -> bool {
-        if self.delete_selection() {
-            self.reset_cursor_blink();
-            cx.emit(TextInputEvent::Change);
-            cx.notify();
-            true
-        } else {
-            false
-        }
-    }
-
-    /// Ensure selection anchor is set
-    fn ensure_selection_anchor(&mut self) {
-        if self.selection_anchor.is_none() {
-            self.selection_anchor = Some(self.cursor);
-        }
-    }
-
-    /// Move cursor left
-    fn move_left(&mut self, cx: &mut Context<Self>) {
-        self.clear_selection();
-        if self.cursor > 0 {
-            self.cursor = self.prev_char_boundary(self.cursor);
-        }
-        self.reset_cursor_blink();
-        cx.notify();
-    }
-
-    /// Move cursor right
-    fn move_right(&mut self, cx: &mut Context<Self>) {
-        self.clear_selection();
-        if self.cursor < self.content.len() {
-            self.cursor = self.next_char_boundary(self.cursor);
-        }
-        self.reset_cursor_blink();
-        cx.notify();
-    }
-
-    /// Move cursor to start
-    fn move_to_start(&mut self, cx: &mut Context<Self>) {
-        self.clear_selection();
-        self.cursor = 0;
-        self.reset_cursor_blink();
-        cx.notify();
-    }
-
-    /// Move cursor to end
-    fn move_to_end(&mut self, cx: &mut Context<Self>) {
-        self.clear_selection();
-        self.cursor = self.content.len();
-        self.reset_cursor_blink();
-        cx.notify();
-    }
-
-    /// Find the previous character boundary
-    fn prev_char_boundary(&self, pos: usize) -> usize {
-        if pos == 0 {
-            return 0;
-        }
-        self.content[..pos]
-            .char_indices()
-            .last()
-            .map(|(i, _)| i)
-            .unwrap_or(0)
-    }
-
-    /// Find the next character boundary
-    fn next_char_boundary(&self, pos: usize) -> usize {
-        if pos >= self.content.len() {
-            return self.content.len();
-        }
-        self.content[pos..]
-            .char_indices()
-            .nth(1)
-            .map(|(i, _)| pos + i)
-            .unwrap_or(self.content.len())
-    }
-
-    /// Find the start of the previous word
-    fn prev_word_boundary(&self, pos: usize) -> usize {
-        if pos == 0 {
-            return 0;
-        }
-
-        let chars: Vec<(usize, char)> = self.content[..pos].char_indices().collect();
-        if chars.is_empty() {
-            return 0;
-        }
-
-        let mut i = chars.len() - 1;
-        while i > 0 && !chars[i].1.is_alphanumeric() {
-            i -= 1;
-        }
-        while i > 0 && chars[i - 1].1.is_alphanumeric() {
-            i -= 1;
-        }
-
-        chars.get(i).map(|(idx, _)| *idx).unwrap_or(0)
-    }
-
-    /// Find the end of the next word
-    fn next_word_boundary(&self, pos: usize) -> usize {
-        if pos >= self.content.len() {
-            return self.content.len();
-        }
-
-        let chars: Vec<(usize, char)> = self.content[pos..].char_indices().collect();
-        if chars.is_empty() {
-            return self.content.len();
-        }
-
-        let mut i = 0;
-        while i < chars.len() && !chars[i].1.is_alphanumeric() {
-            i += 1;
-        }
-        while i < chars.len() && chars[i].1.is_alphanumeric() {
-            i += 1;
-        }
-
-        if i < chars.len() {
-            pos + chars[i].0
-        } else {
-            self.content.len()
-        }
-    }
-
-    /// Move cursor to previous word (falls back to single char when masked)
-    fn move_word_left(&mut self, cx: &mut Context<Self>) {
-        if self.masked {
-            // Don't reveal word boundaries in masked mode
-            self.move_left(cx);
-            return;
-        }
-        self.clear_selection();
-        self.cursor = self.prev_word_boundary(self.cursor);
-        self.reset_cursor_blink();
-        cx.notify();
-    }
-
-    /// Move cursor to next word (falls back to single char when masked)
-    fn move_word_right(&mut self, cx: &mut Context<Self>) {
-        if self.masked {
-            // Don't reveal word boundaries in masked mode
-            self.move_right(cx);
-            return;
-        }
-        self.clear_selection();
-        self.cursor = self.next_word_boundary(self.cursor);
-        self.reset_cursor_blink();
-        cx.notify();
-    }
-
-    /// Update selection from anchor to cursor
-    fn update_selection(&mut self) {
-        if let Some(anchor) = self.selection_anchor {
-            if anchor == self.cursor {
-                self.selection = None;
-            } else {
-                self.selection = Some((anchor.min(self.cursor), anchor.max(self.cursor)));
-            }
-        }
-    }
-
-    /// Extend selection left by one character
-    fn select_left(&mut self, cx: &mut Context<Self>) {
-        if self.cursor > 0 {
-            self.ensure_selection_anchor();
-            self.cursor = self.prev_char_boundary(self.cursor);
-            self.update_selection();
-        }
-        self.reset_cursor_blink();
-        cx.notify();
-    }
-
-    /// Extend selection right by one character
-    fn select_right(&mut self, cx: &mut Context<Self>) {
-        if self.cursor < self.content.len() {
-            self.ensure_selection_anchor();
-            self.cursor = self.next_char_boundary(self.cursor);
-            self.update_selection();
-        }
-        self.reset_cursor_blink();
-        cx.notify();
-    }
-
-    /// Extend selection left by one word (falls back to single char when masked)
-    fn select_word_left(&mut self, cx: &mut Context<Self>) {
-        if self.masked {
-            // Don't reveal word boundaries in masked mode
-            self.select_left(cx);
-            return;
-        }
-        if self.cursor > 0 {
-            self.ensure_selection_anchor();
-            self.cursor = self.prev_word_boundary(self.cursor);
-            self.update_selection();
-        }
-        self.reset_cursor_blink();
-        cx.notify();
-    }
-
-    /// Extend selection right by one word (falls back to single char when masked)
-    fn select_word_right(&mut self, cx: &mut Context<Self>) {
-        if self.masked {
-            // Don't reveal word boundaries in masked mode
-            self.select_right(cx);
-            return;
-        }
-        if self.cursor < self.content.len() {
-            self.ensure_selection_anchor();
-            self.cursor = self.next_word_boundary(self.cursor);
-            self.update_selection();
-        }
-        self.reset_cursor_blink();
-        cx.notify();
-    }
-
-    /// Select to start of line
-    fn select_to_start(&mut self, cx: &mut Context<Self>) {
-        self.ensure_selection_anchor();
-        self.cursor = 0;
-        self.update_selection();
-        self.reset_cursor_blink();
-        cx.notify();
-    }
-
-    /// Select to end of line
-    fn select_to_end(&mut self, cx: &mut Context<Self>) {
-        self.ensure_selection_anchor();
-        self.cursor = self.content.len();
-        self.update_selection();
-        self.reset_cursor_blink();
-        cx.notify();
-    }
-
-    /// Select all text
-    fn select_all(&mut self, cx: &mut Context<Self>) {
-        self.selection_anchor = Some(0);
-        self.cursor = self.content.len();
-        self.selection = Some((0, self.content.len()));
-        self.reset_cursor_blink();
-        cx.notify();
-    }
-
-    /// Helper for delete operations
-    fn delete_range(&mut self, start: usize, end: usize, move_cursor_to_start: bool, cx: &mut Context<Self>) {
-        self.content.replace_range(start..end, "");
-        if move_cursor_to_start {
-            self.cursor = start;
-        }
-        self.reset_cursor_blink();
-        cx.emit(TextInputEvent::Change);
-    }
-
-    /// Delete character before cursor
-    fn delete_backward(&mut self, cx: &mut Context<Self>) {
-        if self.handle_delete_selection(cx) {
-            return;
-        }
-        if self.cursor > 0 {
-            let prev = self.prev_char_boundary(self.cursor);
-            self.delete_range(prev, self.cursor, true, cx);
-        }
-        cx.notify();
-    }
-
-    /// Delete character after cursor
-    fn delete_forward(&mut self, cx: &mut Context<Self>) {
-        if self.handle_delete_selection(cx) {
-            return;
-        }
-        if self.cursor < self.content.len() {
-            let next = self.next_char_boundary(self.cursor);
-            self.delete_range(self.cursor, next, false, cx);
-        }
-        cx.notify();
-    }
-
-    /// Delete word before cursor (falls back to single char when masked)
-    fn delete_word_backward(&mut self, cx: &mut Context<Self>) {
-        if self.masked {
-            // Don't reveal word boundaries in masked mode
-            self.delete_backward(cx);
-            return;
-        }
-        if self.handle_delete_selection(cx) {
-            return;
-        }
-        if self.cursor > 0 {
-            let prev = self.prev_word_boundary(self.cursor);
-            self.delete_range(prev, self.cursor, true, cx);
-        }
-        cx.notify();
-    }
-
-    /// Delete word after cursor (falls back to single char when masked)
-    fn delete_word_forward(&mut self, cx: &mut Context<Self>) {
-        if self.masked {
-            // Don't reveal word boundaries in masked mode
-            self.delete_forward(cx);
-            return;
-        }
-        if self.handle_delete_selection(cx) {
-            return;
-        }
-        if self.cursor < self.content.len() {
-            let next = self.next_word_boundary(self.cursor);
-            self.delete_range(self.cursor, next, false, cx);
-        }
-        cx.notify();
-    }
-
     /// Copy selected text to clipboard (disabled when masked)
     fn copy(&self, cx: &mut Context<Self>) {
-        if self.masked {
+        if self.core.is_masked() {
             // Don't allow copying password content
             return;
         }
-        if let Some(text) = self.selected_text() {
+        if let Some(text) = self.core.selected_text() {
             cx.write_to_clipboard(ClipboardItem::new_string(text.to_string()));
         }
     }
 
     /// Cut selected text to clipboard (delete only when masked, no copy)
     fn cut(&mut self, cx: &mut Context<Self>) {
-        if !self.masked {
+        if !self.core.is_masked() {
             self.copy(cx);
         }
-        if self.delete_selection() {
+        if self.core.delete_selection() {
             self.reset_cursor_blink();
             cx.emit(TextInputEvent::Change);
             cx.notify();
@@ -732,16 +366,18 @@ impl TextInput {
         if let Some(clipboard) = cx.read_from_clipboard() {
             if let Some(text) = clipboard.text() {
                 let clean_text = text.replace(['\n', '\r'], "");
-                self.insert_text(&clean_text, cx);
+                self.core.insert_text(&clean_text);
+                self.reset_cursor_blink();
+                cx.emit(TextInputEvent::Change);
+                cx.notify();
             }
         }
     }
 
     /// Handle focus gained
     fn on_focus(&mut self, cx: &mut Context<Self>) {
-        if self.select_on_focus && !self.content.is_empty() {
-            self.selection = Some((0, self.content.len()));
-            self.cursor = self.content.len();
+        if self.select_on_focus && !self.core.content().is_empty() {
+            self.core.select_all();
         }
         self.reset_cursor_blink();
         cx.emit(TextInputEvent::Focus);
@@ -789,7 +425,7 @@ impl TextInput {
     fn cursor_at_x(&self, x: f32, window: &Window) -> usize {
         let adjusted_x = x + self.scroll_offset;
 
-        if adjusted_x <= 0.0 || self.content.is_empty() {
+        if adjusted_x <= 0.0 || self.core.content().is_empty() {
             return 0;
         }
 
@@ -803,7 +439,7 @@ impl TextInput {
 
     /// Get x position for a character index
     fn x_for_cursor(&self, cursor: usize, window: &Window) -> f32 {
-        if self.content.is_empty() || cursor == 0 {
+        if self.core.content().is_empty() || cursor == 0 {
             return 0.0;
         }
 
@@ -818,8 +454,8 @@ impl TextInput {
 
     /// Ensure the cursor is visible within the viewport
     fn ensure_cursor_visible(&mut self, window: &Window) {
-        let cursor_x = self.x_for_cursor(self.cursor, window);
-        let content_width = self.x_for_cursor(self.content.len(), window);
+        let cursor_x = self.x_for_cursor(self.core.cursor(), window);
+        let content_width = self.x_for_cursor(self.core.content().len(), window);
         let margin = 2.0;
         let cursor_width = 1.0;
         let padding = 2.0;
@@ -870,8 +506,7 @@ impl TextInput {
         // Update cursor position based on mouse x (clamped to visible area for cursor calculation)
         let clamped_x = relative_x.clamp(0.0, actual_visible);
         let new_cursor = self.cursor_at_x(clamped_x, window);
-        self.cursor = new_cursor;
-        self.update_selection();
+        self.core.extend_selection_to(new_cursor);
         self.reset_cursor_blink();
 
         scroll_speed
@@ -896,7 +531,7 @@ impl TextInput {
             return;
         }
 
-        let content_width = self.x_for_cursor(self.content.len(), window);
+        let content_width = self.x_for_cursor(self.core.content().len(), window);
         let padding = 2.0;
         let actual_visible = self.visible_width - padding;
         let max_scroll = (content_width - actual_visible).max(0.0);
@@ -908,13 +543,12 @@ impl TextInput {
         if self.auto_scroll_speed < 0.0 {
             // Scrolling left - move cursor toward start
             let new_cursor = self.cursor_at_x(0.0, window);
-            self.cursor = new_cursor;
+            self.core.extend_selection_to(new_cursor);
         } else {
             // Scrolling right - move cursor toward end
             let new_cursor = self.cursor_at_x(actual_visible, window);
-            self.cursor = new_cursor;
+            self.core.extend_selection_to(new_cursor);
         }
-        self.update_selection();
     }
 
     /// Stop drag operation
@@ -950,6 +584,125 @@ impl TextInput {
             }).detach();
         }
     }
+
+    // Action handlers that delegate to core and emit events
+
+    fn handle_move_left(&mut self, cx: &mut Context<Self>) {
+        self.core.move_left();
+        self.reset_cursor_blink();
+        cx.notify();
+    }
+
+    fn handle_move_right(&mut self, cx: &mut Context<Self>) {
+        self.core.move_right();
+        self.reset_cursor_blink();
+        cx.notify();
+    }
+
+    fn handle_move_word_left(&mut self, cx: &mut Context<Self>) {
+        self.core.move_word_left();
+        self.reset_cursor_blink();
+        cx.notify();
+    }
+
+    fn handle_move_word_right(&mut self, cx: &mut Context<Self>) {
+        self.core.move_word_right();
+        self.reset_cursor_blink();
+        cx.notify();
+    }
+
+    fn handle_move_to_start(&mut self, cx: &mut Context<Self>) {
+        self.core.move_to_start();
+        self.reset_cursor_blink();
+        cx.notify();
+    }
+
+    fn handle_move_to_end(&mut self, cx: &mut Context<Self>) {
+        self.core.move_to_end();
+        self.reset_cursor_blink();
+        cx.notify();
+    }
+
+    fn handle_select_left(&mut self, cx: &mut Context<Self>) {
+        self.core.select_left();
+        self.reset_cursor_blink();
+        cx.notify();
+    }
+
+    fn handle_select_right(&mut self, cx: &mut Context<Self>) {
+        self.core.select_right();
+        self.reset_cursor_blink();
+        cx.notify();
+    }
+
+    fn handle_select_word_left(&mut self, cx: &mut Context<Self>) {
+        self.core.select_word_left();
+        self.reset_cursor_blink();
+        cx.notify();
+    }
+
+    fn handle_select_word_right(&mut self, cx: &mut Context<Self>) {
+        self.core.select_word_right();
+        self.reset_cursor_blink();
+        cx.notify();
+    }
+
+    fn handle_select_to_start(&mut self, cx: &mut Context<Self>) {
+        self.core.select_to_start();
+        self.reset_cursor_blink();
+        cx.notify();
+    }
+
+    fn handle_select_to_end(&mut self, cx: &mut Context<Self>) {
+        self.core.select_to_end();
+        self.reset_cursor_blink();
+        cx.notify();
+    }
+
+    fn handle_select_all(&mut self, cx: &mut Context<Self>) {
+        self.core.select_all();
+        self.reset_cursor_blink();
+        cx.notify();
+    }
+
+    fn handle_delete_backward(&mut self, cx: &mut Context<Self>) {
+        if self.core.delete_backward() {
+            self.reset_cursor_blink();
+            cx.emit(TextInputEvent::Change);
+        }
+        cx.notify();
+    }
+
+    fn handle_delete_forward(&mut self, cx: &mut Context<Self>) {
+        if self.core.delete_forward() {
+            self.reset_cursor_blink();
+            cx.emit(TextInputEvent::Change);
+        }
+        cx.notify();
+    }
+
+    fn handle_delete_word_backward(&mut self, cx: &mut Context<Self>) {
+        if self.core.delete_word_backward() {
+            self.reset_cursor_blink();
+            cx.emit(TextInputEvent::Change);
+        }
+        cx.notify();
+    }
+
+    fn handle_delete_word_forward(&mut self, cx: &mut Context<Self>) {
+        if self.core.delete_word_forward() {
+            self.reset_cursor_blink();
+            cx.emit(TextInputEvent::Change);
+        }
+        cx.notify();
+    }
+
+    fn handle_insert_text(&mut self, text: &str, cx: &mut Context<Self>) {
+        self.core.insert_text(text);
+        self.reset_cursor_blink();
+        cx.emit(TextInputEvent::Change);
+        cx.notify();
+    }
 }
 
 impl Render for TextInput {
@@ -959,7 +712,7 @@ impl Render for TextInput {
         let is_focused = self.focus_handle.is_focused(window);
         let display_content = self.display_content();
         let placeholder = self.placeholder.clone();
-        let has_content = !self.content.is_empty();
+        let has_content = !self.core.content().is_empty();
 
         // Set up focus-out subscription on first render
         if !self.focus_out_subscribed {
@@ -1016,8 +769,8 @@ impl Render for TextInput {
         }
 
         // Re-capture cursor and selection after potential auto-scroll modification
-        let cursor = self.cursor;
-        let selection = self.selection;
+        let cursor = self.core.cursor();
+        let selection = self.core.selection();
 
         let cursor_x = self.x_for_cursor(cursor, window) - render_scroll_offset;
         let cursor_visible = is_focused && self.is_cursor_visible();
@@ -1052,57 +805,57 @@ impl Render for TextInput {
             .tab_stop(true)
             // Navigation actions
             .on_action(cx.listener(|this, _: &MoveLeft, _window, cx| {
-                this.move_left(cx);
+                this.handle_move_left(cx);
             }))
             .on_action(cx.listener(|this, _: &MoveRight, _window, cx| {
-                this.move_right(cx);
+                this.handle_move_right(cx);
             }))
             .on_action(cx.listener(|this, _: &MoveWordLeft, _window, cx| {
-                this.move_word_left(cx);
+                this.handle_move_word_left(cx);
             }))
             .on_action(cx.listener(|this, _: &MoveWordRight, _window, cx| {
-                this.move_word_right(cx);
+                this.handle_move_word_right(cx);
             }))
             .on_action(cx.listener(|this, _: &MoveToStart, _window, cx| {
-                this.move_to_start(cx);
+                this.handle_move_to_start(cx);
             }))
             .on_action(cx.listener(|this, _: &MoveToEnd, _window, cx| {
-                this.move_to_end(cx);
+                this.handle_move_to_end(cx);
             }))
             // Selection actions
             .on_action(cx.listener(|this, _: &SelectLeft, _window, cx| {
-                this.select_left(cx);
+                this.handle_select_left(cx);
             }))
             .on_action(cx.listener(|this, _: &SelectRight, _window, cx| {
-                this.select_right(cx);
+                this.handle_select_right(cx);
             }))
             .on_action(cx.listener(|this, _: &SelectWordLeft, _window, cx| {
-                this.select_word_left(cx);
+                this.handle_select_word_left(cx);
             }))
             .on_action(cx.listener(|this, _: &SelectWordRight, _window, cx| {
-                this.select_word_right(cx);
+                this.handle_select_word_right(cx);
             }))
             .on_action(cx.listener(|this, _: &SelectToStart, _window, cx| {
-                this.select_to_start(cx);
+                this.handle_select_to_start(cx);
             }))
             .on_action(cx.listener(|this, _: &SelectToEnd, _window, cx| {
-                this.select_to_end(cx);
+                this.handle_select_to_end(cx);
             }))
             .on_action(cx.listener(|this, _: &SelectAll, _window, cx| {
-                this.select_all(cx);
+                this.handle_select_all(cx);
             }))
             // Delete actions
             .on_action(cx.listener(|this, _: &DeleteBackward, _window, cx| {
-                this.delete_backward(cx);
+                this.handle_delete_backward(cx);
             }))
             .on_action(cx.listener(|this, _: &DeleteForward, _window, cx| {
-                this.delete_forward(cx);
+                this.handle_delete_forward(cx);
             }))
             .on_action(cx.listener(|this, _: &DeleteWordBackward, _window, cx| {
-                this.delete_word_backward(cx);
+                this.handle_delete_word_backward(cx);
             }))
             .on_action(cx.listener(|this, _: &DeleteWordForward, _window, cx| {
-                this.delete_word_forward(cx);
+                this.handle_delete_word_forward(cx);
             }))
             // Clipboard actions
             .on_action(cx.listener(|this, _: &Cut, _window, cx| {
@@ -1144,8 +897,7 @@ impl Render for TextInput {
                     && !event.keystroke.modifiers.platform
                 {
                     if let Some(ref ch) = event.keystroke.key_char {
-                        this.insert_text(ch, cx);
-                        cx.notify();
+                        this.handle_insert_text(ch, cx);
                     }
                 }
             }))
@@ -1156,7 +908,7 @@ impl Render for TextInput {
 
                 // If clicking to restore focus and there's a selection to restore,
                 // just restore focus without changing cursor/selection
-                if !was_focused && this.selection.is_some() {
+                if !was_focused && this.core.selection().is_some() {
                     this.reset_cursor_blink();
                     cx.notify();
                     return;
@@ -1168,15 +920,14 @@ impl Render for TextInput {
 
                 if event.modifiers.shift {
                     // Shift+click extends selection
-                    this.ensure_selection_anchor();
-                    this.cursor = new_cursor;
-                    this.update_selection();
+                    this.core.start_selection_from_cursor();
+                    this.core.extend_selection_to(new_cursor);
                 } else {
                     // Regular click starts a new selection
-                    this.cursor = new_cursor;
-                    this.clear_selection();
+                    this.core.clear_selection();
+                    this.core.set_cursor(new_cursor);
                     // Set anchor for potential drag selection
-                    this.selection_anchor = Some(new_cursor);
+                    this.core.start_selection_from_cursor();
                 }
 
                 // Start drag operation

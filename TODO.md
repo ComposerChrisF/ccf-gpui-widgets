@@ -135,6 +135,19 @@ The library is functional and being used by clui.
 - [x] RepeatableDirectoryPicker: New widget for multi-directory selection (uses `Entity<DirectoryPicker>`)
 - [x] Widget gallery: Added RepeatableDirectoryPicker demo
 
+### ✅ Secure PasswordInput with secrecy/zeroize (2026-01-30)
+- [x] New `secure-password` feature flag with `secrecy` and `zeroize` dependencies
+- [x] EditingCore: Generic editing engine with `ContentStorage` trait abstraction
+- [x] TextInput: Refactored to use `EditingCore<String>` internally (non-breaking)
+- [x] SensitiveString: Secure storage type wrapping `Zeroizing<String>` with redacted Debug
+- [x] PasswordInput: Complete rewrite using `EditingCore<SensitiveString>` directly
+- [x] PasswordInput: `value()` returns `SecretString` (with feature), `set_value_secret()` method
+- [x] PasswordInput: `PasswordInputEvent::Change` carries `SecretString` (with feature)
+- [x] PasswordInput: Memory zeroization on drop, type-level enforcement of sensitive data
+- [x] PasswordInput: Full cursor/selection/editing support (copy still disabled for security)
+- [x] Widget gallery: Updated to handle conditional `SecretString` API
+- [x] Backward compatible: Without feature, API unchanged; `full` feature includes `secure-password`
+
 ---
 
 ## Future Enhancements

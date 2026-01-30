@@ -1,5 +1,6 @@
 //! GPUI widgets
 
+mod editing_core;
 mod text_input;
 mod tooltip;
 mod checkbox;
@@ -14,6 +15,9 @@ mod button;
 mod password_input;
 mod tab_bar;
 mod repeatable_text_input;
+
+#[cfg(feature = "secure-password")]
+mod sensitive_string;
 
 #[cfg(feature = "file-picker")]
 mod file_picker;
@@ -37,6 +41,8 @@ pub use collapsible::{Collapsible, CollapsibleEvent};
 pub use focus_navigation::{FocusNext, FocusPrev, register_keybindings as register_focus_navigation_keybindings};
 pub use button::{primary_button, secondary_button, register_keybindings as register_button_keybindings};
 pub use password_input::{PasswordInput, PasswordInputEvent};
+#[cfg(feature = "secure-password")]
+pub use secrecy::SecretString;
 pub use tab_bar::{TabBar, TabBarEvent, TabItem, register_keybindings as register_tab_bar_keybindings};
 pub use repeatable_text_input::{RepeatableTextInput, RepeatableTextInputEvent, ActivateButton as RepeatableActivateButton, register_keybindings as register_repeatable_text_input_keybindings};
 

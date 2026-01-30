@@ -905,12 +905,26 @@ impl WidgetGallery {
     }
 
     fn render_password_section(&self, cx: &Context<Self>) -> impl IntoElement {
-        let value = self.password_input.read(cx).value(cx).to_string();
-        let display = if value.is_empty() {
-            "(empty)".to_string()
-        } else {
-            // Show actual value for demo purposes (this gallery is not collecting real passwords)
-            format!("\"{}\"", value)
+        #[cfg(feature = "secure-password")]
+        let display = {
+            use secrecy::ExposeSecret;
+            let secret = self.password_input.read(cx).value(cx);
+            let value = secret.expose_secret();
+            if value.is_empty() {
+                "(empty)".to_string()
+            } else {
+                // Show actual value for demo purposes (this gallery is not collecting real passwords)
+                format!("\"{}\"", value)
+            }
+        };
+        #[cfg(not(feature = "secure-password"))]
+        let display = {
+            let value = self.password_input.read(cx).value(cx);
+            if value.is_empty() {
+                "(empty)".to_string()
+            } else {
+                format!("\"{}\"", value)
+            }
         };
 
         div().child(Self::render_widget_row(
