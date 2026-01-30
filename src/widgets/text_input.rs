@@ -143,6 +143,9 @@ pub enum TextInputEvent {
     Focus,
 }
 
+/// Character used to mask password input
+const MASK_CHAR: &str = "\u{25CF}"; // ● Black circle
+
 /// Text input widget state
 pub struct TextInput {
     /// The text content
@@ -181,6 +184,10 @@ pub struct TextInput {
     auto_scroll_active: bool,
     /// Current auto-scroll speed (pixels per frame, positive = scroll right)
     auto_scroll_speed: f32,
+    /// Whether to mask content with bullet characters (for password input)
+    masked: bool,
+    /// Whether to render without border/background (for embedding in other controls)
+    borderless: bool,
 }
 
 impl EventEmitter<TextInputEvent> for TextInput {}
@@ -213,6 +220,8 @@ impl TextInput {
             is_dragging: false,
             auto_scroll_active: false,
             auto_scroll_speed: 0.0,
+            masked: false,
+            borderless: false,
         }
     }
 
@@ -241,6 +250,68 @@ impl TextInput {
         self
     }
 
+    /// Set masked mode for password input (builder pattern)
+    ///
+    /// When masked, the input displays bullet characters instead of the actual text,
+    /// while retaining full editing functionality (cursor movement, selection, etc.)
+    pub fn masked(mut self, masked: bool) -> Self {
+        self.masked = masked;
+        self
+    }
+
+    /// Check if this input is in masked mode
+    pub fn is_masked(&self) -> bool {
+        self.masked
+    }
+
+    /// Set masked mode programmatically
+    pub fn set_masked(&mut self, masked: bool, cx: &mut Context<Self>) {
+        self.masked = masked;
+        cx.notify();
+    }
+
+    /// Set borderless mode for embedding in other controls (builder pattern)
+    ///
+    /// When borderless, the input renders without its own border, background,
+    /// and rounded corners, allowing it to be embedded in unified containers.
+    pub fn borderless(mut self, borderless: bool) -> Self {
+        self.borderless = borderless;
+        self
+    }
+
+    /// Get the display content (masked or real)
+    fn display_content(&self) -> String {
+        if self.masked {
+            MASK_CHAR.repeat(self.content.chars().count())
+        } else {
+            self.content.clone()
+        }
+    }
+
+    /// Convert a byte index in content to a byte index in display content
+    fn content_byte_to_display_byte(&self, content_pos: usize) -> usize {
+        if !self.masked || self.content.is_empty() {
+            return content_pos;
+        }
+        let char_count = self.content[..content_pos].chars().count();
+        char_count * MASK_CHAR.len()
+    }
+
+    /// Convert a byte index in display content to a byte index in content
+    fn display_byte_to_content_byte(&self, display_pos: usize) -> usize {
+        if !self.masked || self.content.is_empty() {
+            return display_pos;
+        }
+        let mask_char_len = MASK_CHAR.len();
+        let char_index = display_pos / mask_char_len;
+        // Convert char index to byte index in content
+        self.content
+            .char_indices()
+            .nth(char_index)
+            .map(|(i, _)| i)
+            .unwrap_or(self.content.len())
+    }
+
     /// Reset cursor blink timer
     fn reset_cursor_blink(&mut self) {
         self.cursor_last_moved = Instant::now();
@@ -267,6 +338,12 @@ impl TextInput {
         self.selection_anchor = None;
         self.scroll_offset = 0.0;
         cx.emit(TextInputEvent::Change);
+        cx.notify();
+    }
+
+    /// Set placeholder text programmatically
+    pub fn set_placeholder(&mut self, text: impl Into<SharedString>, cx: &mut Context<Self>) {
+        self.placeholder = Some(text.into());
         cx.notify();
     }
 
@@ -441,16 +518,26 @@ impl TextInput {
         }
     }
 
-    /// Move cursor to previous word
+    /// Move cursor to previous word (falls back to single char when masked)
     fn move_word_left(&mut self, cx: &mut Context<Self>) {
+        if self.masked {
+            // Don't reveal word boundaries in masked mode
+            self.move_left(cx);
+            return;
+        }
         self.clear_selection();
         self.cursor = self.prev_word_boundary(self.cursor);
         self.reset_cursor_blink();
         cx.notify();
     }
 
-    /// Move cursor to next word
+    /// Move cursor to next word (falls back to single char when masked)
     fn move_word_right(&mut self, cx: &mut Context<Self>) {
+        if self.masked {
+            // Don't reveal word boundaries in masked mode
+            self.move_right(cx);
+            return;
+        }
         self.clear_selection();
         self.cursor = self.next_word_boundary(self.cursor);
         self.reset_cursor_blink();
@@ -490,8 +577,13 @@ impl TextInput {
         cx.notify();
     }
 
-    /// Extend selection left by one word
+    /// Extend selection left by one word (falls back to single char when masked)
     fn select_word_left(&mut self, cx: &mut Context<Self>) {
+        if self.masked {
+            // Don't reveal word boundaries in masked mode
+            self.select_left(cx);
+            return;
+        }
         if self.cursor > 0 {
             self.ensure_selection_anchor();
             self.cursor = self.prev_word_boundary(self.cursor);
@@ -501,8 +593,13 @@ impl TextInput {
         cx.notify();
     }
 
-    /// Extend selection right by one word
+    /// Extend selection right by one word (falls back to single char when masked)
     fn select_word_right(&mut self, cx: &mut Context<Self>) {
+        if self.masked {
+            // Don't reveal word boundaries in masked mode
+            self.select_right(cx);
+            return;
+        }
         if self.cursor < self.content.len() {
             self.ensure_selection_anchor();
             self.cursor = self.next_word_boundary(self.cursor);
@@ -573,8 +670,13 @@ impl TextInput {
         cx.notify();
     }
 
-    /// Delete word before cursor
+    /// Delete word before cursor (falls back to single char when masked)
     fn delete_word_backward(&mut self, cx: &mut Context<Self>) {
+        if self.masked {
+            // Don't reveal word boundaries in masked mode
+            self.delete_backward(cx);
+            return;
+        }
         if self.handle_delete_selection(cx) {
             return;
         }
@@ -585,8 +687,13 @@ impl TextInput {
         cx.notify();
     }
 
-    /// Delete word after cursor
+    /// Delete word after cursor (falls back to single char when masked)
     fn delete_word_forward(&mut self, cx: &mut Context<Self>) {
+        if self.masked {
+            // Don't reveal word boundaries in masked mode
+            self.delete_forward(cx);
+            return;
+        }
         if self.handle_delete_selection(cx) {
             return;
         }
@@ -597,16 +704,22 @@ impl TextInput {
         cx.notify();
     }
 
-    /// Copy selected text to clipboard
+    /// Copy selected text to clipboard (disabled when masked)
     fn copy(&self, cx: &mut Context<Self>) {
+        if self.masked {
+            // Don't allow copying password content
+            return;
+        }
         if let Some(text) = self.selected_text() {
             cx.write_to_clipboard(ClipboardItem::new_string(text.to_string()));
         }
     }
 
-    /// Cut selected text to clipboard
+    /// Cut selected text to clipboard (delete only when masked, no copy)
     fn cut(&mut self, cx: &mut Context<Self>) {
-        self.copy(cx);
+        if !self.masked {
+            self.copy(cx);
+        }
         if self.delete_selection() {
             self.reset_cursor_blink();
             cx.emit(TextInputEvent::Change);
@@ -645,9 +758,10 @@ impl TextInput {
         cx.notify();
     }
 
-    /// Shape the text content for measurement
+    /// Shape the display content for measurement
     fn shape_line(&self, window: &Window) -> Option<ShapedLine> {
-        if self.content.is_empty() {
+        let display = self.display_content();
+        if display.is_empty() {
             return None;
         }
 
@@ -655,7 +769,7 @@ impl TextInput {
         let font_size = window.rem_size() * 0.875;
 
         let run = TextRun {
-            len: self.content.len(),
+            len: display.len(),
             font: style.font(),
             color: style.color,
             background_color: None,
@@ -664,7 +778,7 @@ impl TextInput {
         };
 
         Some(window.text_system().shape_line(
-            SharedString::from(self.content.clone()),
+            SharedString::from(display),
             font_size,
             &[run],
             None,
@@ -680,7 +794,8 @@ impl TextInput {
         }
 
         if let Some(line) = self.shape_line(window) {
-            line.closest_index_for_x(px(adjusted_x))
+            let display_pos = line.closest_index_for_x(px(adjusted_x));
+            self.display_byte_to_content_byte(display_pos)
         } else {
             0
         }
@@ -693,7 +808,8 @@ impl TextInput {
         }
 
         if let Some(line) = self.shape_line(window) {
-            let pixels = line.x_for_index(cursor);
+            let display_cursor = self.content_byte_to_display_byte(cursor);
+            let pixels = line.x_for_index(display_cursor);
             pixels.into()
         } else {
             0.0
@@ -841,9 +957,9 @@ impl Render for TextInput {
         let theme = get_theme_or(cx, self.custom_theme.as_ref());
         let focus_handle = self.focus_handle.clone();
         let is_focused = self.focus_handle.is_focused(window);
-        let content = self.content.clone();
+        let display_content = self.display_content();
         let placeholder = self.placeholder.clone();
-        let has_content = !content.is_empty();
+        let has_content = !self.content.is_empty();
 
         // Set up focus-out subscription on first render
         if !self.focus_out_subscribed {
@@ -1088,10 +1204,13 @@ impl Render for TextInput {
             .w_full()
             .h(px(28.))
             .px_2()
-            .border_1()
-            .border_color(if is_focused { rgb(border_focus) } else { rgb(border_input) })
-            .rounded_md()
-            .bg(rgb(bg_input))
+            // Only apply border/background/rounded corners when not borderless
+            .when(!self.borderless, |d| {
+                d.border_1()
+                    .border_color(if is_focused { rgb(border_focus) } else { rgb(border_input) })
+                    .rounded_md()
+                    .bg(rgb(bg_input))
+            })
             .cursor_text()
             .relative()
             .overflow_hidden()
@@ -1184,7 +1303,7 @@ impl Render for TextInput {
                                     .text_sm()
                                     .text_color(rgb(text_color))
                                     .whitespace_nowrap()
-                                    .child(content.clone())
+                                    .child(display_content.clone())
                             )
                             // Cursor
                             .when(cursor_visible, |d| {

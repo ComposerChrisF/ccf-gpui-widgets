@@ -876,11 +876,12 @@ impl WidgetGallery {
     }
 
     fn render_password_section(&self, cx: &Context<Self>) -> impl IntoElement {
-        let value = self.password_input.read(cx).value();
+        let value = self.password_input.read(cx).value(cx).to_string();
         let display = if value.is_empty() {
             "(empty)".to_string()
         } else {
-            format!("{} chars", value.len())
+            // Show actual value for demo purposes (this gallery is not collecting real passwords)
+            format!("\"{}\"", value)
         };
 
         div().child(Self::render_widget_row(

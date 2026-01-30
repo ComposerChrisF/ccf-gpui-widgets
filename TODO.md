@@ -101,6 +101,19 @@ The library is functional and being used by clui.
 - [x] Widget gallery: Added demos for Button, PasswordInput, TabBar, RepeatableTextInput, RepeatableFilePicker
 - [x] RepeatableTextInput: Fixed borrow conflict panic when typing in newly added entries
 
+### ✅ PasswordInput & TextInput Enhancements (2026-01-30)
+- [x] TextInput: Added `masked` mode for password input (displays bullets instead of text)
+- [x] TextInput: Added `borderless` mode for embedding in unified containers
+- [x] TextInput: Word navigation disabled in masked mode (prevents password structure leak)
+- [x] TextInput: Copy disabled in masked mode (prevents password clipboard leak)
+- [x] TextInput: Cut deletes but doesn't copy in masked mode
+- [x] PasswordInput: Refactored to use TextInput internally (full editing support)
+- [x] PasswordInput: Unified visual styling matching NumberStepper (shared border/background)
+- [x] PasswordInput: Simpler line-art eye icons (◎ show, ⊖ hide)
+- [x] PasswordInput: Fixed-width toggle button (no size change between states)
+- [x] PasswordInput: Both text input and toggle button are proper tab stops
+- [x] Widget gallery: Shows actual typed value for demo purposes
+
 ---
 
 ## Future Enhancements
