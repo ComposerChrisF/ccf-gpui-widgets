@@ -10,11 +10,17 @@ mod checkbox_group;
 mod color_swatch;
 mod collapsible;
 mod focus_navigation;
+mod button;
+mod password_input;
+mod tab_bar;
+mod repeatable_text_input;
 
 #[cfg(feature = "file-picker")]
 mod file_picker;
 #[cfg(feature = "file-picker")]
 mod directory_picker;
+#[cfg(feature = "file-picker")]
+mod repeatable_file_picker;
 
 // Re-exports
 pub use text_input::{TextInput, TextInputEvent, register_keybindings as register_text_input_keybindings};
@@ -27,6 +33,10 @@ pub use checkbox_group::{CheckboxGroup, CheckboxGroupEvent};
 pub use color_swatch::{ColorSwatch, ColorSwatchEvent, PickerMode, register_keybindings as register_color_swatch_keybindings};
 pub use collapsible::{Collapsible, CollapsibleEvent};
 pub use focus_navigation::{FocusNext, FocusPrev, register_keybindings as register_focus_navigation_keybindings};
+pub use button::{primary_button, secondary_button};
+pub use password_input::{PasswordInput, PasswordInputEvent};
+pub use tab_bar::{TabBar, TabBarEvent, TabItem};
+pub use repeatable_text_input::{RepeatableTextInput, RepeatableTextInputEvent};
 
 #[cfg(feature = "file-picker")]
 pub use file_picker::{
@@ -41,6 +51,8 @@ pub use directory_picker::{
     validate_directory_path,
     register_keybindings as register_directory_picker_keybindings,
 };
+#[cfg(feature = "file-picker")]
+pub use repeatable_file_picker::{RepeatableFilePicker, RepeatableFilePickerEvent};
 
 /// Register all widget keybindings
 ///

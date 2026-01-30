@@ -680,6 +680,7 @@ impl Render for FilePicker {
             .key_context("CcfFilePicker")
             .flex()
             .flex_row()
+            .w_full()
             .bg(rgb(theme.bg_input))
             .rounded_md()
             .border_1()

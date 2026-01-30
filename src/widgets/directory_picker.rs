@@ -467,6 +467,7 @@ impl Render for DirectoryPicker {
             .key_context("CcfDirectoryPicker")
             .flex()
             .flex_row()
+            .w_full()
             .bg(rgb(theme.bg_input))
             .rounded_md()
             .border_1()

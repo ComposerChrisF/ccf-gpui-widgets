@@ -115,6 +115,38 @@ pub struct Theme {
 
     // Selection color (for text selection)
     pub selection: u32,
+
+    // Button disabled state
+    /// Disabled button background
+    pub disabled_bg: u32,
+    /// Disabled button text
+    pub disabled_text: u32,
+
+    // Secondary button colors
+    /// Secondary button background
+    pub secondary_bg: u32,
+    /// Secondary button hover background
+    pub secondary_bg_hover: u32,
+    /// Secondary button active background
+    pub secondary_bg_active: u32,
+    /// Secondary button border
+    pub secondary_border: u32,
+
+    // Tab colors
+    /// Tab hover background
+    pub bg_tab_hover: u32,
+    /// Active tab border
+    pub border_tab_active: u32,
+
+    // Delete/remove button colors
+    /// Delete button background
+    pub delete_bg: u32,
+    /// Delete button hover background
+    pub delete_bg_hover: u32,
+
+    // Path display
+    /// Path display hover background
+    pub bg_path_hover: u32,
 }
 
 impl Default for Theme {
@@ -180,6 +212,27 @@ impl Theme {
 
             // Selection color (dark blue for contrast with white text)
             selection: 0x264F78,
+
+            // Button disabled state
+            disabled_bg: 0x6b7280,
+            disabled_text: 0x9ca3af,
+
+            // Secondary button colors
+            secondary_bg: 0x374151,
+            secondary_bg_hover: 0x4b5563,
+            secondary_bg_active: 0x1f2937,
+            secondary_border: 0x6b7280,
+
+            // Tab colors
+            bg_tab_hover: 0x323232,
+            border_tab_active: 0x007acc,
+
+            // Delete/remove button colors
+            delete_bg: 0x4a3a3a,
+            delete_bg_hover: 0x5a4a4a,
+
+            // Path display
+            bg_path_hover: 0x333333,
         }
     }
 
@@ -236,6 +289,27 @@ impl Theme {
 
             // Selection color
             selection: 0xADD6FF,
+
+            // Button disabled state
+            disabled_bg: 0xd1d5db,
+            disabled_text: 0x9ca3af,
+
+            // Secondary button colors
+            secondary_bg: 0xe5e7eb,
+            secondary_bg_hover: 0xd1d5db,
+            secondary_bg_active: 0xf3f4f6,
+            secondary_border: 0x9ca3af,
+
+            // Tab colors
+            bg_tab_hover: 0xe5e5e5,
+            border_tab_active: 0x0078d4,
+
+            // Delete/remove button colors
+            delete_bg: 0xfee2e2,
+            delete_bg_hover: 0xfecaca,
+
+            // Path display
+            bg_path_hover: 0xf5f5f5,
         }
     }
 
@@ -472,6 +546,82 @@ impl Theme {
     /// Set the selection highlight color
     pub fn with_selection(mut self, color: u32) -> Self {
         self.selection = color;
+        self
+    }
+
+    // Disabled button state builders
+
+    /// Set the disabled button background color
+    pub fn with_disabled_bg(mut self, color: u32) -> Self {
+        self.disabled_bg = color;
+        self
+    }
+
+    /// Set the disabled button text color
+    pub fn with_disabled_text(mut self, color: u32) -> Self {
+        self.disabled_text = color;
+        self
+    }
+
+    // Secondary button builders
+
+    /// Set the secondary button background color
+    pub fn with_secondary_bg(mut self, color: u32) -> Self {
+        self.secondary_bg = color;
+        self
+    }
+
+    /// Set the secondary button hover background color
+    pub fn with_secondary_bg_hover(mut self, color: u32) -> Self {
+        self.secondary_bg_hover = color;
+        self
+    }
+
+    /// Set the secondary button active background color
+    pub fn with_secondary_bg_active(mut self, color: u32) -> Self {
+        self.secondary_bg_active = color;
+        self
+    }
+
+    /// Set the secondary button border color
+    pub fn with_secondary_border(mut self, color: u32) -> Self {
+        self.secondary_border = color;
+        self
+    }
+
+    // Tab builders
+
+    /// Set the tab hover background color
+    pub fn with_bg_tab_hover(mut self, color: u32) -> Self {
+        self.bg_tab_hover = color;
+        self
+    }
+
+    /// Set the active tab border color
+    pub fn with_border_tab_active(mut self, color: u32) -> Self {
+        self.border_tab_active = color;
+        self
+    }
+
+    // Delete button builders
+
+    /// Set the delete button background color
+    pub fn with_delete_bg(mut self, color: u32) -> Self {
+        self.delete_bg = color;
+        self
+    }
+
+    /// Set the delete button hover background color
+    pub fn with_delete_bg_hover(mut self, color: u32) -> Self {
+        self.delete_bg_hover = color;
+        self
+    }
+
+    // Path display builder
+
+    /// Set the path display hover background color
+    pub fn with_bg_path_hover(mut self, color: u32) -> Self {
+        self.bg_path_hover = color;
         self
     }
 }

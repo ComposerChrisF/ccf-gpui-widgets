@@ -107,12 +107,17 @@ pub mod prelude {
         ColorSwatch, ColorSwatchEvent,
         Collapsible, CollapsibleEvent,
         Tooltip,
+        primary_button, secondary_button,
+        PasswordInput, PasswordInputEvent,
+        TabBar, TabBarEvent, TabItem,
+        RepeatableTextInput, RepeatableTextInputEvent,
     };
 
     #[cfg(feature = "file-picker")]
     pub use crate::widgets::{
         FilePicker, FilePickerEvent, FileMode, MissingDirectories,
         DirectoryPicker, DirectoryPickerEvent,
+        RepeatableFilePicker, RepeatableFilePickerEvent,
     };
 
     pub use crate::utils::{parse_path, expand_tilde, PathInfo};

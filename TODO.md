@@ -91,6 +91,14 @@ The library is functional and being used by clui.
 - [x] Empty state uses italic text
 - [x] Blue focus outline on buttons (consistent with other widgets)
 
+### ✅ New Widgets (2026-01-30)
+- [x] Button: `primary_button()` and `secondary_button()` utility functions with theming
+- [x] PasswordInput: Secure password field with bullet masking and visibility toggle
+- [x] TabBar: Generic tab navigation with `TabItem` trait, context menu support
+- [x] RepeatableTextInput: Dynamic list of text inputs with add/remove buttons
+- [x] RepeatableFilePicker: Multi-file selection with validation, drag-drop support
+- [x] Theme extensions: 12 new color fields (disabled, secondary, tabs, delete, path)
+
 ---
 
 ## Future Enhancements
@@ -110,7 +118,7 @@ The library is functional and being used by clui.
 - [ ] Slider (horizontal range input)
 - [ ] Toggle/Switch (iOS-style toggle)
 - [ ] ProgressBar
-- [ ] Tabs component
+- [x] Tabs component (TabBar)
 - [ ] Modal/Dialog
 - [ ] Toast/Notification
 - [ ] TreeView
