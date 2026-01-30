@@ -1,32 +1,33 @@
-//! Repeatable file picker widget - allows selecting multiple files with add/remove buttons
+//! Repeatable directory picker widget - allows selecting multiple directories with add/remove buttons
 //!
-//! A widget that manages a list of file path inputs, allowing users to add and remove entries.
-//! Each entry is a full FilePicker widget supporting file browsing dialogs and drag-drop.
+//! A widget that manages a list of directory path inputs, allowing users to add and remove entries.
+//! Each entry is a full DirectoryPicker widget supporting folder browsing dialogs and drag-drop.
+//!
+//! Requires the `file-picker` feature.
 //!
 //! # Example
 //!
 //! ```ignore
 //! use ccf_gpui_widgets::widgets::{
-//!     RepeatableFilePicker, RepeatableFilePickerEvent, FileMode, MissingDirectories
+//!     RepeatableDirectoryPicker, RepeatableDirectoryPickerEvent
 //! };
 //!
 //! let picker = cx.new(|cx| {
-//!     RepeatableFilePicker::new(cx)
-//!         .with_values(vec!["/path/to/file1.txt".to_string()])
-//!         .mode(FileMode::Open)
-//!         .extensions(vec!["txt".to_string(), "md".to_string()])
+//!     RepeatableDirectoryPicker::new(cx)
+//!         .with_values(vec!["/path/to/dir1".to_string()])
+//!         .placeholder("Select directory...")
 //!         .min_entries(1)
 //! });
 //!
-//! cx.subscribe(&picker, |this, _, event: &RepeatableFilePickerEvent, cx| {
+//! cx.subscribe(&picker, |this, _, event: &RepeatableDirectoryPickerEvent, cx| {
 //!     match event {
-//!         RepeatableFilePickerEvent::Change(values) => {
-//!             println!("Files: {:?}", values);
+//!         RepeatableDirectoryPickerEvent::Change(values) => {
+//!             println!("Directories: {:?}", values);
 //!         }
-//!         RepeatableFilePickerEvent::EntryAdded(index) => {
+//!         RepeatableDirectoryPickerEvent::EntryAdded(index) => {
 //!             println!("Added entry at index {}", index);
 //!         }
-//!         RepeatableFilePickerEvent::EntryRemoved(index) => {
+//!         RepeatableDirectoryPickerEvent::EntryRemoved(index) => {
 //!             println!("Removed entry at index {}", index);
 //!         }
 //!     }
@@ -35,18 +36,17 @@
 
 use gpui::prelude::*;
 use gpui::*;
-use std::path::PathBuf;
 use crate::theme::{get_theme, Theme};
-use super::file_picker::{
-    FilePicker, FilePickerEvent, FileMode, MissingDirectories,
-    FilePickerValidation, ValidationDisplay,
+use super::directory_picker::{
+    DirectoryPicker, DirectoryPickerEvent,
+    DirectoryPickerValidation, ValidationDisplay,
 };
 use super::focus_navigation::{FocusNext, FocusPrev};
 use super::repeatable_text_input::ActivateButton as RepeatableActivateButton;
 
-/// Events emitted by RepeatableFilePicker
+/// Events emitted by RepeatableDirectoryPicker
 #[derive(Debug, Clone)]
-pub enum RepeatableFilePickerEvent {
+pub enum RepeatableDirectoryPickerEvent {
     /// Values changed (includes all current values)
     Change(Vec<String>),
     /// A new entry was added at the given index
@@ -55,22 +55,19 @@ pub enum RepeatableFilePickerEvent {
     EntryRemoved(usize),
 }
 
-/// Repeatable file picker widget
+/// Repeatable directory picker widget
 ///
-/// Manages a dynamic list of FilePicker widgets with add/remove controls.
-pub struct RepeatableFilePicker {
+/// Manages a dynamic list of DirectoryPicker widgets with add/remove controls.
+pub struct RepeatableDirectoryPicker {
     // Configuration (applied to all entries)
     placeholder: Option<SharedString>,
-    extensions: Vec<String>,
-    mode: FileMode,
-    missing_directories: MissingDirectories,
     browse_shortcut_enabled: bool,
     validation_display: ValidationDisplay,
 
     /// Initial values to populate on first render
     initial_values: Vec<String>,
-    /// Each entry is a FilePicker entity
-    entries: Vec<Entity<FilePicker>>,
+    /// Each entry is a DirectoryPicker entity
+    entries: Vec<Entity<DirectoryPicker>>,
     /// Focus handles for remove buttons (one per entry)
     remove_focus_handles: Vec<FocusHandle>,
     /// Focus handle for the add button
@@ -82,14 +79,11 @@ pub struct RepeatableFilePicker {
     custom_theme: Option<Theme>,
 }
 
-impl RepeatableFilePicker {
-    /// Create a new repeatable file picker
+impl RepeatableDirectoryPicker {
+    /// Create a new repeatable directory picker
     pub fn new(cx: &mut Context<Self>) -> Self {
         Self {
             placeholder: None,
-            extensions: Vec::new(),
-            mode: FileMode::Open,
-            missing_directories: MissingDirectories::Error,
             browse_shortcut_enabled: true,
             validation_display: ValidationDisplay::default(),
             initial_values: Vec::new(),
@@ -111,24 +105,6 @@ impl RepeatableFilePicker {
     /// Set placeholder text
     pub fn placeholder(mut self, text: impl Into<SharedString>) -> Self {
         self.placeholder = Some(text.into());
-        self
-    }
-
-    /// Set file extension filters (e.g., ["txt", "md"])
-    pub fn extensions(mut self, exts: Vec<String>) -> Self {
-        self.extensions = exts;
-        self
-    }
-
-    /// Set file mode (Open or Save)
-    pub fn mode(mut self, mode: FileMode) -> Self {
-        self.mode = mode;
-        self
-    }
-
-    /// Set how missing directories are handled
-    pub fn missing_directories(mut self, handling: MissingDirectories) -> Self {
-        self.missing_directories = handling;
         self
     }
 
@@ -171,13 +147,13 @@ impl RepeatableFilePicker {
             .collect()
     }
 
-    /// Get access to the underlying FilePicker entries
-    pub fn entries(&self) -> &[Entity<FilePicker>] {
+    /// Get access to the underlying DirectoryPicker entries
+    pub fn entries(&self) -> &[Entity<DirectoryPicker>] {
         &self.entries
     }
 
     /// Validate all entries and return their validation states
-    pub fn validate_all(&self, cx: &App) -> Vec<FilePickerValidation> {
+    pub fn validate_all(&self, cx: &App) -> Vec<DirectoryPickerValidation> {
         self.entries
             .iter()
             .map(|entry| entry.read(cx).validate())
@@ -194,29 +170,15 @@ impl RepeatableFilePicker {
             })
     }
 
-    /// Returns all directories that need to be created (for Save mode with MissingDirectories::Create)
-    pub fn directories_to_create(&self, cx: &App) -> Vec<PathBuf> {
-        self.entries
-            .iter()
-            .filter_map(|entry| entry.read(cx).directory_to_create())
-            .collect()
-    }
-
-    /// Create a new FilePicker entry with current configuration
-    fn create_entry(&self, value: Option<&str>, cx: &mut Context<Self>) -> Entity<FilePicker> {
+    /// Create a new DirectoryPicker entry with current configuration
+    fn create_entry(&self, value: Option<&str>, cx: &mut Context<Self>) -> Entity<DirectoryPicker> {
         let placeholder = self.placeholder.clone();
-        let extensions = self.extensions.clone();
-        let mode = self.mode.clone();
-        let missing_directories = self.missing_directories.clone();
         let browse_shortcut_enabled = self.browse_shortcut_enabled;
         let validation_display = self.validation_display.clone();
         let theme = self.custom_theme.clone();
 
         let picker = cx.new(|cx| {
-            let mut p = FilePicker::new(cx)
-                .mode(mode)
-                .extensions(extensions)
-                .missing_directories(missing_directories)
+            let mut p = DirectoryPicker::new(cx)
                 .browse_shortcut(browse_shortcut_enabled)
                 .validation_display(validation_display);
 
@@ -236,10 +198,10 @@ impl RepeatableFilePicker {
         }
 
         // Subscribe to changes to emit our own change events
-        cx.subscribe(&picker, |this, _picker, event: &FilePickerEvent, cx| {
-            let FilePickerEvent::Change(_) = event;
+        cx.subscribe(&picker, |this, _picker, event: &DirectoryPickerEvent, cx| {
+            let DirectoryPickerEvent::Change(_) = event;
             let values = this.values(cx);
-            cx.emit(RepeatableFilePickerEvent::Change(values));
+            cx.emit(RepeatableDirectoryPickerEvent::Change(values));
         }).detach();
 
         picker
@@ -275,8 +237,8 @@ impl RepeatableFilePicker {
         let entry = self.create_entry(None, cx);
         self.entries.push(entry);
         self.remove_focus_handles.push(cx.focus_handle().tab_stop(true));
-        cx.emit(RepeatableFilePickerEvent::EntryAdded(index));
-        cx.emit(RepeatableFilePickerEvent::Change(self.values(cx)));
+        cx.emit(RepeatableDirectoryPickerEvent::EntryAdded(index));
+        cx.emit(RepeatableDirectoryPickerEvent::Change(self.values(cx)));
         cx.notify();
     }
 
@@ -284,8 +246,8 @@ impl RepeatableFilePicker {
         if self.entries.len() > self.min_entries && index < self.entries.len() {
             self.entries.remove(index);
             self.remove_focus_handles.remove(index);
-            cx.emit(RepeatableFilePickerEvent::EntryRemoved(index));
-            cx.emit(RepeatableFilePickerEvent::Change(self.values(cx)));
+            cx.emit(RepeatableDirectoryPickerEvent::EntryRemoved(index));
+            cx.emit(RepeatableDirectoryPickerEvent::Change(self.values(cx)));
             cx.notify();
         }
     }
@@ -295,9 +257,9 @@ impl RepeatableFilePicker {
     }
 }
 
-impl EventEmitter<RepeatableFilePickerEvent> for RepeatableFilePicker {}
+impl EventEmitter<RepeatableDirectoryPickerEvent> for RepeatableDirectoryPicker {}
 
-impl Render for RepeatableFilePicker {
+impl Render for RepeatableDirectoryPicker {
     fn render(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) -> impl IntoElement {
         // Initialize entries on first render
         self.initialize_entries(cx);
@@ -334,7 +296,7 @@ impl Render for RepeatableFilePicker {
                             .items_start()
                             .gap_2()
                             .child(
-                                // FilePicker widget
+                                // DirectoryPicker widget
                                 div()
                                     .flex_1()
                                     .child(entry)
@@ -343,13 +305,13 @@ impl Render for RepeatableFilePicker {
                                 d.child(
                                     // Remove button
                                     div()
-                                        .id(SharedString::from(format!("file_remove_{}", index)))
+                                        .id(SharedString::from(format!("dir_remove_{}", index)))
                                         .key_context("CcfRepeatableButton")
                                         .track_focus(&focus_handle)
                                         .flex()
                                         .items_center()
                                         .justify_center()
-                                        .h(px(52.)) // Match FilePicker height
+                                        .h(px(52.)) // Match DirectoryPicker height
                                         .w(px(28.))
                                         .bg(rgb(theme.delete_bg))
                                         .rounded_md()
@@ -386,7 +348,7 @@ impl Render for RepeatableFilePicker {
                     .flex_row()
                     .child(
                         div()
-                            .id("repeatable_file_add_button")
+                            .id("repeatable_dir_add_button")
                             .key_context("CcfRepeatableButton")
                             .track_focus(&self.add_focus_handle)
                             .flex()

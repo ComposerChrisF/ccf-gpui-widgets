@@ -118,6 +118,7 @@ pub mod prelude {
         FilePicker, FilePickerEvent, FileMode, MissingDirectories,
         DirectoryPicker, DirectoryPickerEvent,
         RepeatableFilePicker, RepeatableFilePickerEvent,
+        RepeatableDirectoryPicker, RepeatableDirectoryPickerEvent,
     };
 
     pub use crate::utils::{parse_path, expand_tilde, PathInfo};

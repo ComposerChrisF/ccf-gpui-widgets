@@ -64,6 +64,8 @@ struct WidgetGallery {
     section_file: Entity<Collapsible>,
     #[cfg(feature = "file-picker")]
     section_repeatable_file: Entity<Collapsible>,
+    #[cfg(feature = "file-picker")]
+    section_repeatable_dir: Entity<Collapsible>,
 
     // Widgets
     text_input: Entity<TextInput>,
@@ -89,6 +91,8 @@ struct WidgetGallery {
     repeatable_text_input: Entity<RepeatableTextInput>,
     #[cfg(feature = "file-picker")]
     repeatable_file_picker: Entity<RepeatableFilePicker>,
+    #[cfg(feature = "file-picker")]
+    repeatable_directory_picker: Entity<RepeatableDirectoryPicker>,
 
     // Button click tracking (buttons are not Entities)
     primary_click_count: usize,
@@ -130,6 +134,8 @@ impl WidgetGallery {
         let section_file = cx.new(|_cx| Collapsible::new("File Pickers"));
         #[cfg(feature = "file-picker")]
         let section_repeatable_file = cx.new(|_cx| Collapsible::new("Repeatable File Picker"));
+        #[cfg(feature = "file-picker")]
+        let section_repeatable_dir = cx.new(|_cx| Collapsible::new("Repeatable Directory Picker"));
 
         // Create widgets
         let text_input = cx.new(|cx| TextInput::new(cx).placeholder("Type something..."));
@@ -238,6 +244,13 @@ impl WidgetGallery {
                 .min_entries(1)
         });
 
+        #[cfg(feature = "file-picker")]
+        let repeatable_directory_picker = cx.new(|cx| {
+            RepeatableDirectoryPicker::new(cx)
+                .placeholder("Select directory...")
+                .min_entries(1)
+        });
+
         // Subscribe to events
         Self::subscribe_events(
             cx,
@@ -266,6 +279,8 @@ impl WidgetGallery {
             &repeatable_text_input,
             #[cfg(feature = "file-picker")]
             &repeatable_file_picker,
+            #[cfg(feature = "file-picker")]
+            &repeatable_directory_picker,
         );
 
         Self {
@@ -286,6 +301,8 @@ impl WidgetGallery {
             section_file,
             #[cfg(feature = "file-picker")]
             section_repeatable_file,
+            #[cfg(feature = "file-picker")]
+            section_repeatable_dir,
             text_input,
             text_input_placeholder,
             checkbox,
@@ -306,6 +323,8 @@ impl WidgetGallery {
             repeatable_text_input,
             #[cfg(feature = "file-picker")]
             repeatable_file_picker,
+            #[cfg(feature = "file-picker")]
+            repeatable_directory_picker,
             primary_click_count: 0,
             secondary_click_count: 0,
             event_log: VecDeque::new(),
@@ -434,6 +453,7 @@ impl WidgetGallery {
         tab_bar: &Entity<TabBar<GalleryTab>>,
         repeatable_text_input: &Entity<RepeatableTextInput>,
         #[cfg(feature = "file-picker")] repeatable_file_picker: &Entity<RepeatableFilePicker>,
+        #[cfg(feature = "file-picker")] repeatable_directory_picker: &Entity<RepeatableDirectoryPicker>,
     ) {
         cx.subscribe(password_input, |this, _entity, event: &PasswordInputEvent, cx| {
             this.log_event("PasswordInput", format!("{:?}", event), cx);
@@ -458,6 +478,15 @@ impl WidgetGallery {
             repeatable_file_picker,
             |this, _entity, event: &RepeatableFilePickerEvent, cx| {
                 this.log_event("RepeatableFilePicker", format!("{:?}", event), cx);
+            },
+        )
+        .detach();
+
+        #[cfg(feature = "file-picker")]
+        cx.subscribe(
+            repeatable_directory_picker,
+            |this, _entity, event: &RepeatableDirectoryPickerEvent, cx| {
+                this.log_event("RepeatableDirectoryPicker", format!("{:?}", event), cx);
             },
         )
         .detach();
@@ -925,7 +954,7 @@ impl WidgetGallery {
     #[cfg(feature = "file-picker")]
     fn render_repeatable_file_section(&self, cx: &Context<Self>) -> impl IntoElement {
         let theme = get_theme(cx);
-        let values = self.repeatable_file_picker.read(cx).values();
+        let values = self.repeatable_file_picker.read(cx).values(cx);
         let display = if values.is_empty() {
             "(no files selected)".to_string()
         } else {
@@ -996,6 +1025,83 @@ impl WidgetGallery {
                             ),
                     )
                     .child(div().flex_1().child(self.repeatable_file_picker.clone())),
+            )
+    }
+
+    #[cfg(feature = "file-picker")]
+    fn render_repeatable_dir_section(&self, cx: &Context<Self>) -> impl IntoElement {
+        let theme = get_theme(cx);
+        let values = self.repeatable_directory_picker.read(cx).values(cx);
+        let display = if values.is_empty() {
+            "(no directories selected)".to_string()
+        } else {
+            values.join("\n")
+        };
+
+        div()
+            .flex()
+            .flex_col()
+            .gap_2()
+            // Value display at top with wrapping
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_1()
+                    .child(
+                        div()
+                            .text_xs()
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .text_color(rgb(theme.text_muted))
+                            .child("Value:"),
+                    )
+                    .child(
+                        div()
+                            .text_xs()
+                            .font_family("monospace")
+                            .text_color(rgb(theme.text_muted))
+                            .overflow_x_hidden()
+                            .whitespace_nowrap()
+                            .when(values.is_empty(), |d| d.child(display.clone()))
+                            .when(!values.is_empty(), |d| {
+                                d.flex()
+                                    .flex_col()
+                                    .children(values.iter().map(|v| {
+                                        div()
+                                            .overflow_x_hidden()
+                                            .text_ellipsis()
+                                            .child(v.clone())
+                                    }))
+                            }),
+                    ),
+            )
+            // Widget row below
+            .child(
+                div()
+                    .flex()
+                    .flex_row()
+                    .items_start()
+                    .gap_4()
+                    .py_2()
+                    .child(
+                        div()
+                            .w(px(200.0))
+                            .flex_shrink_0()
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .text_color(rgb(theme.text_primary))
+                                    .child("Repeatable Directory Picker"),
+                            )
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(rgb(theme.text_muted))
+                                    .child("Add/remove directory selections (min: 1)"),
+                            ),
+                    )
+                    .child(div().flex_1().child(self.repeatable_directory_picker.clone())),
             )
     }
 
@@ -1097,6 +1203,34 @@ impl WidgetGallery {
 
     #[cfg(not(feature = "file-picker"))]
     fn render_repeatable_file_pickers_section(&self, _cx: &Context<Self>) -> Div {
+        div() // Empty when feature disabled
+    }
+
+    #[cfg(feature = "file-picker")]
+    fn render_repeatable_dir_pickers_section(&self, cx: &Context<Self>) -> Div {
+        let theme = get_theme(cx);
+        let is_collapsed = self.section_repeatable_dir.read(cx).is_collapsed();
+
+        div()
+            .w_full()
+            .mb_2()
+            .border_1()
+            .border_color(rgb(theme.border_default))
+            .rounded_md()
+            .overflow_hidden()
+            .child(self.section_repeatable_dir.clone())
+            .when(!is_collapsed, |d| {
+                d.child(
+                    div()
+                        .p_4()
+                        .bg(rgb(theme.bg_secondary))
+                        .child(self.render_repeatable_dir_section(cx)),
+                )
+            })
+    }
+
+    #[cfg(not(feature = "file-picker"))]
+    fn render_repeatable_dir_pickers_section(&self, _cx: &Context<Self>) -> Div {
         div() // Empty when feature disabled
     }
 
@@ -1294,7 +1428,9 @@ impl Render for WidgetGallery {
                             // File Pickers Section (conditional)
                             .child(self.render_file_pickers_section(cx))
                             // Repeatable File Picker Section (conditional)
-                            .child(self.render_repeatable_file_pickers_section(cx)),
+                            .child(self.render_repeatable_file_pickers_section(cx))
+                            // Repeatable Directory Picker Section (conditional)
+                            .child(self.render_repeatable_dir_pickers_section(cx)),
                     ),
             )
             // Event log at bottom

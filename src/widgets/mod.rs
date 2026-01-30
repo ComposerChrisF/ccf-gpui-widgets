@@ -21,6 +21,8 @@ mod file_picker;
 mod directory_picker;
 #[cfg(feature = "file-picker")]
 mod repeatable_file_picker;
+#[cfg(feature = "file-picker")]
+mod repeatable_directory_picker;
 
 // Re-exports
 pub use text_input::{TextInput, TextInputEvent, register_keybindings as register_text_input_keybindings};
@@ -53,6 +55,8 @@ pub use directory_picker::{
 };
 #[cfg(feature = "file-picker")]
 pub use repeatable_file_picker::{RepeatableFilePicker, RepeatableFilePickerEvent};
+#[cfg(feature = "file-picker")]
+pub use repeatable_directory_picker::{RepeatableDirectoryPicker, RepeatableDirectoryPickerEvent};
 
 /// Register all widget keybindings
 ///

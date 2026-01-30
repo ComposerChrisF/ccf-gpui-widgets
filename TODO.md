@@ -127,6 +127,14 @@ The library is functional and being used by clui.
 - [x] RepeatableFilePicker: +/- buttons are focusable tab stops
 - [x] Theme: Added `border_focus_on_color` for focus on colored backgrounds
 
+### ✅ Repeatable Picker Refactoring (2026-01-30)
+- [x] RepeatableFilePicker: Refactored to use `Entity<FilePicker>` internally (removes code duplication)
+- [x] RepeatableFilePicker: Added `browse_shortcut()` and `validation_display()` builder methods
+- [x] RepeatableFilePicker: Added validation API (`entries()`, `validate_all()`, `is_all_valid()`, `directories_to_create()`)
+- [x] RepeatableFilePicker: **Breaking change**: `values()` now requires `cx` parameter
+- [x] RepeatableDirectoryPicker: New widget for multi-directory selection (uses `Entity<DirectoryPicker>`)
+- [x] Widget gallery: Added RepeatableDirectoryPicker demo
+
 ---
 
 ## Future Enhancements
