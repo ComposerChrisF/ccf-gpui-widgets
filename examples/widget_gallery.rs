@@ -16,6 +16,32 @@ actions!(widget_gallery, [Quit]);
 /// Maximum number of events to keep in the log
 const MAX_EVENT_LOG: usize = 50;
 
+/// Tab enum for TabBar demo
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum GalleryTab {
+    Overview,
+    Details,
+    Settings,
+}
+
+impl TabItem for GalleryTab {
+    fn label(&self) -> SharedString {
+        match self {
+            GalleryTab::Overview => "Overview".into(),
+            GalleryTab::Details => "Details".into(),
+            GalleryTab::Settings => "Settings".into(),
+        }
+    }
+
+    fn id(&self) -> ElementId {
+        match self {
+            GalleryTab::Overview => "tab_overview".into(),
+            GalleryTab::Details => "tab_details".into(),
+            GalleryTab::Settings => "tab_settings".into(),
+        }
+    }
+}
+
 /// Main application state
 struct WidgetGallery {
     // Theme
@@ -30,8 +56,14 @@ struct WidgetGallery {
     section_checkbox_group: Entity<Collapsible>,
     section_color: Entity<Collapsible>,
     section_tooltip: Entity<Collapsible>,
+    section_button: Entity<Collapsible>,
+    section_password: Entity<Collapsible>,
+    section_tab_bar: Entity<Collapsible>,
+    section_repeatable_text: Entity<Collapsible>,
     #[cfg(feature = "file-picker")]
     section_file: Entity<Collapsible>,
+    #[cfg(feature = "file-picker")]
+    section_repeatable_file: Entity<Collapsible>,
 
     // Widgets
     text_input: Entity<TextInput>,
@@ -50,6 +82,17 @@ struct WidgetGallery {
     file_picker: Entity<FilePicker>,
     #[cfg(feature = "file-picker")]
     directory_picker: Entity<DirectoryPicker>,
+
+    // New widgets
+    password_input: Entity<PasswordInput>,
+    tab_bar: Entity<TabBar<GalleryTab>>,
+    repeatable_text_input: Entity<RepeatableTextInput>,
+    #[cfg(feature = "file-picker")]
+    repeatable_file_picker: Entity<RepeatableFilePicker>,
+
+    // Button click tracking (buttons are not Entities)
+    primary_click_count: usize,
+    secondary_click_count: usize,
 
     // Event log
     event_log: VecDeque<EventLogEntry>,
@@ -79,8 +122,14 @@ impl WidgetGallery {
         let section_checkbox_group = cx.new(|_cx| Collapsible::new("Checkbox Group"));
         let section_color = cx.new(|_cx| Collapsible::new("Color Swatch"));
         let section_tooltip = cx.new(|_cx| Collapsible::new("Tooltip"));
+        let section_button = cx.new(|_cx| Collapsible::new("Button"));
+        let section_password = cx.new(|_cx| Collapsible::new("Password Input"));
+        let section_tab_bar = cx.new(|_cx| Collapsible::new("Tab Bar"));
+        let section_repeatable_text = cx.new(|_cx| Collapsible::new("Repeatable Text Input"));
         #[cfg(feature = "file-picker")]
         let section_file = cx.new(|_cx| Collapsible::new("File Pickers"));
+        #[cfg(feature = "file-picker")]
+        let section_repeatable_file = cx.new(|_cx| Collapsible::new("Repeatable File Picker"));
 
         // Create widgets
         let text_input = cx.new(|cx| TextInput::new(cx).placeholder("Type something..."));
@@ -162,6 +211,33 @@ impl WidgetGallery {
         let directory_picker =
             cx.new(|cx| DirectoryPicker::new(cx).placeholder("Select a directory..."));
 
+        // New widgets
+        let password_input = cx.new(|cx| PasswordInput::new(cx).placeholder("Enter password..."));
+
+        let tab_bar = cx.new(|cx| {
+            TabBar::new(
+                vec![GalleryTab::Overview, GalleryTab::Details, GalleryTab::Settings],
+                GalleryTab::Overview,
+                cx,
+            )
+        });
+
+        let repeatable_text_input = cx.new(|cx| {
+            RepeatableTextInput::new(cx)
+                .with_values(vec!["tag1".to_string(), "tag2".to_string()])
+                .placeholder("Enter tag...")
+                .min_entries(1)
+        });
+
+        #[cfg(feature = "file-picker")]
+        let repeatable_file_picker = cx.new(|cx| {
+            RepeatableFilePicker::new(cx)
+                .placeholder("Select file...")
+                .extensions(vec!["txt".to_string(), "md".to_string()])
+                .mode(FileMode::Open)
+                .min_entries(1)
+        });
+
         // Subscribe to events
         Self::subscribe_events(
             cx,
@@ -182,6 +258,16 @@ impl WidgetGallery {
             &directory_picker,
         );
 
+        // Subscribe to new widget events
+        Self::subscribe_new_events(
+            cx,
+            &password_input,
+            &tab_bar,
+            &repeatable_text_input,
+            #[cfg(feature = "file-picker")]
+            &repeatable_file_picker,
+        );
+
         Self {
             current_theme: ThemeChoice::Dark,
             section_text,
@@ -192,8 +278,14 @@ impl WidgetGallery {
             section_checkbox_group,
             section_color,
             section_tooltip,
+            section_button,
+            section_password,
+            section_tab_bar,
+            section_repeatable_text,
             #[cfg(feature = "file-picker")]
             section_file,
+            #[cfg(feature = "file-picker")]
+            section_repeatable_file,
             text_input,
             text_input_placeholder,
             checkbox,
@@ -209,6 +301,13 @@ impl WidgetGallery {
             file_picker,
             #[cfg(feature = "file-picker")]
             directory_picker,
+            password_input,
+            tab_bar,
+            repeatable_text_input,
+            #[cfg(feature = "file-picker")]
+            repeatable_file_picker,
+            primary_click_count: 0,
+            secondary_click_count: 0,
             event_log: VecDeque::new(),
             log_collapsed: false,
         }
@@ -327,6 +426,41 @@ impl WidgetGallery {
             )
             .detach();
         }
+    }
+
+    fn subscribe_new_events(
+        cx: &mut Context<Self>,
+        password_input: &Entity<PasswordInput>,
+        tab_bar: &Entity<TabBar<GalleryTab>>,
+        repeatable_text_input: &Entity<RepeatableTextInput>,
+        #[cfg(feature = "file-picker")] repeatable_file_picker: &Entity<RepeatableFilePicker>,
+    ) {
+        cx.subscribe(password_input, |this, _entity, event: &PasswordInputEvent, cx| {
+            this.log_event("PasswordInput", format!("{:?}", event), cx);
+        })
+        .detach();
+
+        cx.subscribe(tab_bar, |this, _entity, event: &TabBarEvent<GalleryTab>, cx| {
+            this.log_event("TabBar", format!("{:?}", event), cx);
+        })
+        .detach();
+
+        cx.subscribe(
+            repeatable_text_input,
+            |this, _entity, event: &RepeatableTextInputEvent, cx| {
+                this.log_event("RepeatableTextInput", format!("{:?}", event), cx);
+            },
+        )
+        .detach();
+
+        #[cfg(feature = "file-picker")]
+        cx.subscribe(
+            repeatable_file_picker,
+            |this, _entity, event: &RepeatableFilePickerEvent, cx| {
+                this.log_event("RepeatableFilePicker", format!("{:?}", event), cx);
+            },
+        )
+        .detach();
     }
 
     fn log_event(&mut self, widget: &str, event: String, cx: &mut Context<Self>) {
@@ -659,6 +793,211 @@ impl WidgetGallery {
         ))
     }
 
+    fn render_button_section(&mut self, cx: &mut Context<Self>) -> Div {
+        let theme = get_theme(cx);
+        let primary_count = self.primary_click_count;
+        let secondary_count = self.secondary_click_count;
+
+        div()
+            .flex()
+            .flex_col()
+            .gap_2()
+            .child(Self::render_widget_row(
+                "Primary Button",
+                "Main action button",
+                div()
+                    .w(px(130.0))
+                    .child(
+                        primary_button("primary_demo", "Click Me", true, cx)
+                            .on_click(cx.listener(|this, _event, _window, cx| {
+                                this.primary_click_count += 1;
+                                this.log_event(
+                                    "Button",
+                                    format!("Primary clicked (count: {})", this.primary_click_count),
+                                    cx,
+                                );
+                            })),
+                    ),
+                Some(format!("clicks: {}", primary_count)),
+                cx,
+            ))
+            .child(Self::render_widget_row(
+                "Primary (disabled)",
+                "Disabled state",
+                div()
+                    .w(px(130.0))
+                    .child(primary_button("primary_disabled", "Disabled", false, cx)),
+                None,
+                cx,
+            ))
+            .child(Self::render_widget_row(
+                "Secondary Button",
+                "Alternative action",
+                div()
+                    .w(px(130.0))
+                    .child(
+                        secondary_button("secondary_demo", "Cancel", cx).on_click(cx.listener(
+                            |this, _event, _window, cx| {
+                                this.secondary_click_count += 1;
+                                this.log_event(
+                                    "Button",
+                                    format!("Secondary clicked (count: {})", this.secondary_click_count),
+                                    cx,
+                                );
+                            },
+                        )),
+                    ),
+                Some(format!("clicks: {}", secondary_count)),
+                cx,
+            ))
+            .p_4()
+            .bg(rgb(theme.bg_secondary))
+    }
+
+    fn render_button_section_wrapper(&mut self, cx: &mut Context<Self>) -> Div {
+        let theme = get_theme(cx);
+        let is_collapsed = self.section_button.read(cx).is_collapsed();
+
+        let content = if !is_collapsed {
+            Some(self.render_button_section(cx))
+        } else {
+            None
+        };
+
+        div()
+            .w_full()
+            .mb_2()
+            .border_1()
+            .border_color(rgb(theme.border_default))
+            .rounded_md()
+            .overflow_hidden()
+            .child(self.section_button.clone())
+            .when_some(content, |d, c| d.child(c))
+    }
+
+    fn render_password_section(&self, cx: &Context<Self>) -> impl IntoElement {
+        let value = self.password_input.read(cx).value();
+        let display = if value.is_empty() {
+            "(empty)".to_string()
+        } else {
+            format!("{} chars", value.len())
+        };
+
+        div().child(Self::render_widget_row(
+            "Password Input",
+            "Masked input with visibility toggle",
+            self.password_input.clone(),
+            Some(display),
+            cx,
+        ))
+    }
+
+    fn render_tab_bar_section(&self, cx: &Context<Self>) -> impl IntoElement {
+        let active = format!("{:?}", self.tab_bar.read(cx).active_tab());
+
+        div().child(Self::render_widget_row(
+            "Tab Bar",
+            "Click tabs, right-click for context menu",
+            self.tab_bar.clone(),
+            Some(active),
+            cx,
+        ))
+    }
+
+    fn render_repeatable_text_section(&self, cx: &Context<Self>) -> impl IntoElement {
+        let values = self.repeatable_text_input.read(cx).values(cx);
+        let display = if values.is_empty() {
+            "[]".to_string()
+        } else {
+            format!("[{}]", values.join(", "))
+        };
+
+        div().child(Self::render_widget_row(
+            "Repeatable Text Input",
+            "Add/remove text entries (min: 1)",
+            self.repeatable_text_input.clone(),
+            Some(display),
+            cx,
+        ))
+    }
+
+    #[cfg(feature = "file-picker")]
+    fn render_repeatable_file_section(&self, cx: &Context<Self>) -> impl IntoElement {
+        let theme = get_theme(cx);
+        let values = self.repeatable_file_picker.read(cx).values();
+        let display = if values.is_empty() {
+            "(no files selected)".to_string()
+        } else {
+            values.join("\n")
+        };
+
+        div()
+            .flex()
+            .flex_col()
+            .gap_2()
+            // Value display at top with wrapping
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_1()
+                    .child(
+                        div()
+                            .text_xs()
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .text_color(rgb(theme.text_muted))
+                            .child("Value:"),
+                    )
+                    .child(
+                        div()
+                            .text_xs()
+                            .font_family("monospace")
+                            .text_color(rgb(theme.text_muted))
+                            .overflow_x_hidden()
+                            .whitespace_nowrap()
+                            .when(values.is_empty(), |d| d.child(display.clone()))
+                            .when(!values.is_empty(), |d| {
+                                d.flex()
+                                    .flex_col()
+                                    .children(values.iter().map(|v| {
+                                        div()
+                                            .overflow_x_hidden()
+                                            .text_ellipsis()
+                                            .child(v.clone())
+                                    }))
+                            }),
+                    ),
+            )
+            // Widget row below
+            .child(
+                div()
+                    .flex()
+                    .flex_row()
+                    .items_start()
+                    .gap_4()
+                    .py_2()
+                    .child(
+                        div()
+                            .w(px(200.0))
+                            .flex_shrink_0()
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .text_color(rgb(theme.text_primary))
+                                    .child("Repeatable File Picker"),
+                            )
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(rgb(theme.text_muted))
+                                    .child("Add/remove file selections (min: 1)"),
+                            ),
+                    )
+                    .child(div().flex_1().child(self.repeatable_file_picker.clone())),
+            )
+    }
+
     #[cfg(feature = "file-picker")]
     fn render_file_section(&self, cx: &Context<Self>) -> impl IntoElement {
         let file_value = self.file_picker.read(cx).value().to_string();
@@ -730,6 +1069,34 @@ impl WidgetGallery {
             .child(
                 "Note: File pickers not shown. Run with --features file-picker or --features full to enable.",
             )
+    }
+
+    #[cfg(feature = "file-picker")]
+    fn render_repeatable_file_pickers_section(&self, cx: &Context<Self>) -> Div {
+        let theme = get_theme(cx);
+        let is_collapsed = self.section_repeatable_file.read(cx).is_collapsed();
+
+        div()
+            .w_full()
+            .mb_2()
+            .border_1()
+            .border_color(rgb(theme.border_default))
+            .rounded_md()
+            .overflow_hidden()
+            .child(self.section_repeatable_file.clone())
+            .when(!is_collapsed, |d| {
+                d.child(
+                    div()
+                        .p_4()
+                        .bg(rgb(theme.bg_secondary))
+                        .child(self.render_repeatable_file_section(cx)),
+                )
+            })
+    }
+
+    #[cfg(not(feature = "file-picker"))]
+    fn render_repeatable_file_pickers_section(&self, _cx: &Context<Self>) -> Div {
+        div() // Empty when feature disabled
     }
 
     fn render_event_log(&self, cx: &Context<Self>) -> impl IntoElement {
@@ -903,8 +1270,30 @@ impl Render for WidgetGallery {
                                 || self.render_tooltip_section(cx),
                                 cx,
                             ))
+                            // Button Section
+                            .child(self.render_button_section_wrapper(cx))
+                            // Password Section
+                            .child(self.render_section(
+                                &self.section_password,
+                                || self.render_password_section(cx),
+                                cx,
+                            ))
+                            // Tab Bar Section
+                            .child(self.render_section(
+                                &self.section_tab_bar,
+                                || self.render_tab_bar_section(cx),
+                                cx,
+                            ))
+                            // Repeatable Text Input Section
+                            .child(self.render_section(
+                                &self.section_repeatable_text,
+                                || self.render_repeatable_text_section(cx),
+                                cx,
+                            ))
                             // File Pickers Section (conditional)
-                            .child(self.render_file_pickers_section(cx)),
+                            .child(self.render_file_pickers_section(cx))
+                            // Repeatable File Picker Section (conditional)
+                            .child(self.render_repeatable_file_pickers_section(cx)),
                     ),
             )
             // Event log at bottom

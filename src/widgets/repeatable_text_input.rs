@@ -128,11 +128,10 @@ impl RepeatableTextInput {
         }
 
         // Subscribe to changes to emit our own change events
-        let entity = cx.entity().clone();
-        cx.subscribe(&entry, move |_this, _input, event: &TextInputEvent, cx| {
+        cx.subscribe(&entry, |this, _input, event: &TextInputEvent, cx| {
             if matches!(event, TextInputEvent::Change) {
                 // Re-read all values and emit change
-                let values = entity.read(cx).values(cx);
+                let values = this.values(cx);
                 cx.emit(RepeatableTextInputEvent::Change(values));
             }
         }).detach();

@@ -98,6 +98,8 @@ The library is functional and being used by clui.
 - [x] RepeatableTextInput: Dynamic list of text inputs with add/remove buttons
 - [x] RepeatableFilePicker: Multi-file selection with validation, drag-drop support
 - [x] Theme extensions: 12 new color fields (disabled, secondary, tabs, delete, path)
+- [x] Widget gallery: Added demos for Button, PasswordInput, TabBar, RepeatableTextInput, RepeatableFilePicker
+- [x] RepeatableTextInput: Fixed borrow conflict panic when typing in newly added entries
 
 ---
 
