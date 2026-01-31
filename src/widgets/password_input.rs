@@ -28,7 +28,7 @@
 //! }).detach();
 //! ```
 
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use gpui::prelude::*;
 use gpui::*;
@@ -37,6 +37,7 @@ use gpui::*;
 use secrecy::SecretString;
 
 use crate::theme::{get_theme_or, Theme};
+use super::cursor_blink::CursorBlink;
 use super::editing_core::EditingCore;
 use super::focus_navigation::{FocusNext, FocusPrev};
 use super::text_input::{
@@ -103,8 +104,8 @@ pub struct PasswordInput {
     was_focused: bool,
     /// Whether focus-out subscription has been set up
     focus_out_subscribed: bool,
-    /// Time when cursor was last moved (for blink reset)
-    cursor_last_moved: Instant,
+    /// Cursor blink state
+    cursor_blink: CursorBlink,
     /// Whether blink timer is set up
     blink_timer_active: bool,
     /// Whether currently dragging to select text
@@ -147,7 +148,7 @@ impl PasswordInput {
             content_origin_x: 0.0,
             was_focused: false,
             focus_out_subscribed: false,
-            cursor_last_moved: Instant::now(),
+            cursor_blink: CursorBlink::new(),
             blink_timer_active: false,
             is_dragging: false,
             auto_scroll_active: false,
@@ -280,14 +281,7 @@ impl PasswordInput {
     }
 
     fn reset_cursor_blink(&mut self) {
-        self.cursor_last_moved = Instant::now();
-    }
-
-    fn is_cursor_visible(&self) -> bool {
-        let elapsed = self.cursor_last_moved.elapsed();
-        let blink_period = Duration::from_millis(530);
-        let cycle_position = elapsed.as_millis() % (blink_period.as_millis() * 2);
-        cycle_position < blink_period.as_millis()
+        self.cursor_blink.reset();
     }
 
     fn shape_line(&self, window: &Window) -> Option<ShapedLine> {
@@ -649,9 +643,10 @@ impl Render for PasswordInput {
         if input_is_focused && !self.blink_timer_active {
             self.blink_timer_active = true;
             let entity = cx.entity();
+            let blink_period = CursorBlink::blink_period();
             window.spawn(cx, async move |async_cx| {
                 loop {
-                    smol::Timer::after(Duration::from_millis(530)).await;
+                    smol::Timer::after(blink_period).await;
                     let should_continue = async_cx
                         .update_entity(&entity, |this, cx| {
                             if !this.blink_timer_active {
@@ -689,7 +684,7 @@ impl Render for PasswordInput {
         let selection = self.core.selection();
 
         let cursor_x = self.x_for_cursor(cursor, window) - render_scroll_offset;
-        let cursor_visible = input_is_focused && self.is_cursor_visible();
+        let cursor_visible = input_is_focused && self.cursor_blink.is_visible();
 
         let selection_bounds: Option<(f32, f32)> = if input_is_focused {
             selection.and_then(|(start, end)| {

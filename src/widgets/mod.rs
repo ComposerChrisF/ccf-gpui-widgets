@@ -1,5 +1,6 @@
 //! GPUI widgets
 
+mod cursor_blink;
 mod editing_core;
 mod text_input;
 mod tooltip;

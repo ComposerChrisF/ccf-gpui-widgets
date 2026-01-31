@@ -40,12 +40,12 @@
 
 use std::cell::Cell;
 use std::rc::Rc;
-use std::time::{Duration, Instant};
 
 use gpui::prelude::*;
 use gpui::*;
 
 use crate::theme::{get_theme_or, Theme};
+use super::cursor_blink::CursorBlink;
 use super::focus_navigation::{FocusNext, FocusPrev};
 
 // Actions for text editing mode
@@ -125,7 +125,7 @@ pub struct NumberStepper {
     /// Whether focus-out subscription has been set up
     focus_out_subscribed: bool,
     /// Cursor blink state
-    cursor_last_moved: Instant,
+    cursor_blink: CursorBlink,
     /// Whether blink timer is active
     blink_timer_active: bool,
 
@@ -167,7 +167,7 @@ impl NumberStepper {
             edit_buffer: String::new(),
             edit_cursor: 0,
             focus_out_subscribed: false,
-            cursor_last_moved: Instant::now(),
+            cursor_blink: CursorBlink::new(),
             blink_timer_active: false,
             dragging: false,
             drag_start_x: 0.0,
@@ -353,7 +353,7 @@ impl NumberStepper {
         self.editing = true;
         self.edit_buffer = self.format_value();
         self.edit_cursor = self.edit_buffer.len();
-        self.cursor_last_moved = Instant::now();
+        self.cursor_blink.reset();
         cx.notify();
     }
 
@@ -384,15 +384,7 @@ impl NumberStepper {
 
     /// Reset cursor blink timer
     fn reset_cursor_blink(&mut self) {
-        self.cursor_last_moved = Instant::now();
-    }
-
-    /// Check if cursor should be visible based on blink cycle
-    fn is_cursor_visible(&self) -> bool {
-        let elapsed = self.cursor_last_moved.elapsed();
-        let blink_period = Duration::from_millis(530);
-        let cycle_position = elapsed.as_millis() % (blink_period.as_millis() * 2);
-        cycle_position < blink_period.as_millis()
+        self.cursor_blink.reset();
     }
 
     /// Insert character at cursor position
@@ -563,9 +555,10 @@ impl Render for NumberStepper {
         if editing && is_focused && !self.blink_timer_active {
             self.blink_timer_active = true;
             let entity = cx.entity();
+            let blink_period = CursorBlink::blink_period();
             window.spawn(cx, async move |async_cx| {
                 loop {
-                    smol::Timer::after(Duration::from_millis(530)).await;
+                    smol::Timer::after(blink_period).await;
                     let should_continue = async_cx
                         .update_entity(&entity, |this: &mut NumberStepper, cx| {
                             if !this.blink_timer_active || !this.editing {
@@ -595,7 +588,7 @@ impl Render for NumberStepper {
             // Text edit mode
             let edit_buffer = self.edit_buffer.clone();
             let edit_cursor = self.edit_cursor;
-            let cursor_visible = self.is_cursor_visible();
+            let cursor_visible = self.cursor_blink.is_visible();
 
             // Calculate cursor position (simple approximation for monospace-ish display)
             let cursor_offset = edit_buffer[..edit_cursor].chars().count() as f32 * 8.0;
@@ -778,6 +771,7 @@ impl Render for NumberStepper {
                             window.focus_next();
                         }
                     }
+                    "enter" => stepper.enter_edit_mode(cx),
                     "up" => stepper.increment(multiplier, cx),
                     "down" => stepper.decrement(multiplier, cx),
                     _ => {}

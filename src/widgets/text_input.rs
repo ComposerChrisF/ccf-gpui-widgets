@@ -28,12 +28,13 @@
 //! }).detach();
 //! ```
 
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use gpui::prelude::*;
 use gpui::*;
 
 use crate::theme::{get_theme_or, Theme};
+use super::cursor_blink::CursorBlink;
 use super::editing_core::EditingCore;
 use super::focus_navigation::{FocusNext, FocusPrev};
 
@@ -167,8 +168,8 @@ pub struct TextInput {
     was_focused: bool,
     /// Whether focus-out subscription has been set up
     focus_out_subscribed: bool,
-    /// Time when cursor was last moved (for blink reset)
-    cursor_last_moved: Instant,
+    /// Cursor blink state
+    cursor_blink: CursorBlink,
     /// Whether blink timer is set up
     blink_timer_active: bool,
     /// Optional custom theme
@@ -204,7 +205,7 @@ impl TextInput {
             content_origin_x: 0.0,
             was_focused: false,
             focus_out_subscribed: false,
-            cursor_last_moved: Instant::now(),
+            cursor_blink: CursorBlink::new(),
             blink_timer_active: false,
             custom_theme: None,
             is_dragging: false,
@@ -303,15 +304,7 @@ impl TextInput {
 
     /// Reset cursor blink timer
     fn reset_cursor_blink(&mut self) {
-        self.cursor_last_moved = Instant::now();
-    }
-
-    /// Check if cursor should be visible based on blink cycle
-    fn is_cursor_visible(&self) -> bool {
-        let elapsed = self.cursor_last_moved.elapsed();
-        let blink_period = Duration::from_millis(530);
-        let cycle_position = elapsed.as_millis() % (blink_period.as_millis() * 2);
-        cycle_position < blink_period.as_millis()
+        self.cursor_blink.reset();
     }
 
     /// Get the current content
@@ -736,9 +729,10 @@ impl Render for TextInput {
         if is_focused && !self.blink_timer_active {
             self.blink_timer_active = true;
             let entity = cx.entity();
+            let blink_period = CursorBlink::blink_period();
             window.spawn(cx, async move |async_cx| {
                 loop {
-                    smol::Timer::after(Duration::from_millis(530)).await;
+                    smol::Timer::after(blink_period).await;
                     let should_continue = async_cx
                         .update_entity(&entity, |this, cx| {
                             if !this.blink_timer_active {
@@ -773,7 +767,7 @@ impl Render for TextInput {
         let selection = self.core.selection();
 
         let cursor_x = self.x_for_cursor(cursor, window) - render_scroll_offset;
-        let cursor_visible = is_focused && self.is_cursor_visible();
+        let cursor_visible = is_focused && self.cursor_blink.is_visible();
 
         // Only show selection when focused
         let selection_bounds: Option<(f32, f32)> = if is_focused {
