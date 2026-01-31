@@ -158,6 +158,27 @@ The library is functional and being used by clui.
 - [x] TextInput: Added `Tab` and `ShiftTab` events to `TextInputEvent`
 - [x] **Breaking change**: `register_number_stepper_keybindings()` removed from exports
 
+### ✅ New Widgets: Toggle, Slider, Progress, Spinner, Dialog (2026-01-30)
+- [x] ToggleSwitch: iOS-style toggle switch with pill-shaped track and circular thumb
+- [x] ToggleSwitch: Label support with configurable position (left or right)
+- [x] ToggleSwitch: Space/Enter to toggle, full keyboard navigation
+- [x] Slider: Horizontal slider with draggable thumb, min/max/step constraints
+- [x] Slider: Keyboard support: Left/Right arrows, Shift for 10x step, Home/End for min/max
+- [x] Slider: Optional value display
+- [x] ProgressBar: Determinate mode with filled bar based on percentage
+- [x] ProgressBar: Indeterminate mode with animated sliding bar
+- [x] ProgressBar: Optional percentage text and label
+- [x] ProgressBar: Complete event when reaching 100%
+- [x] Spinner: Animated 8-dot loading spinner with size presets (Small/Medium/Large/Custom)
+- [x] Spinner: Optional label text
+- [x] ConfirmationDialog: Modal dialog with semi-transparent overlay backdrop
+- [x] ConfirmationDialog: Four styles - Info, Default, Warning, Danger
+- [x] ConfirmationDialog: Info style: Single OK button, dismissible with Enter/Escape/click-outside
+- [x] ConfirmationDialog: Danger style: Red button, Enter does NOT confirm, click-outside ignored
+- [x] ConfirmationDialog: Uses `.occlude()` to block mouse events from reaching controls below
+- [x] Button: Added `danger_button()` utility function with error color styling
+- [x] Widget gallery: Added demos for all new widgets
+
 ---
 
 ## Future Enhancements
@@ -174,11 +195,12 @@ The library is functional and being used by clui.
 - [ ] CSS-like theme file loading
 
 ### 🧩 New Widgets
-- [ ] Slider (horizontal range input)
-- [ ] Toggle/Switch (iOS-style toggle)
-- [ ] ProgressBar
+- [x] Slider (horizontal range input)
+- [x] Toggle/Switch (iOS-style toggle)
+- [x] ProgressBar
 - [x] Tabs component (TabBar)
-- [ ] Modal/Dialog
+- [x] Modal/Dialog (ConfirmationDialog)
+- [x] Spinner (loading indicator)
 - [ ] Toast/Notification
 - [ ] TreeView
 - [ ] DataTable

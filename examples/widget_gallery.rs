@@ -60,6 +60,11 @@ struct WidgetGallery {
     section_password: Entity<Collapsible>,
     section_tab_bar: Entity<Collapsible>,
     section_repeatable_text: Entity<Collapsible>,
+    section_toggle: Entity<Collapsible>,
+    section_slider: Entity<Collapsible>,
+    section_progress: Entity<Collapsible>,
+    section_spinner: Entity<Collapsible>,
+    section_dialog: Entity<Collapsible>,
     #[cfg(feature = "file-picker")]
     section_file: Entity<Collapsible>,
     #[cfg(feature = "file-picker")]
@@ -94,9 +99,23 @@ struct WidgetGallery {
     #[cfg(feature = "file-picker")]
     repeatable_directory_picker: Entity<RepeatableDirectoryPicker>,
 
+    // New widgets (toggle, slider, progress, spinner, dialog)
+    toggle_switch: Entity<ToggleSwitch>,
+    toggle_switch_labeled: Entity<ToggleSwitch>,
+    slider: Entity<Slider>,
+    slider_with_value: Entity<Slider>,
+    progress_bar: Entity<ProgressBar>,
+    progress_bar_indeterminate: Entity<ProgressBar>,
+    spinner: Entity<Spinner>,
+    show_dialog: bool,
+    confirmation_dialog: Entity<ConfirmationDialog>,
+    show_info_dialog: bool,
+    info_dialog: Entity<ConfirmationDialog>,
+
     // Button click tracking (buttons are not Entities)
     primary_click_count: usize,
     secondary_click_count: usize,
+    danger_click_count: usize,
 
     // Event log
     event_log: VecDeque<EventLogEntry>,
@@ -130,6 +149,11 @@ impl WidgetGallery {
         let section_password = cx.new(|_cx| Collapsible::new("Password Input"));
         let section_tab_bar = cx.new(|_cx| Collapsible::new("Tab Bar"));
         let section_repeatable_text = cx.new(|_cx| Collapsible::new("Repeatable Text Input"));
+        let section_toggle = cx.new(|_cx| Collapsible::new("Toggle Switch"));
+        let section_slider = cx.new(|_cx| Collapsible::new("Slider"));
+        let section_progress = cx.new(|_cx| Collapsible::new("Progress Bar"));
+        let section_spinner = cx.new(|_cx| Collapsible::new("Spinner"));
+        let section_dialog = cx.new(|_cx| Collapsible::new("Confirmation Dialog"));
         #[cfg(feature = "file-picker")]
         let section_file = cx.new(|_cx| Collapsible::new("File Pickers"));
         #[cfg(feature = "file-picker")]
@@ -251,6 +275,66 @@ impl WidgetGallery {
                 .min_entries(1)
         });
 
+        // New widgets
+        let toggle_switch = cx.new(ToggleSwitch::new);
+        let toggle_switch_labeled = cx.new(|cx| {
+            ToggleSwitch::new(cx)
+                .with_enabled(true)
+                .label("Enable notifications")
+        });
+
+        let slider = cx.new(|cx| {
+            Slider::new(cx)
+                .with_value(50.0)
+                .min(0.0)
+                .max(100.0)
+                .step(1.0)
+        });
+        let slider_with_value = cx.new(|cx| {
+            Slider::new(cx)
+                .with_value(0.5)
+                .min(0.0)
+                .max(1.0)
+                .step(0.01)
+                .show_value(true)
+                .display_precision(2)
+        });
+
+        let progress_bar = cx.new(|_cx| {
+            ProgressBar::new()
+                .with_value(0.65)
+                .show_percentage(true)
+                .label("Upload Progress")
+        });
+        let progress_bar_indeterminate = cx.new(|_cx| {
+            ProgressBar::new()
+                .indeterminate()
+                .label("Loading...")
+        });
+
+        let spinner = cx.new(|_cx| Spinner::new().label("Processing..."));
+
+        let confirmation_dialog = cx.new(|cx| {
+            ConfirmationDialog::new(
+                "Delete Item",
+                "Are you sure you want to delete this item? This action cannot be undone.",
+                cx,
+            )
+            .style(DialogStyle::Danger)
+            .confirm_label("Delete")
+            .cancel_label("Cancel")
+        });
+
+        let info_dialog = cx.new(|cx| {
+            ConfirmationDialog::new(
+                "Operation Complete",
+                "Your changes have been saved successfully. You can dismiss this dialog with Enter, Escape, or by clicking outside.",
+                cx,
+            )
+            .style(DialogStyle::Info)
+            .confirm_label("OK")
+        });
+
         // Subscribe to events
         Self::subscribe_events(
             cx,
@@ -283,6 +367,18 @@ impl WidgetGallery {
             &repeatable_directory_picker,
         );
 
+        // Subscribe to toggle/slider/progress/dialog events
+        Self::subscribe_extra_events(
+            cx,
+            &toggle_switch,
+            &toggle_switch_labeled,
+            &slider,
+            &slider_with_value,
+            &progress_bar,
+            &confirmation_dialog,
+            &info_dialog,
+        );
+
         Self {
             current_theme: ThemeChoice::Dark,
             section_text,
@@ -297,6 +393,11 @@ impl WidgetGallery {
             section_password,
             section_tab_bar,
             section_repeatable_text,
+            section_toggle,
+            section_slider,
+            section_progress,
+            section_spinner,
+            section_dialog,
             #[cfg(feature = "file-picker")]
             section_file,
             #[cfg(feature = "file-picker")]
@@ -325,8 +426,20 @@ impl WidgetGallery {
             repeatable_file_picker,
             #[cfg(feature = "file-picker")]
             repeatable_directory_picker,
+            toggle_switch,
+            toggle_switch_labeled,
+            slider,
+            slider_with_value,
+            progress_bar,
+            progress_bar_indeterminate,
+            spinner,
+            show_dialog: false,
+            confirmation_dialog,
+            show_info_dialog: false,
+            info_dialog,
             primary_click_count: 0,
             secondary_click_count: 0,
+            danger_click_count: 0,
             event_log: VecDeque::new(),
             log_collapsed: false,
         }
@@ -489,6 +602,59 @@ impl WidgetGallery {
                 this.log_event("RepeatableDirectoryPicker", format!("{:?}", event), cx);
             },
         )
+        .detach();
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn subscribe_extra_events(
+        cx: &mut Context<Self>,
+        toggle_switch: &Entity<ToggleSwitch>,
+        toggle_switch_labeled: &Entity<ToggleSwitch>,
+        slider: &Entity<Slider>,
+        slider_with_value: &Entity<Slider>,
+        progress_bar: &Entity<ProgressBar>,
+        confirmation_dialog: &Entity<ConfirmationDialog>,
+        info_dialog: &Entity<ConfirmationDialog>,
+    ) {
+        cx.subscribe(toggle_switch, |this, _entity, event: &ToggleSwitchEvent, cx| {
+            this.log_event("ToggleSwitch", format!("{:?}", event), cx);
+        })
+        .detach();
+
+        cx.subscribe(toggle_switch_labeled, |this, _entity, event: &ToggleSwitchEvent, cx| {
+            this.log_event("ToggleSwitch (labeled)", format!("{:?}", event), cx);
+        })
+        .detach();
+
+        cx.subscribe(slider, |this, _entity, event: &SliderEvent, cx| {
+            this.log_event("Slider", format!("{:?}", event), cx);
+        })
+        .detach();
+
+        cx.subscribe(slider_with_value, |this, _entity, event: &SliderEvent, cx| {
+            this.log_event("Slider (with value)", format!("{:?}", event), cx);
+        })
+        .detach();
+
+        cx.subscribe(progress_bar, |this, _entity, event: &ProgressBarEvent, cx| {
+            this.log_event("ProgressBar", format!("{:?}", event), cx);
+        })
+        .detach();
+
+        cx.subscribe(confirmation_dialog, |this, _entity, event: &ConfirmationDialogEvent, cx| {
+            this.log_event("ConfirmationDialog (Danger)", format!("{:?}", event), cx);
+            // Hide dialog after any response
+            this.show_dialog = false;
+            cx.notify();
+        })
+        .detach();
+
+        cx.subscribe(info_dialog, |this, _entity, event: &ConfirmationDialogEvent, cx| {
+            this.log_event("ConfirmationDialog (Info)", format!("{:?}", event), cx);
+            // Hide dialog after any response
+            this.show_info_dialog = false;
+            cx.notify();
+        })
         .detach();
     }
 
@@ -826,6 +992,7 @@ impl WidgetGallery {
         let theme = get_theme(cx);
         let primary_count = self.primary_click_count;
         let secondary_count = self.secondary_click_count;
+        let danger_count = self.danger_click_count;
 
         div()
             .flex()
@@ -877,6 +1044,35 @@ impl WidgetGallery {
                         )),
                     ),
                 Some(format!("clicks: {}", secondary_count)),
+                cx,
+            ))
+            .child(Self::render_widget_row(
+                "Danger Button",
+                "Destructive action",
+                div()
+                    .w(px(130.0))
+                    .child(
+                        danger_button("danger_demo", "Delete", true, cx).on_click(cx.listener(
+                            |this, _event, _window, cx| {
+                                this.danger_click_count += 1;
+                                this.log_event(
+                                    "Button",
+                                    format!("Danger clicked (count: {})", this.danger_click_count),
+                                    cx,
+                                );
+                            },
+                        )),
+                    ),
+                Some(format!("clicks: {}", danger_count)),
+                cx,
+            ))
+            .child(Self::render_widget_row(
+                "Danger (disabled)",
+                "Disabled state",
+                div()
+                    .w(px(130.0))
+                    .child(danger_button("danger_disabled", "Delete", false, cx)),
+                None,
                 cx,
             ))
             .p_4()
@@ -1248,6 +1444,234 @@ impl WidgetGallery {
         div() // Empty when feature disabled
     }
 
+    fn render_toggle_section(&self, cx: &Context<Self>) -> impl IntoElement {
+        let toggle_value = self.toggle_switch.read(cx).is_enabled();
+        let labeled_value = self.toggle_switch_labeled.read(cx).is_enabled();
+
+        div()
+            .flex()
+            .flex_col()
+            .gap_2()
+            .child(Self::render_widget_row(
+                "Basic Toggle",
+                "Simple on/off switch",
+                self.toggle_switch.clone(),
+                Some(toggle_value.to_string()),
+                cx,
+            ))
+            .child(Self::render_widget_row(
+                "Labeled Toggle",
+                "With label text",
+                self.toggle_switch_labeled.clone(),
+                Some(labeled_value.to_string()),
+                cx,
+            ))
+    }
+
+    fn render_slider_section(&self, cx: &Context<Self>) -> impl IntoElement {
+        let slider_value = self.slider.read(cx).value();
+        let slider_with_value_val = self.slider_with_value.read(cx).value();
+
+        div()
+            .flex()
+            .flex_col()
+            .gap_2()
+            .child(Self::render_widget_row(
+                "Basic Slider",
+                "Range: 0-100, step: 1",
+                div().w(px(200.0)).child(self.slider.clone()),
+                Some(format!("{:.0}", slider_value)),
+                cx,
+            ))
+            .child(Self::render_widget_row(
+                "Slider with Value",
+                "Range: 0-1, step: 0.01, shows value",
+                div().w(px(250.0)).child(self.slider_with_value.clone()),
+                Some(format!("{:.2}", slider_with_value_val)),
+                cx,
+            ))
+    }
+
+    fn render_progress_section(&self, cx: &Context<Self>) -> impl IntoElement {
+        let progress_value = self.progress_bar.read(cx).percentage();
+
+        div()
+            .flex()
+            .flex_col()
+            .gap_4()
+            .child(Self::render_widget_row(
+                "Determinate Progress",
+                "Shows 65% complete with label",
+                div().w(px(300.0)).child(self.progress_bar.clone()),
+                progress_value.map(|p| format!("{:.0}%", p * 100.0)),
+                cx,
+            ))
+            .child(Self::render_widget_row(
+                "Indeterminate Progress",
+                "Animated loading bar",
+                div().w(px(300.0)).child(self.progress_bar_indeterminate.clone()),
+                Some("indeterminate".to_string()),
+                cx,
+            ))
+    }
+
+    fn render_spinner_section(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = get_theme(cx);
+
+        div()
+            .flex()
+            .flex_col()
+            .gap_4()
+            .child(Self::render_widget_row(
+                "Spinner with Label",
+                "Medium size (default)",
+                self.spinner.clone(),
+                None,
+                cx,
+            ))
+            .child(Self::render_widget_row(
+                "Spinner Sizes",
+                "Small, Medium, Large",
+                div()
+                    .flex()
+                    .flex_row()
+                    .gap_4()
+                    .items_center()
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .items_center()
+                            .gap_1()
+                            .child(cx.new(|_cx| Spinner::new().size(SpinnerSize::Small)))
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(rgb(theme.text_muted))
+                                    .child("Small"),
+                            ),
+                    )
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .items_center()
+                            .gap_1()
+                            .child(cx.new(|_cx| Spinner::new().size(SpinnerSize::Medium)))
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(rgb(theme.text_muted))
+                                    .child("Medium"),
+                            ),
+                    )
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .items_center()
+                            .gap_1()
+                            .child(cx.new(|_cx| Spinner::new().size(SpinnerSize::Large)))
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(rgb(theme.text_muted))
+                                    .child("Large"),
+                            ),
+                    ),
+                None,
+                cx,
+            ))
+    }
+
+    fn render_spinner_section_wrapper(&mut self, cx: &mut Context<Self>) -> Div {
+        let theme = get_theme(cx);
+        let is_collapsed = self.section_spinner.read(cx).is_collapsed();
+
+        let content = if !is_collapsed {
+            Some(self.render_spinner_section(cx))
+        } else {
+            None
+        };
+
+        div()
+            .w_full()
+            .mb_2()
+            .border_1()
+            .border_color(rgb(theme.border_default))
+            .rounded_md()
+            .overflow_hidden()
+            .child(self.section_spinner.clone())
+            .when_some(content, |d, c| d.child(
+                div()
+                    .p_4()
+                    .bg(rgb(theme.bg_secondary))
+                    .child(c)
+            ))
+    }
+
+    fn render_dialog_section(&mut self, cx: &mut Context<Self>) -> Div {
+        let theme = get_theme(cx);
+
+        div()
+            .flex()
+            .flex_col()
+            .gap_2()
+            .p_4()
+            .bg(rgb(theme.bg_secondary))
+            .child(Self::render_widget_row(
+                "Info Dialog",
+                "Dismissible with Enter, Escape, or click-outside",
+                div()
+                    .max_w(px(160.0))
+                    .child(
+                        primary_button("show_info_dialog_btn", "Show Info...", true, cx)
+                            .on_click(cx.listener(|this, _event, _window, cx| {
+                                this.show_info_dialog = true;
+                                this.log_event("Dialog (Info)", "Opened".to_string(), cx);
+                            }))
+                    ),
+                None,
+                cx,
+            ))
+            .child(Self::render_widget_row(
+                "Danger Dialog",
+                "Must click Cancel/Delete or press Escape",
+                div()
+                    .max_w(px(160.0))
+                    .child(
+                        danger_button("show_dialog_btn", "Delete Item...", true, cx)
+                            .on_click(cx.listener(|this, _event, _window, cx| {
+                                this.show_dialog = true;
+                                this.log_event("Dialog (Danger)", "Opened".to_string(), cx);
+                            }))
+                    ),
+                None,
+                cx,
+            ))
+    }
+
+    fn render_dialog_section_wrapper(&mut self, cx: &mut Context<Self>) -> Div {
+        let theme = get_theme(cx);
+        let is_collapsed = self.section_dialog.read(cx).is_collapsed();
+
+        let content = if !is_collapsed {
+            Some(self.render_dialog_section(cx))
+        } else {
+            None
+        };
+
+        div()
+            .w_full()
+            .mb_2()
+            .border_1()
+            .border_color(rgb(theme.border_default))
+            .rounded_md()
+            .overflow_hidden()
+            .child(self.section_dialog.clone())
+            .when_some(content, |d, c| d.child(c))
+    }
+
     fn render_event_log(&self, cx: &Context<Self>) -> impl IntoElement {
         let theme = get_theme(cx);
 
@@ -1439,6 +1863,28 @@ impl Render for WidgetGallery {
                                 || self.render_repeatable_text_section(cx),
                                 cx,
                             ))
+                            // Toggle Switch Section
+                            .child(self.render_section(
+                                &self.section_toggle,
+                                || self.render_toggle_section(cx),
+                                cx,
+                            ))
+                            // Slider Section
+                            .child(self.render_section(
+                                &self.section_slider,
+                                || self.render_slider_section(cx),
+                                cx,
+                            ))
+                            // Progress Bar Section
+                            .child(self.render_section(
+                                &self.section_progress,
+                                || self.render_progress_section(cx),
+                                cx,
+                            ))
+                            // Spinner Section
+                            .child(self.render_spinner_section_wrapper(cx))
+                            // Confirmation Dialog Section
+                            .child(self.render_dialog_section_wrapper(cx))
                             // File Pickers Section (conditional)
                             .child(self.render_file_pickers_section(cx))
                             // Repeatable File Picker Section (conditional)
@@ -1449,6 +1895,14 @@ impl Render for WidgetGallery {
             )
             // Event log at bottom
             .child(self.render_event_log(cx))
+            // Info dialog overlay (when shown)
+            .when(self.show_info_dialog, |d| {
+                d.child(self.info_dialog.clone())
+            })
+            // Danger dialog overlay (when shown)
+            .when(self.show_dialog, |d| {
+                d.child(self.confirmation_dialog.clone())
+            })
     }
 }
 

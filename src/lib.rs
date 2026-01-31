@@ -107,10 +107,15 @@ pub mod prelude {
         ColorSwatch, ColorSwatchEvent,
         Collapsible, CollapsibleEvent,
         Tooltip,
-        primary_button, secondary_button,
+        primary_button, secondary_button, danger_button,
         PasswordInput, PasswordInputEvent,
         TabBar, TabBarEvent, TabItem,
         RepeatableTextInput, RepeatableTextInputEvent,
+        ToggleSwitch, ToggleSwitchEvent, LabelPosition,
+        Slider, SliderEvent,
+        ProgressBar, ProgressBarEvent,
+        Spinner, SpinnerSize,
+        ConfirmationDialog, ConfirmationDialogEvent, DialogStyle,
     };
 
     #[cfg(feature = "file-picker")]
