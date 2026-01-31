@@ -230,6 +230,11 @@ impl PasswordInput {
         self.input_focus_handle.clone()
     }
 
+    /// Check if the password is currently visible (unmasked)
+    pub fn is_password_visible(&self) -> bool {
+        self.show_password
+    }
+
     fn emit_change(&self, cx: &mut Context<Self>) {
         #[cfg(feature = "secure-password")]
         cx.emit(PasswordInputEvent::Change(self.create_secret_from_content()));
