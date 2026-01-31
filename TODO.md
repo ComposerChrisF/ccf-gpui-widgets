@@ -173,11 +173,11 @@ The library is functional and being used by clui.
 - [x] Spinner: Optional label text
 - [x] ConfirmationDialog: Modal dialog with semi-transparent overlay backdrop
 - [x] ConfirmationDialog: Four styles - Info, Default, Warning, Danger
-- [x] ConfirmationDialog: Info style: Single OK button, dismissible with Enter/Escape/click-outside
-- [x] ConfirmationDialog: Danger style: Red button, Enter does NOT confirm, click-outside ignored
+- [x] ConfirmationDialog: Configurable primary/secondary/tertiary buttons
+- [x] ConfirmationDialog: Custom key mappings via `map_key()` (e.g., Y/N for Yes/No)
 - [x] ConfirmationDialog: Uses `.occlude()` to block mouse events from reaching controls below
 - [x] Button: Added `danger_button()` utility function with error color styling
-- [x] Widget gallery: Added demos for all new widgets
+- [x] Widget gallery: Shows dialog results next to launch buttons
 
 ---
 

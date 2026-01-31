@@ -50,7 +50,7 @@ pub use toggle_switch::{ToggleSwitch, ToggleSwitchEvent, LabelPosition};
 pub use slider::{Slider, SliderEvent};
 pub use progress_bar::{ProgressBar, ProgressBarEvent};
 pub use spinner::{Spinner, SpinnerSize};
-pub use confirmation_dialog::{ConfirmationDialog, ConfirmationDialogEvent, DialogStyle};
+pub use confirmation_dialog::{ConfirmationDialog, ConfirmationDialogEvent, DialogStyle, DialogButton};
 pub use password_input::{PasswordInput, PasswordInputEvent};
 #[cfg(feature = "secure-password")]
 pub use secrecy::SecretString;

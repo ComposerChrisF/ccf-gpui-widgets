@@ -1,49 +1,67 @@
 //! Confirmation dialog widget
 //!
 //! A modal dialog for confirming user actions or displaying information.
-//! Supports different styles for different contexts.
+//! Supports different styles and configurable buttons.
 //!
 //! # Dialog Styles
 //!
-//! - **Info**: Single "OK" button for informational messages. Click-outside, Escape, or Enter dismisses.
-//! - **Default**: Cancel and Confirm buttons. Click-outside or Escape cancels. Enter confirms.
+//! - **Info**: Single primary button. Click-outside, Escape, or Enter dismisses.
+//! - **Default**: Primary and secondary buttons. Click-outside or Escape triggers secondary. Enter triggers primary.
 //! - **Warning**: Same as Default but with orange title for emphasis.
-//! - **Danger**: Cancel and Delete/Confirm buttons (red). Click-outside does nothing.
-//!   Escape cancels. Enter does NOT confirm (must click the button explicitly).
+//! - **Danger**: Red primary button. Click-outside does nothing. Escape triggers secondary.
+//!   Enter does NOT trigger primary (must click explicitly).
 //!
-//! The Danger style is intentionally harder to confirm to prevent accidental
-//! destructive actions.
+//! # Button Configuration
+//!
+//! - **Primary**: Always shown (colored based on style)
+//! - **Secondary**: Optional second button (gray). Use `secondary_label()` to enable.
+//! - **Tertiary**: Optional third button (gray). Use `tertiary_label()` to enable.
+//!
+//! # Key Mappings
+//!
+//! Use `map_key()` to bind keys to buttons. For example, map "y" to Primary and "n" to Secondary.
 //!
 //! # Example
 //!
 //! ```ignore
-//! use ccf_gpui_widgets::widgets::{ConfirmationDialog, DialogStyle};
+//! use ccf_gpui_widgets::widgets::{ConfirmationDialog, DialogStyle, DialogButton};
 //!
-//! // Info dialog (just shows a message with OK button)
+//! // Simple info dialog
 //! let info = cx.new(|cx| {
 //!     ConfirmationDialog::new("Success", "Your changes have been saved.", cx)
 //!         .style(DialogStyle::Info)
 //! });
 //!
-//! // Danger confirmation dialog
-//! let dialog = cx.new(|cx| {
-//!     ConfirmationDialog::new("Delete Item", "Are you sure? This cannot be undone.", cx)
-//!         .style(DialogStyle::Danger)
-//!         .confirm_label("Delete")
+//! // Two-button confirmation
+//! let confirm = cx.new(|cx| {
+//!     ConfirmationDialog::new("Confirm", "Are you sure?", cx)
+//!         .primary_label("Yes")
+//!         .secondary_label("No")
+//!         .map_key("y", DialogButton::Primary)
+//!         .map_key("n", DialogButton::Secondary)
+//! });
+//!
+//! // Three-button save dialog
+//! let save = cx.new(|cx| {
+//!     ConfirmationDialog::new("Unsaved Changes", "Save before closing?", cx)
+//!         .primary_label("Save")
+//!         .secondary_label("Cancel")
+//!         .tertiary_label("Don't Save")
+//!         .map_key("y", DialogButton::Primary)
+//!         .map_key("n", DialogButton::Tertiary)
 //! });
 //!
 //! // Subscribe to dialog events
 //! cx.subscribe(&dialog, |this, _dialog, event: &ConfirmationDialogEvent, cx| {
 //!     match event {
-//!         ConfirmationDialogEvent::Confirm => {
-//!             this.delete_item(cx);
-//!         }
-//!         ConfirmationDialogEvent::Cancel => {
-//!             // Dialog was cancelled
-//!         }
+//!         ConfirmationDialogEvent::Primary => { /* OK/Yes/Save clicked */ }
+//!         ConfirmationDialogEvent::Secondary => { /* Cancel/No clicked */ }
+//!         ConfirmationDialogEvent::Tertiary => { /* Third button clicked */ }
 //!     }
 //! }).detach();
 //! ```
+
+use std::collections::HashMap;
 
 use gpui::prelude::*;
 use gpui::*;
@@ -52,36 +70,51 @@ use crate::theme::{get_theme_or, Theme};
 use super::button::{primary_button, secondary_button, danger_button};
 use super::focus_navigation::{FocusNext, FocusPrev};
 
-/// Dialog style/severity
+/// Dialog style/severity (controls primary button color)
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum DialogStyle {
-    /// Informational dialog with single OK button (dismissible with Enter)
+    /// Informational dialog (blue primary button, easy to dismiss)
     Info,
     /// Normal confirmation dialog (blue primary button)
     #[default]
     Default,
-    /// Warning dialog (orange/yellow styling)
+    /// Warning dialog (orange title, blue primary button)
     Warning,
-    /// Danger dialog (red confirm button, Enter does NOT confirm)
+    /// Danger dialog (red primary button, harder to confirm)
     Danger,
 }
 
+/// Which button a key or action should trigger
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DialogButton {
+    /// Primary button (colored based on style)
+    Primary,
+    /// Secondary button (gray)
+    Secondary,
+    /// Tertiary button (gray)
+    Tertiary,
+}
+
 /// Events emitted by ConfirmationDialog
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ConfirmationDialogEvent {
-    /// User confirmed the action (or dismissed Info dialog)
-    Confirm,
-    /// User cancelled the dialog
-    Cancel,
+    /// Primary button clicked (OK, Yes, Save, Delete, etc.)
+    Primary,
+    /// Secondary button clicked (Cancel, No, etc.)
+    Secondary,
+    /// Tertiary button clicked (Don't Save, etc.)
+    Tertiary,
 }
 
 /// Confirmation dialog widget
 pub struct ConfirmationDialog {
     title: SharedString,
     message: SharedString,
-    confirm_label: SharedString,
-    cancel_label: SharedString,
     style: DialogStyle,
+    primary_label: SharedString,
+    secondary_label: Option<SharedString>,
+    tertiary_label: Option<SharedString>,
+    key_mappings: HashMap<String, DialogButton>,
     focus_handle: FocusHandle,
     custom_theme: Option<Theme>,
 }
@@ -104,23 +137,41 @@ impl ConfirmationDialog {
         Self {
             title: title.into(),
             message: message.into(),
-            confirm_label: "OK".into(),
-            cancel_label: "Cancel".into(),
             style: DialogStyle::default(),
+            primary_label: "OK".into(),
+            secondary_label: None,
+            tertiary_label: None,
+            key_mappings: HashMap::new(),
             focus_handle: cx.focus_handle().tab_stop(true),
             custom_theme: None,
         }
     }
 
-    /// Set confirm button label (builder pattern)
-    pub fn confirm_label(mut self, label: impl Into<SharedString>) -> Self {
-        self.confirm_label = label.into();
+    /// Set primary button label (builder pattern)
+    pub fn primary_label(mut self, label: impl Into<SharedString>) -> Self {
+        self.primary_label = label.into();
         self
     }
 
-    /// Set cancel button label (builder pattern)
-    pub fn cancel_label(mut self, label: impl Into<SharedString>) -> Self {
-        self.cancel_label = label.into();
+    /// Set secondary button label (builder pattern)
+    /// Setting this enables the secondary button.
+    pub fn secondary_label(mut self, label: impl Into<SharedString>) -> Self {
+        self.secondary_label = Some(label.into());
+        self
+    }
+
+    /// Set tertiary button label (builder pattern)
+    /// Setting this enables the tertiary button.
+    pub fn tertiary_label(mut self, label: impl Into<SharedString>) -> Self {
+        self.tertiary_label = Some(label.into());
+        self
+    }
+
+    /// Map a key to a button (builder pattern)
+    /// Keys are case-insensitive (both "y" and "Y" will match).
+    pub fn map_key(mut self, key: impl Into<String>, button: DialogButton) -> Self {
+        let key_lower = key.into().to_lowercase();
+        self.key_mappings.insert(key_lower, button);
         self
     }
 
@@ -141,12 +192,13 @@ impl ConfirmationDialog {
         &self.focus_handle
     }
 
-    fn confirm(&mut self, cx: &mut Context<Self>) {
-        cx.emit(ConfirmationDialogEvent::Confirm);
-    }
-
-    fn cancel(&mut self, cx: &mut Context<Self>) {
-        cx.emit(ConfirmationDialogEvent::Cancel);
+    fn emit_button(&mut self, button: DialogButton, cx: &mut Context<Self>) {
+        let event = match button {
+            DialogButton::Primary => ConfirmationDialogEvent::Primary,
+            DialogButton::Secondary => ConfirmationDialogEvent::Secondary,
+            DialogButton::Tertiary => ConfirmationDialogEvent::Tertiary,
+        };
+        cx.emit(event);
     }
 }
 
@@ -155,12 +207,16 @@ impl Render for ConfirmationDialog {
         let theme = get_theme_or(cx, self.custom_theme.as_ref());
         let title = self.title.clone();
         let message = self.message.clone();
-        let confirm_label = self.confirm_label.clone();
-        let cancel_label = self.cancel_label.clone();
+        let primary_label = self.primary_label.clone();
+        let secondary_label = self.secondary_label.clone();
+        let tertiary_label = self.tertiary_label.clone();
         let style = self.style;
         let focus_handle = self.focus_handle.clone();
+        let key_mappings = self.key_mappings.clone();
         let is_danger = style == DialogStyle::Danger;
         let is_info = style == DialogStyle::Info;
+        let has_secondary = secondary_label.is_some();
+        let has_tertiary = tertiary_label.is_some();
 
         // Focus the dialog when it renders
         if !focus_handle.is_focused(window) {
@@ -175,61 +231,59 @@ impl Render for ConfirmationDialog {
             DialogStyle::Danger => theme.error,
         };
 
-        // Build buttons based on style
-        let buttons = if is_info {
-            // Info dialog: single OK button
-            div()
-                .w_full()
-                .flex()
-                .flex_row()
-                .gap_3()
-                .justify_end()
-                .child(
-                    primary_button("dialog_ok", &confirm_label, true, cx)
-                        .on_click(cx.listener(|dialog, _event: &ClickEvent, _window, cx| {
-                            dialog.confirm(cx);
-                        }))
-                )
-        } else {
-            // Other dialogs: Cancel and Confirm buttons
-            let confirm_button = match style {
-                DialogStyle::Default | DialogStyle::Warning => {
-                    primary_button("dialog_confirm", &confirm_label, true, cx)
-                        .on_click(cx.listener(|dialog, _event: &ClickEvent, _window, cx| {
-                            dialog.confirm(cx);
-                        }))
-                }
-                DialogStyle::Danger => {
-                    danger_button("dialog_confirm", &confirm_label, true, cx)
-                        .on_click(cx.listener(|dialog, _event: &ClickEvent, _window, cx| {
-                            dialog.confirm(cx);
-                        }))
-                }
-                DialogStyle::Info => unreachable!(),
-            };
-
-            let cancel_button = secondary_button("dialog_cancel", &cancel_label, cx)
-                .on_click(cx.listener(|dialog, _event: &ClickEvent, _window, cx| {
-                    dialog.cancel(cx);
-                }));
-
-            div()
-                .w_full()
-                .flex()
-                .flex_row()
-                .gap_3()
-                .justify_end()
-                .child(cancel_button)
-                .child(confirm_button)
+        // Build primary button based on style
+        let primary_button_element = match style {
+            DialogStyle::Danger => {
+                danger_button("dialog_primary", &primary_label, true, cx)
+                    .on_click(cx.listener(|dialog, _event: &ClickEvent, _window, cx| {
+                        dialog.emit_button(DialogButton::Primary, cx);
+                    }))
+            }
+            _ => {
+                primary_button("dialog_primary", &primary_label, true, cx)
+                    .on_click(cx.listener(|dialog, _event: &ClickEvent, _window, cx| {
+                        dialog.emit_button(DialogButton::Primary, cx);
+                    }))
+            }
         };
+
+        // Build buttons container
+        let mut buttons = div()
+            .w_full()
+            .flex()
+            .flex_row()
+            .gap_3()
+            .justify_end();
+
+        // Add tertiary button (leftmost of the optional buttons)
+        if let Some(label) = &tertiary_label {
+            buttons = buttons.child(
+                secondary_button("dialog_tertiary", label, cx)
+                    .on_click(cx.listener(|dialog, _event: &ClickEvent, _window, cx| {
+                        dialog.emit_button(DialogButton::Tertiary, cx);
+                    }))
+            );
+        }
+
+        // Add secondary button
+        if let Some(label) = &secondary_label {
+            buttons = buttons.child(
+                secondary_button("dialog_secondary", label, cx)
+                    .on_click(cx.listener(|dialog, _event: &ClickEvent, _window, cx| {
+                        dialog.emit_button(DialogButton::Secondary, cx);
+                    }))
+            );
+        }
+
+        // Add primary button (rightmost)
+        buttons = buttons.child(primary_button_element);
 
         // Dialog box
         let dialog_box = div()
             .id("ccf_confirmation_dialog_box")
             .track_focus(&focus_handle)
             .tab_stop(true)
-            .occlude() // Block mouse events from reaching elements below
-            // Focus navigation
+            .occlude()
             .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
                 window.focus_next();
             }))
@@ -237,20 +291,36 @@ impl Render for ConfirmationDialog {
                 window.focus_prev();
             }))
             .on_key_down(cx.listener(move |dialog, event: &KeyDownEvent, window, cx| {
-                match event.keystroke.key.as_str() {
+                let key = event.keystroke.key.as_str().to_lowercase();
+
+                // Check custom key mappings first
+                if let Some(&button) = key_mappings.get(&key) {
+                    // Only trigger if the button exists
+                    let can_trigger = match button {
+                        DialogButton::Primary => true,
+                        DialogButton::Secondary => has_secondary,
+                        DialogButton::Tertiary => has_tertiary,
+                    };
+                    if can_trigger {
+                        dialog.emit_button(button, cx);
+                        return;
+                    }
+                }
+
+                // Default key behaviors
+                match key.as_str() {
                     "escape" => {
-                        // Escape always cancels (or dismisses for Info)
-                        if is_info {
-                            dialog.confirm(cx);
+                        // Escape: triggers secondary if exists, otherwise primary (for Info)
+                        if has_secondary {
+                            dialog.emit_button(DialogButton::Secondary, cx);
                         } else {
-                            dialog.cancel(cx);
+                            dialog.emit_button(DialogButton::Primary, cx);
                         }
                     }
                     "enter" => {
-                        // For Danger dialogs, Enter does NOT confirm
-                        // For Info/Default/Warning, Enter confirms
+                        // Enter: triggers primary (except for Danger style)
                         if !is_danger {
-                            dialog.confirm(cx);
+                            dialog.emit_button(DialogButton::Primary, cx);
                         }
                     }
                     "tab" => {
@@ -271,7 +341,6 @@ impl Render for ConfirmationDialog {
             .min_w(px(320.0))
             .max_w(px(480.0))
             .p(px(24.0))
-            // Title
             .child(
                 div()
                     .text_lg()
@@ -279,7 +348,6 @@ impl Render for ConfirmationDialog {
                     .text_color(rgb(title_color))
                     .child(title)
             )
-            // Message
             .child(
                 div()
                     .mt_4()
@@ -287,7 +355,6 @@ impl Render for ConfirmationDialog {
                     .text_color(rgb(theme.text_muted))
                     .child(message)
             )
-            // Buttons
             .child(
                 div()
                     .mt_4()
@@ -300,21 +367,21 @@ impl Render for ConfirmationDialog {
                 .id("ccf_confirmation_dialog")
                 .absolute()
                 .inset_0()
-                .occlude() // Block all mouse events from reaching elements below
+                .occlude()
                 .flex()
                 .items_center()
                 .justify_center()
-                // Semi-transparent overlay background
                 .bg(rgba(0x000000aa))
-                // Handle click on overlay (outside dialog box)
                 .on_mouse_down(MouseButton::Left, cx.listener(move |dialog, _event, _window, cx| {
-                    // For Info/Default/Warning: click-outside dismisses/cancels
-                    // For Danger: click-outside does nothing
+                    // Click-outside behavior
                     if is_info {
-                        dialog.confirm(cx);
-                    } else if !is_danger {
-                        dialog.cancel(cx);
+                        // Info: click-outside dismisses (Primary)
+                        dialog.emit_button(DialogButton::Primary, cx);
+                    } else if !is_danger && has_secondary {
+                        // Default/Warning with secondary: click-outside triggers Secondary
+                        dialog.emit_button(DialogButton::Secondary, cx);
                     }
+                    // Danger: click-outside does nothing
                 }))
                 .child(dialog_box)
         )

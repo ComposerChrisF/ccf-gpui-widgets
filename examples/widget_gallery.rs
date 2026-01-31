@@ -107,10 +107,19 @@ struct WidgetGallery {
     progress_bar: Entity<ProgressBar>,
     progress_bar_indeterminate: Entity<ProgressBar>,
     spinner: Entity<Spinner>,
-    show_dialog: bool,
-    confirmation_dialog: Entity<ConfirmationDialog>,
+    // Dialog state
     show_info_dialog: bool,
     info_dialog: Entity<ConfirmationDialog>,
+    info_result: Option<&'static str>,
+    show_yes_no_dialog: bool,
+    yes_no_dialog: Entity<ConfirmationDialog>,
+    yes_no_result: Option<&'static str>,
+    show_save_dialog: bool,
+    save_dialog: Entity<ConfirmationDialog>,
+    save_result: Option<&'static str>,
+    show_danger_dialog: bool,
+    danger_dialog: Entity<ConfirmationDialog>,
+    danger_result: Option<&'static str>,
 
     // Button click tracking (buttons are not Entities)
     primary_click_count: usize,
@@ -314,25 +323,54 @@ impl WidgetGallery {
 
         let spinner = cx.new(|_cx| Spinner::new().label("Processing..."));
 
-        let confirmation_dialog = cx.new(|cx| {
+        // Info dialog: single button, easy to dismiss
+        let info_dialog = cx.new(|cx| {
+            ConfirmationDialog::new(
+                "Operation Complete",
+                "Your changes have been saved successfully. Dismiss with Enter, Escape, or click outside.",
+                cx,
+            )
+            .style(DialogStyle::Info)
+            .primary_label("OK")
+        });
+
+        // Two-button Yes/No dialog with Y/N key mappings
+        let yes_no_dialog = cx.new(|cx| {
+            ConfirmationDialog::new(
+                "Confirm Action",
+                "Do you want to proceed? Press Y for Yes, N for No.",
+                cx,
+            )
+            .primary_label("Yes")
+            .secondary_label("No")
+            .map_key("y", DialogButton::Primary)
+            .map_key("n", DialogButton::Secondary)
+        });
+
+        // Three-button Save dialog with Y/N key mappings
+        let save_dialog = cx.new(|cx| {
+            ConfirmationDialog::new(
+                "Unsaved Changes",
+                "Save before closing? Press Y to Save, N to Don't Save, or Escape to Cancel.",
+                cx,
+            )
+            .primary_label("Save")
+            .secondary_label("Cancel")
+            .tertiary_label("Don't Save")
+            .map_key("y", DialogButton::Primary)
+            .map_key("n", DialogButton::Tertiary)
+        });
+
+        // Danger dialog: red button, harder to confirm
+        let danger_dialog = cx.new(|cx| {
             ConfirmationDialog::new(
                 "Delete Item",
                 "Are you sure you want to delete this item? This action cannot be undone.",
                 cx,
             )
             .style(DialogStyle::Danger)
-            .confirm_label("Delete")
-            .cancel_label("Cancel")
-        });
-
-        let info_dialog = cx.new(|cx| {
-            ConfirmationDialog::new(
-                "Operation Complete",
-                "Your changes have been saved successfully. You can dismiss this dialog with Enter, Escape, or by clicking outside.",
-                cx,
-            )
-            .style(DialogStyle::Info)
-            .confirm_label("OK")
+            .primary_label("Delete")
+            .secondary_label("Cancel")
         });
 
         // Subscribe to events
@@ -375,8 +413,10 @@ impl WidgetGallery {
             &slider,
             &slider_with_value,
             &progress_bar,
-            &confirmation_dialog,
             &info_dialog,
+            &yes_no_dialog,
+            &save_dialog,
+            &danger_dialog,
         );
 
         Self {
@@ -433,10 +473,18 @@ impl WidgetGallery {
             progress_bar,
             progress_bar_indeterminate,
             spinner,
-            show_dialog: false,
-            confirmation_dialog,
             show_info_dialog: false,
             info_dialog,
+            info_result: None,
+            show_yes_no_dialog: false,
+            yes_no_dialog,
+            yes_no_result: None,
+            show_save_dialog: false,
+            save_dialog,
+            save_result: None,
+            show_danger_dialog: false,
+            danger_dialog,
+            danger_result: None,
             primary_click_count: 0,
             secondary_click_count: 0,
             danger_click_count: 0,
@@ -613,8 +661,10 @@ impl WidgetGallery {
         slider: &Entity<Slider>,
         slider_with_value: &Entity<Slider>,
         progress_bar: &Entity<ProgressBar>,
-        confirmation_dialog: &Entity<ConfirmationDialog>,
         info_dialog: &Entity<ConfirmationDialog>,
+        yes_no_dialog: &Entity<ConfirmationDialog>,
+        save_dialog: &Entity<ConfirmationDialog>,
+        danger_dialog: &Entity<ConfirmationDialog>,
     ) {
         cx.subscribe(toggle_switch, |this, _entity, event: &ToggleSwitchEvent, cx| {
             this.log_event("ToggleSwitch", format!("{:?}", event), cx);
@@ -641,18 +691,50 @@ impl WidgetGallery {
         })
         .detach();
 
-        cx.subscribe(confirmation_dialog, |this, _entity, event: &ConfirmationDialogEvent, cx| {
-            this.log_event("ConfirmationDialog (Danger)", format!("{:?}", event), cx);
-            // Hide dialog after any response
-            this.show_dialog = false;
+        cx.subscribe(info_dialog, |this, _entity, event: &ConfirmationDialogEvent, cx| {
+            this.log_event("Dialog (Info)", format!("{:?}", event), cx);
+            this.info_result = Some(match event {
+                ConfirmationDialogEvent::Primary => "OK",
+                ConfirmationDialogEvent::Secondary => "Secondary",
+                ConfirmationDialogEvent::Tertiary => "Tertiary",
+            });
+            this.show_info_dialog = false;
             cx.notify();
         })
         .detach();
 
-        cx.subscribe(info_dialog, |this, _entity, event: &ConfirmationDialogEvent, cx| {
-            this.log_event("ConfirmationDialog (Info)", format!("{:?}", event), cx);
-            // Hide dialog after any response
-            this.show_info_dialog = false;
+        cx.subscribe(yes_no_dialog, |this, _entity, event: &ConfirmationDialogEvent, cx| {
+            this.log_event("Dialog (Yes/No)", format!("{:?}", event), cx);
+            this.yes_no_result = Some(match event {
+                ConfirmationDialogEvent::Primary => "Yes",
+                ConfirmationDialogEvent::Secondary => "No",
+                ConfirmationDialogEvent::Tertiary => "Tertiary",
+            });
+            this.show_yes_no_dialog = false;
+            cx.notify();
+        })
+        .detach();
+
+        cx.subscribe(save_dialog, |this, _entity, event: &ConfirmationDialogEvent, cx| {
+            this.log_event("Dialog (Save)", format!("{:?}", event), cx);
+            this.save_result = Some(match event {
+                ConfirmationDialogEvent::Primary => "Save",
+                ConfirmationDialogEvent::Secondary => "Cancel",
+                ConfirmationDialogEvent::Tertiary => "Don't Save",
+            });
+            this.show_save_dialog = false;
+            cx.notify();
+        })
+        .detach();
+
+        cx.subscribe(danger_dialog, |this, _entity, event: &ConfirmationDialogEvent, cx| {
+            this.log_event("Dialog (Danger)", format!("{:?}", event), cx);
+            this.danger_result = Some(match event {
+                ConfirmationDialogEvent::Primary => "Delete",
+                ConfirmationDialogEvent::Secondary => "Cancel",
+                ConfirmationDialogEvent::Tertiary => "Tertiary",
+            });
+            this.show_danger_dialog = false;
             cx.notify();
         })
         .detach();
@@ -1612,6 +1694,10 @@ impl WidgetGallery {
 
     fn render_dialog_section(&mut self, cx: &mut Context<Self>) -> Div {
         let theme = get_theme(cx);
+        let info_result = self.info_result;
+        let yes_no_result = self.yes_no_result;
+        let save_result = self.save_result;
+        let danger_result = self.danger_result;
 
         div()
             .flex()
@@ -1619,33 +1705,131 @@ impl WidgetGallery {
             .gap_2()
             .p_4()
             .bg(rgb(theme.bg_secondary))
+            // Info Dialog (single button)
             .child(Self::render_widget_row(
                 "Info Dialog",
-                "Dismissible with Enter, Escape, or click-outside",
+                "Enter/Escape/click-outside dismisses",
                 div()
-                    .max_w(px(160.0))
+                    .flex()
+                    .flex_row()
+                    .gap_2()
+                    .items_center()
                     .child(
-                        primary_button("show_info_dialog_btn", "Show Info...", true, cx)
-                            .on_click(cx.listener(|this, _event, _window, cx| {
-                                this.show_info_dialog = true;
-                                this.log_event("Dialog (Info)", "Opened".to_string(), cx);
-                            }))
-                    ),
+                        div()
+                            .max_w(px(140.0))
+                            .child(
+                                primary_button("show_info_dialog_btn", "Show Info...", true, cx)
+                                    .on_click(cx.listener(|this, _event, _window, cx| {
+                                        this.info_result = None;
+                                        this.show_info_dialog = true;
+                                        this.log_event("Dialog (Info)", "Opened".to_string(), cx);
+                                    }))
+                            )
+                    )
+                    .when_some(info_result, |d, result| {
+                        d.child(
+                            div()
+                                .text_sm()
+                                .text_color(rgb(theme.text_muted))
+                                .child(format!("Result: {}", result))
+                        )
+                    }),
                 None,
                 cx,
             ))
+            // Yes/No Dialog (two buttons with Y/N keys)
+            .child(Self::render_widget_row(
+                "Yes/No Dialog",
+                "Y/N keys, Enter=Yes, Escape=No",
+                div()
+                    .flex()
+                    .flex_row()
+                    .gap_2()
+                    .items_center()
+                    .child(
+                        div()
+                            .max_w(px(140.0))
+                            .child(
+                                primary_button("show_yes_no_dialog_btn", "Confirm...", true, cx)
+                                    .on_click(cx.listener(|this, _event, _window, cx| {
+                                        this.yes_no_result = None;
+                                        this.show_yes_no_dialog = true;
+                                        this.log_event("Dialog (Yes/No)", "Opened".to_string(), cx);
+                                    }))
+                            )
+                    )
+                    .when_some(yes_no_result, |d, result| {
+                        d.child(
+                            div()
+                                .text_sm()
+                                .text_color(rgb(theme.text_muted))
+                                .child(format!("Result: {}", result))
+                        )
+                    }),
+                None,
+                cx,
+            ))
+            // Save Dialog (three buttons with Y/N keys)
+            .child(Self::render_widget_row(
+                "Save Dialog",
+                "Y=Save, N=Don't Save, Escape=Cancel",
+                div()
+                    .flex()
+                    .flex_row()
+                    .gap_2()
+                    .items_center()
+                    .child(
+                        div()
+                            .max_w(px(140.0))
+                            .child(
+                                primary_button("show_save_dialog_btn", "Save Changes...", true, cx)
+                                    .on_click(cx.listener(|this, _event, _window, cx| {
+                                        this.save_result = None;
+                                        this.show_save_dialog = true;
+                                        this.log_event("Dialog (Save)", "Opened".to_string(), cx);
+                                    }))
+                            )
+                    )
+                    .when_some(save_result, |d, result| {
+                        d.child(
+                            div()
+                                .text_sm()
+                                .text_color(rgb(theme.text_muted))
+                                .child(format!("Result: {}", result))
+                        )
+                    }),
+                None,
+                cx,
+            ))
+            // Danger Dialog (red button, Enter doesn't confirm)
             .child(Self::render_widget_row(
                 "Danger Dialog",
-                "Must click Cancel/Delete or press Escape",
+                "Enter disabled, must click or Escape",
                 div()
-                    .max_w(px(160.0))
+                    .flex()
+                    .flex_row()
+                    .gap_2()
+                    .items_center()
                     .child(
-                        danger_button("show_dialog_btn", "Delete Item...", true, cx)
-                            .on_click(cx.listener(|this, _event, _window, cx| {
-                                this.show_dialog = true;
-                                this.log_event("Dialog (Danger)", "Opened".to_string(), cx);
-                            }))
-                    ),
+                        div()
+                            .max_w(px(140.0))
+                            .child(
+                                danger_button("show_danger_dialog_btn", "Delete Item...", true, cx)
+                                    .on_click(cx.listener(|this, _event, _window, cx| {
+                                        this.danger_result = None;
+                                        this.show_danger_dialog = true;
+                                        this.log_event("Dialog (Danger)", "Opened".to_string(), cx);
+                                    }))
+                            )
+                    )
+                    .when_some(danger_result, |d, result| {
+                        d.child(
+                            div()
+                                .text_sm()
+                                .text_color(rgb(theme.text_muted))
+                                .child(format!("Result: {}", result))
+                        )
+                    }),
                 None,
                 cx,
             ))
@@ -1899,9 +2083,17 @@ impl Render for WidgetGallery {
             .when(self.show_info_dialog, |d| {
                 d.child(self.info_dialog.clone())
             })
+            // Yes/No dialog overlay (when shown)
+            .when(self.show_yes_no_dialog, |d| {
+                d.child(self.yes_no_dialog.clone())
+            })
+            // Save dialog overlay (when shown)
+            .when(self.show_save_dialog, |d| {
+                d.child(self.save_dialog.clone())
+            })
             // Danger dialog overlay (when shown)
-            .when(self.show_dialog, |d| {
-                d.child(self.confirmation_dialog.clone())
+            .when(self.show_danger_dialog, |d| {
+                d.child(self.danger_dialog.clone())
             })
     }
 }

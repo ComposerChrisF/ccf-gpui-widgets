@@ -115,7 +115,7 @@ pub mod prelude {
         Slider, SliderEvent,
         ProgressBar, ProgressBarEvent,
         Spinner, SpinnerSize,
-        ConfirmationDialog, ConfirmationDialogEvent, DialogStyle,
+        ConfirmationDialog, ConfirmationDialogEvent, DialogStyle, DialogButton,
     };
 
     #[cfg(feature = "file-picker")]
