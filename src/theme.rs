@@ -27,7 +27,7 @@
 ///
 /// All colors are stored as u32 hex values (0xRRGGBB format).
 /// Use with GPUI's `rgb()` macro: `rgb(theme.bg_primary)`
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct Theme {
     // Background colors
     /// Main application background (darkest)
@@ -640,11 +640,11 @@ impl Theme {
 /// Get the theme from context, falling back to dark theme if not set
 pub fn get_theme(cx: &gpui::App) -> Theme {
     cx.try_global::<Theme>()
-        .cloned()
+        .copied()
         .unwrap_or_else(Theme::dark)
 }
 
 /// Get the theme from context or use a custom theme
 pub fn get_theme_or(cx: &gpui::App, custom: Option<&Theme>) -> Theme {
-    custom.cloned().unwrap_or_else(|| get_theme(cx))
+    custom.copied().unwrap_or_else(|| get_theme(cx))
 }

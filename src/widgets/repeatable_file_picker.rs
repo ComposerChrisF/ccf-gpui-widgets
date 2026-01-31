@@ -210,7 +210,7 @@ impl RepeatableFilePicker {
         let missing_directories = self.missing_directories.clone();
         let browse_shortcut_enabled = self.browse_shortcut_enabled;
         let validation_display = self.validation_display.clone();
-        let theme = self.custom_theme.clone();
+        let theme = self.custom_theme;
 
         let picker = cx.new(|cx| {
             let mut p = FilePicker::new(cx)
@@ -291,7 +291,7 @@ impl RepeatableFilePicker {
     }
 
     fn get_theme(&self, cx: &App) -> Theme {
-        self.custom_theme.clone().unwrap_or_else(|| get_theme(cx))
+        self.custom_theme.unwrap_or_else(|| get_theme(cx))
     }
 }
 

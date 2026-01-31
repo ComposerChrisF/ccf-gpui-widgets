@@ -244,7 +244,7 @@ impl PasswordInput {
 
     #[allow(dead_code)]
     fn get_theme(&self, cx: &App) -> Theme {
-        self.custom_theme.clone().unwrap_or_else(|| crate::theme::get_theme(cx))
+        self.custom_theme.unwrap_or_else(|| crate::theme::get_theme(cx))
     }
 
     /// Get the display content (masked or real)

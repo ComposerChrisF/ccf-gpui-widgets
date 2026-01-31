@@ -211,7 +211,7 @@ impl RepeatableTextInput {
     }
 
     fn get_theme(&self, cx: &App) -> Theme {
-        self.custom_theme.clone().unwrap_or_else(|| get_theme(cx))
+        self.custom_theme.unwrap_or_else(|| get_theme(cx))
     }
 }
 

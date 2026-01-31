@@ -40,6 +40,8 @@ use crate::widgets::{TextInput, TextInputEvent, Tooltip};
 #[cfg(feature = "file-picker")]
 use std::path::Path;
 
+use std::str::FromStr;
+
 // Actions for keyboard handling
 #[cfg(feature = "file-picker")]
 actions!(
@@ -86,12 +88,14 @@ pub enum FileMode {
     Save,
 }
 
-impl FileMode {
-    pub fn from_str(s: &str) -> Self {
-        match s.to_lowercase().as_str() {
+impl FromStr for FileMode {
+    type Err = std::convert::Infallible;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s.to_lowercase().as_str() {
             "save" => FileMode::Save,
             _ => FileMode::Open,
-        }
+        })
     }
 }
 
@@ -107,13 +111,15 @@ pub enum MissingDirectories {
     Create,
 }
 
-impl MissingDirectories {
-    pub fn from_str(s: &str) -> Self {
-        match s.to_lowercase().as_str() {
+impl FromStr for MissingDirectories {
+    type Err = std::convert::Infallible;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s.to_lowercase().as_str() {
             "okay" => MissingDirectories::Okay,
             "create" => MissingDirectories::Create,
             _ => MissingDirectories::Error,
-        }
+        })
     }
 }
 
