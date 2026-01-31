@@ -148,6 +148,16 @@ The library is functional and being used by clui.
 - [x] Widget gallery: Updated to handle conditional `SecretString` API
 - [x] Backward compatible: Without feature, API unchanged; `full` feature includes `secure-password`
 
+### ✅ NumberStepper Refactoring (2026-01-30)
+- [x] NumberStepper: Refactored to use embedded TextInput for edit mode (removes ~130 lines of code)
+- [x] NumberStepper: Gains TextInput features: selection, copy/paste, word navigation, proper scrolling
+- [x] NumberStepper: No longer needs separate keybinding registration (uses TextInput keybindings)
+- [x] TextInput: Added `input_filter()` builder method to restrict allowed characters
+- [x] TextInput: Input filter applied to both typing and pasting
+- [x] TextInput: Added `emit_tab_events()` for parent controls to intercept Tab key
+- [x] TextInput: Added `Tab` and `ShiftTab` events to `TextInputEvent`
+- [x] **Breaking change**: `register_number_stepper_keybindings()` removed from exports
+
 ---
 
 ## Future Enhancements

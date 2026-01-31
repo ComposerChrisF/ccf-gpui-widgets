@@ -45,30 +45,8 @@ use gpui::prelude::*;
 use gpui::*;
 
 use crate::theme::{get_theme_or, Theme};
-use super::cursor_blink::CursorBlink;
 use super::focus_navigation::{FocusNext, FocusPrev};
-
-// Actions for text editing mode
-actions!(
-    ccf_number_stepper,
-    [
-        CommitEdit,
-        CancelEdit,
-    ]
-);
-
-/// Register keybindings for NumberStepper edit mode
-///
-/// Call this at application startup if you want Enter/Escape to work in edit mode:
-/// ```ignore
-/// ccf_gpui_widgets::widgets::number_stepper::register_keybindings(cx);
-/// ```
-pub fn register_keybindings(cx: &mut App) {
-    cx.bind_keys([
-        KeyBinding::new("enter", CommitEdit, Some("CcfNumberStepperEdit")),
-        KeyBinding::new("escape", CancelEdit, Some("CcfNumberStepperEdit")),
-    ]);
-}
+use super::text_input::{TextInput, TextInputEvent};
 
 /// Events emitted by NumberStepper
 #[derive(Clone, Debug)]
@@ -118,16 +96,12 @@ pub struct NumberStepper {
     // Edit mode state
     /// Whether we're in text editing mode
     editing: bool,
-    /// The text being edited
-    edit_buffer: String,
-    /// Cursor position in the edit buffer
-    edit_cursor: usize,
-    /// Whether focus-out subscription has been set up
-    focus_out_subscribed: bool,
-    /// Cursor blink state
-    cursor_blink: CursorBlink,
-    /// Whether blink timer is active
-    blink_timer_active: bool,
+    /// The embedded text input for editing
+    edit_input: Entity<TextInput>,
+    /// Value when edit started (for cancel)
+    original_value: f64,
+    /// Whether we need to refocus the stepper in the next render
+    pending_refocus: bool,
 
     // Drag state
     /// Whether we're currently dragging
@@ -149,6 +123,33 @@ impl Focusable for NumberStepper {
 impl NumberStepper {
     /// Create a new number stepper
     pub fn new(cx: &mut Context<Self>) -> Self {
+        // Create the embedded text input for editing
+        let edit_input = cx.new(|cx| {
+            TextInput::new(cx)
+                .borderless(true)
+                .select_on_focus(true)
+                .input_filter(|c| c.is_ascii_digit() || c == '.' || c == '-')
+                .emit_tab_events(true)  // Let NumberStepper handle Tab
+        });
+
+        // Subscribe to TextInput events
+        cx.subscribe(&edit_input, |this: &mut Self, _input, event: &TextInputEvent, cx| {
+            match event {
+                TextInputEvent::Enter => this.commit_edit(cx),
+                TextInputEvent::Escape => this.cancel_edit(cx),
+                TextInputEvent::Blur => {
+                    if this.editing {
+                        this.commit_edit(cx);
+                    }
+                }
+                TextInputEvent::Tab | TextInputEvent::ShiftTab => {
+                    // Treat Tab same as Enter - commit and stay on stepper
+                    this.commit_edit(cx);
+                }
+                _ => {}
+            }
+        }).detach();
+
         Self {
             value: 0.0,
             min: None,
@@ -164,11 +165,9 @@ impl NumberStepper {
             auto_scale_drag: true,
             value_display_width: Rc::new(Cell::new(0.0)),
             editing: false,
-            edit_buffer: String::new(),
-            edit_cursor: 0,
-            focus_out_subscribed: false,
-            cursor_blink: CursorBlink::new(),
-            blink_timer_active: false,
+            edit_input,
+            original_value: 0.0,
+            pending_refocus: false,
             dragging: false,
             drag_start_x: 0.0,
             drag_start_value: 0.0,
@@ -349,124 +348,49 @@ impl NumberStepper {
     // ===== Edit mode methods =====
 
     /// Enter text editing mode
-    fn enter_edit_mode(&mut self, cx: &mut Context<Self>) {
+    fn enter_edit_mode(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.editing = true;
-        self.edit_buffer = self.format_value();
-        self.edit_cursor = self.edit_buffer.len();
-        self.cursor_blink.reset();
+        self.original_value = self.value;
+
+        // Set the TextInput value and focus it
+        let formatted = self.format_value();
+        self.edit_input.update(cx, |input, cx| {
+            input.set_value(&formatted, cx);
+        });
+
+        // Focus the TextInput
+        self.edit_input.read(cx).focus_handle(cx).focus(window);
         cx.notify();
     }
 
     /// Exit text editing mode without committing changes
     fn cancel_edit(&mut self, cx: &mut Context<Self>) {
         self.editing = false;
-        self.edit_buffer.clear();
-        self.edit_cursor = 0;
-        self.blink_timer_active = false;
+        self.pending_refocus = true;
         cx.notify();
     }
 
     /// Commit the edited text value
     fn commit_edit(&mut self, cx: &mut Context<Self>) {
-        if let Ok(parsed) = self.edit_buffer.trim().parse::<f64>() {
+        self.apply_edit_value(cx);
+        self.editing = false;
+        self.pending_refocus = true;
+        cx.notify();
+    }
+
+    /// Apply the value from the edit input (shared logic)
+    fn apply_edit_value(&mut self, cx: &mut Context<Self>) {
+        // Get the content from TextInput
+        let content = self.edit_input.read(cx).content().to_string();
+
+        if let Ok(parsed) = content.trim().parse::<f64>() {
             let normalized = self.normalize_value(parsed);
             if (self.value - normalized).abs() > f64::EPSILON {
                 self.value = normalized;
                 cx.emit(NumberStepperEvent::Change(self.value));
             }
         }
-        self.editing = false;
-        self.edit_buffer.clear();
-        self.edit_cursor = 0;
-        self.blink_timer_active = false;
-        cx.notify();
-    }
-
-    /// Reset cursor blink timer
-    fn reset_cursor_blink(&mut self) {
-        self.cursor_blink.reset();
-    }
-
-    /// Insert character at cursor position
-    fn insert_char(&mut self, ch: &str, cx: &mut Context<Self>) {
-        // Only allow valid numeric characters
-        let valid = ch.chars().all(|c| c.is_ascii_digit() || c == '.' || c == '-');
-        if !valid {
-            return;
-        }
-        self.edit_buffer.insert_str(self.edit_cursor, ch);
-        self.edit_cursor += ch.len();
-        self.reset_cursor_blink();
-        cx.notify();
-    }
-
-    /// Delete character before cursor
-    fn delete_backward(&mut self, cx: &mut Context<Self>) {
-        if self.edit_cursor > 0 {
-            let prev = self.edit_buffer[..self.edit_cursor]
-                .char_indices()
-                .last()
-                .map(|(i, _)| i)
-                .unwrap_or(0);
-            self.edit_buffer.replace_range(prev..self.edit_cursor, "");
-            self.edit_cursor = prev;
-            self.reset_cursor_blink();
-            cx.notify();
-        }
-    }
-
-    /// Delete character after cursor
-    fn delete_forward(&mut self, cx: &mut Context<Self>) {
-        if self.edit_cursor < self.edit_buffer.len() {
-            let next = self.edit_buffer[self.edit_cursor..]
-                .char_indices()
-                .nth(1)
-                .map(|(i, _)| self.edit_cursor + i)
-                .unwrap_or(self.edit_buffer.len());
-            self.edit_buffer.replace_range(self.edit_cursor..next, "");
-            self.reset_cursor_blink();
-            cx.notify();
-        }
-    }
-
-    /// Move cursor left
-    fn move_cursor_left(&mut self, cx: &mut Context<Self>) {
-        if self.edit_cursor > 0 {
-            self.edit_cursor = self.edit_buffer[..self.edit_cursor]
-                .char_indices()
-                .last()
-                .map(|(i, _)| i)
-                .unwrap_or(0);
-            self.reset_cursor_blink();
-            cx.notify();
-        }
-    }
-
-    /// Move cursor right
-    fn move_cursor_right(&mut self, cx: &mut Context<Self>) {
-        if self.edit_cursor < self.edit_buffer.len() {
-            self.edit_cursor = self.edit_buffer[self.edit_cursor..]
-                .char_indices()
-                .nth(1)
-                .map(|(i, _)| self.edit_cursor + i)
-                .unwrap_or(self.edit_buffer.len());
-            self.reset_cursor_blink();
-            cx.notify();
-        }
-    }
-
-    /// Move cursor to start
-    fn move_cursor_to_start(&mut self, cx: &mut Context<Self>) {
-        self.edit_cursor = 0;
-        self.reset_cursor_blink();
-        cx.notify();
-    }
-
-    /// Move cursor to end
-    fn move_cursor_to_end(&mut self, cx: &mut Context<Self>) {
-        self.edit_cursor = self.edit_buffer.len();
-        self.reset_cursor_blink();
-        cx.notify();
+        // If parse fails, value reverts to original (unchanged)
     }
 
     // ===== Drag methods =====
@@ -537,143 +461,36 @@ impl Render for NumberStepper {
         let theme = get_theme_or(cx, self.custom_theme.as_ref());
         let display_value = self.format_value();
         let focus_handle = self.focus_handle.clone();
-        let is_focused = self.focus_handle.is_focused(window);
         let editing = self.editing;
 
-        // Set up focus-out subscription on first render
-        if !self.focus_out_subscribed {
-            self.focus_out_subscribed = true;
-            let focus_handle = self.focus_handle.clone();
-            cx.on_focus_out(&focus_handle, window, |this: &mut Self, _event, _window, cx| {
-                if this.editing {
-                    this.commit_edit(cx);
-                }
-            }).detach();
+        // Handle pending refocus (after Enter/Escape/Tab from TextInput)
+        if self.pending_refocus {
+            self.pending_refocus = false;
+            self.focus_handle.focus(window);
         }
 
-        // Set up blink timer when editing
-        if editing && is_focused && !self.blink_timer_active {
-            self.blink_timer_active = true;
-            let entity = cx.entity();
-            let blink_period = CursorBlink::blink_period();
-            window.spawn(cx, async move |async_cx| {
-                loop {
-                    smol::Timer::after(blink_period).await;
-                    let should_continue = async_cx
-                        .update_entity(&entity, |this: &mut NumberStepper, cx| {
-                            if !this.blink_timer_active || !this.editing {
-                                this.blink_timer_active = false;
-                                return false;
-                            }
-                            cx.notify();
-                            true
-                        })
-                        .unwrap_or(false);
-                    if !should_continue {
-                        break;
-                    }
-                }
-            }).detach();
-        }
+        // Check focus state after handling pending refocus
+        let is_focused = self.focus_handle.is_focused(window);
 
         // Colors for the unified control
         let bg_color = theme.bg_input;
-        let border_color = if is_focused { theme.border_focus } else { theme.border_input };
+        let border_color = if is_focused || editing { theme.border_focus } else { theme.border_input };
         let separator_color = theme.text_muted;  // Light color for visibility
         let text_color = theme.text_value;
         let button_text_color = theme.text_value;  // Light color for +/- buttons
 
         // Build the center value element (without its own border/background)
         let value_element = if editing {
-            // Text edit mode
-            let edit_buffer = self.edit_buffer.clone();
-            let edit_cursor = self.edit_cursor;
-            let cursor_visible = self.cursor_blink.is_visible();
-
-            // Calculate cursor position (simple approximation for monospace-ish display)
-            let cursor_offset = edit_buffer[..edit_cursor].chars().count() as f32 * 8.0;
-
+            // Text edit mode - use embedded TextInput
             div()
                 .id("ccf_number_value")
-                .key_context("CcfNumberStepperEdit")
-                .track_focus(&focus_handle)
                 .px_2()
                 .py_1()
                 .flex_1()
                 .flex()
                 .items_center()
-                .text_sm()
-                .text_color(rgb(text_color))
-                .cursor_text()
                 .overflow_hidden()
-                .relative()
-                // Actions for Enter/Escape
-                .on_action(cx.listener(|this, _: &CommitEdit, _window, cx| {
-                    this.commit_edit(cx);
-                }))
-                .on_action(cx.listener(|this, _: &CancelEdit, _window, cx| {
-                    this.cancel_edit(cx);
-                }))
-                // Keyboard handling for editing
-                .on_key_down(cx.listener(move |stepper, event: &KeyDownEvent, window, cx| {
-                    if !stepper.editing {
-                        return;
-                    }
-                    match event.keystroke.key.as_str() {
-                        "tab" => {
-                            stepper.commit_edit(cx);
-                            if event.keystroke.modifiers.shift {
-                                window.focus_prev();
-                            } else {
-                                window.focus_next();
-                            }
-                        }
-                        "left" => stepper.move_cursor_left(cx),
-                        "right" => stepper.move_cursor_right(cx),
-                        "home" => stepper.move_cursor_to_start(cx),
-                        "end" => stepper.move_cursor_to_end(cx),
-                        "backspace" => stepper.delete_backward(cx),
-                        "delete" => stepper.delete_forward(cx),
-                        _ => {
-                            // Character input
-                            if !event.keystroke.modifiers.alt
-                                && !event.keystroke.modifiers.control
-                                && !event.keystroke.modifiers.platform
-                            {
-                                if let Some(ref ch) = event.keystroke.key_char {
-                                    stepper.insert_char(ch, cx);
-                                }
-                            }
-                        }
-                    }
-                }))
-                .child(
-                    div()
-                        .relative()
-                        .h_full()
-                        .flex()
-                        .items_center()
-                        // Text content
-                        .child(
-                            div()
-                                .text_sm()
-                                .text_color(rgb(text_color))
-                                .whitespace_nowrap()
-                                .child(edit_buffer)
-                        )
-                        // Cursor
-                        .when(cursor_visible, |d| {
-                            d.child(
-                                div()
-                                    .absolute()
-                                    .top(px(2.))
-                                    .bottom(px(2.))
-                                    .left(px(cursor_offset))
-                                    .w(px(1.))
-                                    .bg(rgb(text_color))
-                            )
-                        })
-                )
+                .child(self.edit_input.clone())
         } else {
             // Normal display mode
             // Clone the width cell for the canvas closure
@@ -696,7 +513,7 @@ impl Render for NumberStepper {
                     stepper.focus_handle.focus(window);
                     if event.click_count == 2 {
                         // Double-click: enter edit mode
-                        stepper.enter_edit_mode(cx);
+                        stepper.enter_edit_mode(window, cx);
                     } else {
                         // Single click: record drag start position for on_drag_move
                         let x: f32 = event.position.x.into();
@@ -758,7 +575,7 @@ impl Render for NumberStepper {
                 window.focus_prev();
             }))
             .on_key_down(cx.listener(|stepper, event: &KeyDownEvent, window, cx| {
-                // Don't handle keys when editing (let the value element handle them)
+                // Don't handle keys when editing (TextInput handles them)
                 if stepper.editing {
                     return;
                 }
@@ -771,7 +588,7 @@ impl Render for NumberStepper {
                             window.focus_next();
                         }
                     }
-                    "enter" => stepper.enter_edit_mode(cx),
+                    "enter" => stepper.enter_edit_mode(window, cx),
                     "up" => stepper.increment(multiplier, cx),
                     "down" => stepper.decrement(multiplier, cx),
                     _ => {}
@@ -802,7 +619,8 @@ impl Render for NumberStepper {
                     .on_click(cx.listener(|stepper, event: &ClickEvent, window, cx| {
                         stepper.focus_handle.focus(window);
                         if stepper.editing {
-                            stepper.cancel_edit(cx);
+                            // Set editing to false before anything that could trigger blur
+                            stepper.editing = false;
                         }
                         let multiplier = if event.modifiers().shift { 10.0 } else { 1.0 };
                         stepper.decrement(multiplier, cx);
@@ -830,7 +648,8 @@ impl Render for NumberStepper {
                     .on_click(cx.listener(|stepper, event: &ClickEvent, window, cx| {
                         stepper.focus_handle.focus(window);
                         if stepper.editing {
-                            stepper.cancel_edit(cx);
+                            // Set editing to false before anything that could trigger blur
+                            stepper.editing = false;
                         }
                         let multiplier = if event.modifiers().shift { 10.0 } else { 1.0 };
                         stepper.increment(multiplier, cx);

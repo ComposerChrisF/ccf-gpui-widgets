@@ -143,6 +143,10 @@ pub enum TextInputEvent {
     Blur,
     /// Input gained focus
     Focus,
+    /// Tab key pressed (only emitted when emit_tab_events is true)
+    Tab,
+    /// Shift+Tab key pressed (only emitted when emit_tab_events is true)
+    ShiftTab,
 }
 
 /// Character used to mask password input
@@ -182,6 +186,10 @@ pub struct TextInput {
     auto_scroll_speed: f32,
     /// Whether to render without border/background (for embedding in other controls)
     borderless: bool,
+    /// Optional filter for allowed input characters
+    input_filter: Option<Box<dyn Fn(char) -> bool>>,
+    /// Whether to emit Tab/ShiftTab events instead of handling focus navigation
+    emit_tab_events: bool,
 }
 
 impl EventEmitter<TextInputEvent> for TextInput {}
@@ -212,6 +220,8 @@ impl TextInput {
             auto_scroll_active: false,
             auto_scroll_speed: 0.0,
             borderless: false,
+            input_filter: None,
+            emit_tab_events: false,
         }
     }
 
@@ -266,6 +276,35 @@ impl TextInput {
     /// and rounded corners, allowing it to be embedded in unified containers.
     pub fn borderless(mut self, borderless: bool) -> Self {
         self.borderless = borderless;
+        self
+    }
+
+    /// Set an input filter to restrict allowed characters (builder pattern)
+    ///
+    /// The filter function receives each character and should return `true` to allow it.
+    /// Characters that fail the filter are silently dropped during typing and pasting.
+    ///
+    /// # Example
+    /// ```ignore
+    /// TextInput::new(cx)
+    ///     .input_filter(|c| c.is_ascii_digit() || c == '.' || c == '-')
+    /// ```
+    pub fn input_filter(mut self, filter: impl Fn(char) -> bool + 'static) -> Self {
+        self.input_filter = Some(Box::new(filter));
+        self
+    }
+
+    /// Emit Tab/ShiftTab events instead of handling focus navigation (builder pattern)
+    ///
+    /// When true, pressing Tab or Shift+Tab emits `TextInputEvent::Tab` or
+    /// `TextInputEvent::ShiftTab` respectively, allowing the parent to handle
+    /// focus navigation. This is useful when embedding TextInput in other controls
+    /// that need to intercept Tab for custom behavior.
+    ///
+    /// When false (default), Tab/Shift+Tab directly calls `window.focus_next()`
+    /// or `window.focus_prev()`.
+    pub fn emit_tab_events(mut self, emit: bool) -> Self {
+        self.emit_tab_events = emit;
         self
     }
 
@@ -359,7 +398,19 @@ impl TextInput {
         if let Some(clipboard) = cx.read_from_clipboard() {
             if let Some(text) = clipboard.text() {
                 let clean_text = text.replace(['\n', '\r'], "");
-                self.core.insert_text(&clean_text);
+
+                // Apply input filter if present
+                let filtered_text: String = if let Some(ref filter) = self.input_filter {
+                    clean_text.chars().filter(|c| filter(*c)).collect()
+                } else {
+                    clean_text
+                };
+
+                if filtered_text.is_empty() {
+                    return;
+                }
+
+                self.core.insert_text(&filtered_text);
                 self.reset_cursor_blink();
                 cx.emit(TextInputEvent::Change);
                 cx.notify();
@@ -691,7 +742,18 @@ impl TextInput {
     }
 
     fn handle_insert_text(&mut self, text: &str, cx: &mut Context<Self>) {
-        self.core.insert_text(text);
+        // Apply input filter if present
+        let filtered_text: String = if let Some(ref filter) = self.input_filter {
+            text.chars().filter(|c| filter(*c)).collect()
+        } else {
+            text.to_string()
+        };
+
+        if filtered_text.is_empty() {
+            return;
+        }
+
+        self.core.insert_text(&filtered_text);
         self.reset_cursor_blink();
         cx.emit(TextInputEvent::Change);
         cx.notify();
@@ -879,10 +941,20 @@ impl Render for TextInput {
             .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
                 // Handle Tab for focus navigation
                 if event.keystroke.key == "tab" {
-                    if event.keystroke.modifiers.shift {
-                        window.focus_prev();
+                    if this.emit_tab_events {
+                        // Emit event for parent to handle
+                        if event.keystroke.modifiers.shift {
+                            cx.emit(TextInputEvent::ShiftTab);
+                        } else {
+                            cx.emit(TextInputEvent::Tab);
+                        }
                     } else {
-                        window.focus_next();
+                        // Handle focus navigation directly
+                        if event.keystroke.modifiers.shift {
+                            window.focus_prev();
+                        } else {
+                            window.focus_next();
+                        }
                     }
                     return;
                 }
