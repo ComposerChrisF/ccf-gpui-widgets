@@ -186,8 +186,14 @@ The library is functional and being used by clui.
 ### 📦 Publishing
 - [ ] Publish to crates.io
 - [ ] Set up GitHub repository
-- [ ] Add CI/CD (GitHub Actions)
+- [x] Add CI/CD (GitHub Actions) - includes cargo audit for security scanning
 - [ ] Add more comprehensive tests
+
+### 🔐 Security Documentation (2026-01-30)
+- [x] SECURITY.md documenting security model
+- [x] Password handling with memory zeroization
+- [x] Path validation caveats (UI display vs security boundary)
+- [x] CI workflow with cargo audit for dependency vulnerability scanning
 
 ### 🎨 Theme Improvements
 - [ ] Add more built-in themes (e.g., high contrast)
