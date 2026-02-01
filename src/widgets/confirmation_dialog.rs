@@ -117,6 +117,8 @@ pub struct ConfirmationDialog {
     key_mappings: HashMap<String, DialogButton>,
     focus_handle: FocusHandle,
     custom_theme: Option<Theme>,
+    /// Saved focus handle to restore when dialog is dismissed
+    previous_focus: Option<FocusHandle>,
 }
 
 impl EventEmitter<ConfirmationDialogEvent> for ConfirmationDialog {}
@@ -144,6 +146,7 @@ impl ConfirmationDialog {
             key_mappings: HashMap::new(),
             focus_handle: cx.focus_handle().tab_stop(true),
             custom_theme: None,
+            previous_focus: None,
         }
     }
 
@@ -198,7 +201,12 @@ impl ConfirmationDialog {
         &self.focus_handle
     }
 
-    fn emit_button(&mut self, button: DialogButton, cx: &mut Context<Self>) {
+    fn emit_button(&mut self, button: DialogButton, window: &mut Window, cx: &mut Context<Self>) {
+        // Restore focus to the element that was focused before the dialog was shown
+        if let Some(prev_focus) = self.previous_focus.take() {
+            window.focus(&prev_focus);
+        }
+
         let event = match button {
             DialogButton::Primary => ConfirmationDialogEvent::Primary,
             DialogButton::Secondary => ConfirmationDialogEvent::Secondary,
@@ -224,8 +232,12 @@ impl Render for ConfirmationDialog {
         let has_secondary = secondary_label.is_some();
         let has_tertiary = tertiary_label.is_some();
 
-        // Focus the dialog when it renders
+        // Save the current focus and focus the dialog when it first renders
         if !focus_handle.is_focused(window) {
+            // Save the currently focused element before we take focus
+            if self.previous_focus.is_none() {
+                self.previous_focus = window.focused(cx);
+            }
             focus_handle.focus(window);
         }
 
@@ -241,14 +253,14 @@ impl Render for ConfirmationDialog {
         let primary_button_element = match style {
             DialogStyle::Danger => {
                 danger_button("dialog_primary", &primary_label, true, cx)
-                    .on_click(cx.listener(|dialog, _event: &ClickEvent, _window, cx| {
-                        dialog.emit_button(DialogButton::Primary, cx);
+                    .on_click(cx.listener(|dialog, _event: &ClickEvent, window, cx| {
+                        dialog.emit_button(DialogButton::Primary, window, cx);
                     }))
             }
             _ => {
                 primary_button("dialog_primary", &primary_label, true, cx)
-                    .on_click(cx.listener(|dialog, _event: &ClickEvent, _window, cx| {
-                        dialog.emit_button(DialogButton::Primary, cx);
+                    .on_click(cx.listener(|dialog, _event: &ClickEvent, window, cx| {
+                        dialog.emit_button(DialogButton::Primary, window, cx);
                     }))
             }
         };
@@ -265,8 +277,8 @@ impl Render for ConfirmationDialog {
         if let Some(label) = &tertiary_label {
             buttons = buttons.child(
                 secondary_button("dialog_tertiary", label, cx)
-                    .on_click(cx.listener(|dialog, _event: &ClickEvent, _window, cx| {
-                        dialog.emit_button(DialogButton::Tertiary, cx);
+                    .on_click(cx.listener(|dialog, _event: &ClickEvent, window, cx| {
+                        dialog.emit_button(DialogButton::Tertiary, window, cx);
                     }))
             );
         }
@@ -275,8 +287,8 @@ impl Render for ConfirmationDialog {
         if let Some(label) = &secondary_label {
             buttons = buttons.child(
                 secondary_button("dialog_secondary", label, cx)
-                    .on_click(cx.listener(|dialog, _event: &ClickEvent, _window, cx| {
-                        dialog.emit_button(DialogButton::Secondary, cx);
+                    .on_click(cx.listener(|dialog, _event: &ClickEvent, window, cx| {
+                        dialog.emit_button(DialogButton::Secondary, window, cx);
                     }))
             );
         }
@@ -296,7 +308,21 @@ impl Render for ConfirmationDialog {
             .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
                 window.focus_prev();
             }))
-            .on_key_down(cx.listener(move |dialog, event: &KeyDownEvent, window, cx| {
+            // Tab navigation responds on keydown for immediate feedback
+            .on_key_down(cx.listener(|_dialog, event: &KeyDownEvent, window, _cx| {
+                if event.keystroke.key.as_str() == "tab" {
+                    if event.keystroke.modifiers.shift {
+                        window.focus_prev();
+                    } else {
+                        window.focus_next();
+                    }
+                }
+            }))
+            // Dismissal actions respond on keyup to avoid race conditions when
+            // the dialog is launched by a keydown - if we dismissed on keydown,
+            // the keyup would fire on the restored-focus element and potentially
+            // re-launch the dialog
+            .on_key_up(cx.listener(move |dialog, event: &KeyUpEvent, window, cx| {
                 let key = event.keystroke.key.as_str().to_lowercase();
 
                 // Check custom key mappings first
@@ -308,7 +334,7 @@ impl Render for ConfirmationDialog {
                         DialogButton::Tertiary => has_tertiary,
                     };
                     if can_trigger {
-                        dialog.emit_button(button, cx);
+                        dialog.emit_button(button, window, cx);
                         return;
                     }
                 }
@@ -318,22 +344,15 @@ impl Render for ConfirmationDialog {
                     "escape" => {
                         // Escape: triggers secondary if exists, otherwise primary (for Info)
                         if has_secondary {
-                            dialog.emit_button(DialogButton::Secondary, cx);
+                            dialog.emit_button(DialogButton::Secondary, window, cx);
                         } else {
-                            dialog.emit_button(DialogButton::Primary, cx);
+                            dialog.emit_button(DialogButton::Primary, window, cx);
                         }
                     }
                     "enter" => {
                         // Enter: triggers primary (except for Danger style)
                         if !is_danger {
-                            dialog.emit_button(DialogButton::Primary, cx);
-                        }
-                    }
-                    "tab" => {
-                        if event.keystroke.modifiers.shift {
-                            window.focus_prev();
-                        } else {
-                            window.focus_next();
+                            dialog.emit_button(DialogButton::Primary, window, cx);
                         }
                     }
                     _ => {}
@@ -378,14 +397,14 @@ impl Render for ConfirmationDialog {
                 .items_center()
                 .justify_center()
                 .bg(rgba(0x000000aa))
-                .on_mouse_down(MouseButton::Left, cx.listener(move |dialog, _event, _window, cx| {
+                .on_mouse_down(MouseButton::Left, cx.listener(move |dialog, _event, window, cx| {
                     // Click-outside behavior
                     if is_info {
                         // Info: click-outside dismisses (Primary)
-                        dialog.emit_button(DialogButton::Primary, cx);
+                        dialog.emit_button(DialogButton::Primary, window, cx);
                     } else if !is_danger && has_secondary {
                         // Default/Warning with secondary: click-outside triggers Secondary
-                        dialog.emit_button(DialogButton::Secondary, cx);
+                        dialog.emit_button(DialogButton::Secondary, window, cx);
                     }
                     // Danger: click-outside does nothing
                 }))

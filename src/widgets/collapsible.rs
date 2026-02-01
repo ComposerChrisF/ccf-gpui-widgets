@@ -129,6 +129,8 @@ impl Render for Collapsible {
                         window.focus_prev();
                     }))
                     .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
+                        // Handle tab navigation and arrow keys for expand/collapse
+                        // Space/enter are handled by on_click via synthetic click events
                         match event.keystroke.key.as_str() {
                             "tab" => {
                                 if event.keystroke.modifiers.shift {
@@ -137,8 +139,13 @@ impl Render for Collapsible {
                                     window.focus_next();
                                 }
                             }
-                            "space" | "enter" => {
-                                this.toggle(cx);
+                            "down" => {
+                                // Down arrow expands
+                                this.set_collapsed(false, cx);
+                            }
+                            "up" => {
+                                // Up arrow collapses
+                                this.set_collapsed(true, cx);
                             }
                             _ => {}
                         }

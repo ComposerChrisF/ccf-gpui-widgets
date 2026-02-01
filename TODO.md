@@ -166,6 +166,13 @@ The library is functional and being used by clui.
 - [x] PasswordInput: Removed unused `get_theme()` method
 - [x] Slider: Removed unused `multiplier` variable
 
+### ✅ Keyboard Event Fixes (2026-02-01)
+- [x] Collapsible: Fixed double-toggle on Space/Enter (was responding to both keydown and synthetic click)
+- [x] Collapsible: Added Up/Down arrow keys to collapse/expand
+- [x] ConfirmationDialog: Saves and restores focus when dialog is dismissed
+- [x] ConfirmationDialog: Dismissal keys (Enter/Escape/custom) now respond on keyup instead of keydown
+- [x] ConfirmationDialog: Prevents race condition where keydown launches dialog, same keydown dismisses it, keyup relaunches
+
 ### ✅ New Widgets: Toggle, Slider, Progress, Spinner, Dialog (2026-01-30)
 - [x] ToggleSwitch: iOS-style toggle switch with pill-shaped track and circular thumb
 - [x] ToggleSwitch: Label support with configurable position (left or right)
