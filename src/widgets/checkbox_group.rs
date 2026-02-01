@@ -67,18 +67,21 @@ impl CheckboxGroup {
     }
 
     /// Set choices (builder pattern)
+    #[must_use]
     pub fn choices(mut self, choices: Vec<String>) -> Self {
         self.choices = choices;
         self
     }
 
     /// Set initially selected values (builder pattern)
+    #[must_use]
     pub fn with_selected(mut self, selected: Vec<String>) -> Self {
         self.selected = selected.into_iter().collect();
         self
     }
 
     /// Set custom theme (builder pattern)
+    #[must_use]
     pub fn theme(mut self, theme: Theme) -> Self {
         self.custom_theme = Some(theme);
         self

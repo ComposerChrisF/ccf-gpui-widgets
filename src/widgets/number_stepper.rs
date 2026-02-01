@@ -175,24 +175,28 @@ impl NumberStepper {
     }
 
     /// Set initial value (builder pattern)
+    #[must_use]
     pub fn with_value(mut self, value: f64) -> Self {
         self.value = value;
         self
     }
 
     /// Set minimum value (builder pattern)
+    #[must_use]
     pub fn min(mut self, min: f64) -> Self {
         self.min = Some(min);
         self
     }
 
     /// Set maximum value (builder pattern)
+    #[must_use]
     pub fn max(mut self, max: f64) -> Self {
         self.max = Some(max);
         self
     }
 
     /// Set step value for +/- buttons (builder pattern)
+    #[must_use]
     pub fn step(mut self, step: f64) -> Self {
         self.step = Some(step);
         self
@@ -202,6 +206,7 @@ impl NumberStepper {
     ///
     /// Values will snap to (min + n * resolution) where n is an integer.
     /// For example, with min=0.5 and resolution=0.25, valid values are 0.5, 0.75, 1.0, 1.25, etc.
+    #[must_use]
     pub fn resolution(mut self, resolution: f64) -> Self {
         self.resolution = Some(resolution);
         self
@@ -211,12 +216,14 @@ impl NumberStepper {
     ///
     /// The displayed value is rounded to this many decimal places.
     /// This is independent of the actual stored value.
+    #[must_use]
     pub fn display_precision(mut self, precision: usize) -> Self {
         self.display_precision = Some(precision);
         self
     }
 
     /// Set custom theme (builder pattern)
+    #[must_use]
     pub fn theme(mut self, theme: Theme) -> Self {
         self.custom_theme = Some(theme);
         self
@@ -238,6 +245,7 @@ impl NumberStepper {
     /// ```ignore
     /// .drag_sensitivities(1.0, 2.0, 0.1)  // 10 pixels of slow drag = 1.0 change
     /// ```
+    #[must_use]
     pub fn drag_sensitivities(mut self, normal: f64, fast: f64, slow: f64) -> Self {
         self.value_per_pixel_normal = normal;
         self.value_per_pixel_fast = fast;
@@ -246,6 +254,7 @@ impl NumberStepper {
     }
 
     /// Set normal drag sensitivity, scaling fast (5x) and slow (0.1x) proportionally
+    #[must_use]
     pub fn drag_sensitivity(mut self, value_per_pixel: f64) -> Self {
         self.value_per_pixel_normal = value_per_pixel;
         self.value_per_pixel_fast = value_per_pixel * 5.0;
@@ -258,6 +267,7 @@ impl NumberStepper {
     /// By default, when both min and max are set, the drag sensitivity is automatically
     /// calculated so that dragging across the value display covers the full range.
     /// Call this method to use the configured fixed sensitivities instead.
+    #[must_use]
     pub fn manual_drag_sensitivity(mut self) -> Self {
         self.auto_scale_drag = false;
         self

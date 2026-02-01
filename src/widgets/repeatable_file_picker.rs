@@ -103,30 +103,35 @@ impl RepeatableFilePicker {
     }
 
     /// Set initial values
+    #[must_use]
     pub fn with_values(mut self, values: Vec<String>) -> Self {
         self.initial_values = values;
         self
     }
 
     /// Set placeholder text
+    #[must_use]
     pub fn placeholder(mut self, text: impl Into<SharedString>) -> Self {
         self.placeholder = Some(text.into());
         self
     }
 
     /// Set file extension filters (e.g., ["txt", "md"])
+    #[must_use]
     pub fn extensions(mut self, exts: Vec<String>) -> Self {
         self.extensions = exts;
         self
     }
 
     /// Set file mode (Open or Save)
+    #[must_use]
     pub fn mode(mut self, mode: FileMode) -> Self {
         self.mode = mode;
         self
     }
 
     /// Set how missing directories are handled
+    #[must_use]
     pub fn missing_directories(mut self, handling: MissingDirectories) -> Self {
         self.missing_directories = handling;
         self
@@ -136,6 +141,7 @@ impl RepeatableFilePicker {
     ///
     /// The shortcut is enabled by default. Disable it if your application
     /// uses Cmd+O for another purpose (e.g., opening files at the app level).
+    #[must_use]
     pub fn browse_shortcut(mut self, enabled: bool) -> Self {
         self.browse_shortcut_enabled = enabled;
         self
@@ -145,18 +151,21 @@ impl RepeatableFilePicker {
     ///
     /// Controls whether path coloring and/or explanation messages are shown.
     /// Default is `ValidationDisplay::Full` (show both).
+    #[must_use]
     pub fn validation_display(mut self, display: ValidationDisplay) -> Self {
         self.validation_display = display;
         self
     }
 
     /// Set minimum number of entries (default: 1)
+    #[must_use]
     pub fn min_entries(mut self, min: usize) -> Self {
         self.min_entries = min.max(1);
         self
     }
 
     /// Set a custom theme for this widget
+    #[must_use]
     pub fn theme(mut self, theme: Theme) -> Self {
         self.custom_theme = Some(theme);
         self

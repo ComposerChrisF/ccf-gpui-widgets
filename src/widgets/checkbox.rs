@@ -63,18 +63,21 @@ impl Checkbox {
     }
 
     /// Set initial checked state (builder pattern)
+    #[must_use]
     pub fn with_checked(mut self, value: bool) -> Self {
         self.checked = value;
         self
     }
 
     /// Set label text (builder pattern)
+    #[must_use]
     pub fn label(mut self, text: impl Into<SharedString>) -> Self {
         self.label = Some(text.into());
         self
     }
 
     /// Set custom theme (builder pattern)
+    #[must_use]
     pub fn theme(mut self, theme: Theme) -> Self {
         self.custom_theme = Some(theme);
         self

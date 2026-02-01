@@ -159,18 +159,21 @@ impl PasswordInput {
     }
 
     /// Set placeholder text shown when empty (builder pattern)
+    #[must_use]
     pub fn placeholder(mut self, text: impl Into<SharedString>) -> Self {
         self.pending_placeholder = Some(text.into());
         self
     }
 
     /// Set an initial value (builder pattern)
+    #[must_use]
     pub fn with_value(mut self, value: impl Into<String>) -> Self {
         self.pending_value = Some(value.into());
         self
     }
 
     /// Set a custom theme for this widget (builder pattern)
+    #[must_use]
     pub fn theme(mut self, theme: Theme) -> Self {
         self.custom_theme = Some(theme);
         self
@@ -246,11 +249,6 @@ impl PasswordInput {
         self.show_password = !self.show_password;
         self.core.set_masked(!self.show_password);
         cx.notify();
-    }
-
-    #[allow(dead_code)]
-    fn get_theme(&self, cx: &App) -> Theme {
-        self.custom_theme.unwrap_or_else(|| crate::theme::get_theme(cx))
     }
 
     /// Get the display content (masked or real)

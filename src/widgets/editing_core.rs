@@ -115,6 +115,7 @@ impl<S: ContentStorage> EditingCore<S> {
     }
 
     /// Create with initial content
+    #[must_use]
     pub fn with_content(mut self, content: &str) -> Self {
         self.content.set(content);
         self.cursor = self.content.len();
@@ -122,6 +123,7 @@ impl<S: ContentStorage> EditingCore<S> {
     }
 
     /// Set masked mode (for password input)
+    #[must_use]
     pub fn with_masked(mut self, masked: bool) -> Self {
         self.masked = masked;
         self
@@ -476,55 +478,77 @@ impl<S: ContentStorage> EditingCore<S> {
     }
 
     /// Find the start of the previous word
+    /// Uses an iterator-based approach to avoid Vec allocation
     pub fn prev_word_boundary(&self, pos: usize) -> usize {
         if pos == 0 {
             return 0;
         }
 
-        let chars: Vec<(usize, char)> = self.content.as_str()[..pos].char_indices().collect();
-        if chars.is_empty() {
+        let s = &self.content.as_str()[..pos];
+        if s.is_empty() {
             return 0;
         }
 
-        let mut i = chars.len() - 1;
-        // Skip non-alphanumeric characters
-        while i > 0 && !chars[i].1.is_alphanumeric() {
-            i -= 1;
-        }
-        // Skip alphanumeric characters
-        while i > 0 && chars[i - 1].1.is_alphanumeric() {
-            i -= 1;
+        // Iterate backwards by collecting positions, then walking back
+        // Find the last word start before pos
+        let mut last_word_start = 0;
+        let mut in_word = false;
+        let mut last_non_alnum_after_word = None;
+
+        for (i, c) in s.char_indices() {
+            if c.is_alphanumeric() {
+                if !in_word {
+                    last_word_start = i;
+                    in_word = true;
+                }
+            } else {
+                if in_word {
+                    last_non_alnum_after_word = Some(i);
+                }
+                in_word = false;
+            }
         }
 
-        chars.get(i).map(|(idx, _)| *idx).unwrap_or(0)
+        // If we're currently in a word (at the end of s), return the start of that word
+        if in_word {
+            return last_word_start;
+        }
+
+        // Otherwise, we're in non-alphanumeric chars, return start of previous word
+        // If there was a word before, return its start
+        if last_non_alnum_after_word.is_some() {
+            return last_word_start;
+        }
+
+        // No word found, return 0
+        0
     }
 
     /// Find the end of the next word
+    /// Uses an iterator-based approach to avoid Vec allocation
     pub fn next_word_boundary(&self, pos: usize) -> usize {
         if pos >= self.content.len() {
             return self.content.len();
         }
 
-        let chars: Vec<(usize, char)> = self.content.as_str()[pos..].char_indices().collect();
-        if chars.is_empty() {
+        let s = &self.content.as_str()[pos..];
+        if s.is_empty() {
             return self.content.len();
         }
 
-        let mut i = 0;
-        // Skip non-alphanumeric characters
-        while i < chars.len() && !chars[i].1.is_alphanumeric() {
-            i += 1;
-        }
-        // Skip alphanumeric characters
-        while i < chars.len() && chars[i].1.is_alphanumeric() {
-            i += 1;
+        let mut in_word = false;
+
+        for (i, c) in s.char_indices() {
+            if c.is_alphanumeric() {
+                in_word = true;
+            } else if in_word {
+                // We just exited a word
+                return pos + i;
+            }
         }
 
-        if i < chars.len() {
-            pos + chars[i].0
-        } else {
-            self.content.len()
-        }
+        // If we went through a word (or any text) and reached the end, return end
+        self.content.len()
     }
 }
 

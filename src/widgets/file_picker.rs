@@ -330,36 +330,42 @@ impl FilePicker {
     }
 
     /// Set initial value (builder pattern)
+    #[must_use]
     pub fn with_value(mut self, path: impl Into<String>) -> Self {
         self.value = path.into();
         self
     }
 
     /// Set placeholder text (builder pattern)
+    #[must_use]
     pub fn placeholder(mut self, text: impl Into<SharedString>) -> Self {
         self.placeholder = Some(text.into());
         self
     }
 
     /// Set file extensions filter (builder pattern)
+    #[must_use]
     pub fn extensions(mut self, extensions: Vec<String>) -> Self {
         self.extensions = extensions;
         self
     }
 
     /// Set file mode (builder pattern)
+    #[must_use]
     pub fn mode(mut self, mode: FileMode) -> Self {
         self.mode = mode;
         self
     }
 
     /// Set missing directories handling (builder pattern)
+    #[must_use]
     pub fn missing_directories(mut self, handling: MissingDirectories) -> Self {
         self.missing_directories = handling;
         self
     }
 
     /// Set custom theme (builder pattern)
+    #[must_use]
     pub fn theme(mut self, theme: Theme) -> Self {
         self.custom_theme = Some(theme);
         self
@@ -369,6 +375,7 @@ impl FilePicker {
     ///
     /// The shortcut is enabled by default. Disable it if your application
     /// uses Cmd+O for another purpose (e.g., opening files at the app level).
+    #[must_use]
     pub fn browse_shortcut(mut self, enabled: bool) -> Self {
         self.browse_shortcut_enabled = enabled;
         self
@@ -378,6 +385,7 @@ impl FilePicker {
     ///
     /// Controls whether path coloring and/or explanation messages are shown.
     /// Default is `ValidationDisplay::Full` (show both).
+    #[must_use]
     pub fn validation_display(mut self, display: ValidationDisplay) -> Self {
         self.validation_display = display;
         self

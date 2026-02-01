@@ -99,12 +99,14 @@ impl RepeatableTextInput {
     }
 
     /// Set initial values
+    #[must_use]
     pub fn with_values(mut self, values: Vec<String>) -> Self {
         self.initial_values = values;
         self
     }
 
     /// Set placeholder text for each input
+    #[must_use]
     pub fn placeholder(mut self, text: impl Into<SharedString>) -> Self {
         self.placeholder = Some(text.into());
         self
@@ -113,12 +115,14 @@ impl RepeatableTextInput {
     /// Set minimum number of entries (default: 1)
     ///
     /// Users cannot remove entries below this count.
+    #[must_use]
     pub fn min_entries(mut self, min: usize) -> Self {
         self.min_entries = min.max(1); // At least 1
         self
     }
 
     /// Set a custom theme for this widget
+    #[must_use]
     pub fn theme(mut self, theme: Theme) -> Self {
         self.custom_theme = Some(theme);
         self

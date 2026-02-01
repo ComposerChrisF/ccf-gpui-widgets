@@ -74,12 +74,14 @@ impl ProgressBar {
     }
 
     /// Set initial value (builder pattern)
+    #[must_use]
     pub fn with_value(mut self, value: f64) -> Self {
         self.value = Some(value.clamp(self.min, self.max));
         self
     }
 
     /// Set minimum value (builder pattern)
+    #[must_use]
     pub fn min(mut self, min: f64) -> Self {
         self.min = min;
         if let Some(v) = self.value {
@@ -89,6 +91,7 @@ impl ProgressBar {
     }
 
     /// Set maximum value (builder pattern)
+    #[must_use]
     pub fn max(mut self, max: f64) -> Self {
         self.max = max;
         if let Some(v) = self.value {
@@ -98,24 +101,28 @@ impl ProgressBar {
     }
 
     /// Set to indeterminate mode (builder pattern)
+    #[must_use]
     pub fn indeterminate(mut self) -> Self {
         self.value = None;
         self
     }
 
     /// Show percentage text (builder pattern)
+    #[must_use]
     pub fn show_percentage(mut self, show: bool) -> Self {
         self.show_percentage = show;
         self
     }
 
     /// Set label text (builder pattern)
+    #[must_use]
     pub fn label(mut self, text: impl Into<SharedString>) -> Self {
         self.label = Some(text.into());
         self
     }
 
     /// Set custom theme (builder pattern)
+    #[must_use]
     pub fn theme(mut self, theme: Theme) -> Self {
         self.custom_theme = Some(theme);
         self

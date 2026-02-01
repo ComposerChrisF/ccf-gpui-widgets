@@ -148,6 +148,7 @@ impl ConfirmationDialog {
     }
 
     /// Set primary button label (builder pattern)
+    #[must_use]
     pub fn primary_label(mut self, label: impl Into<SharedString>) -> Self {
         self.primary_label = label.into();
         self
@@ -155,6 +156,7 @@ impl ConfirmationDialog {
 
     /// Set secondary button label (builder pattern)
     /// Setting this enables the secondary button.
+    #[must_use]
     pub fn secondary_label(mut self, label: impl Into<SharedString>) -> Self {
         self.secondary_label = Some(label.into());
         self
@@ -162,6 +164,7 @@ impl ConfirmationDialog {
 
     /// Set tertiary button label (builder pattern)
     /// Setting this enables the tertiary button.
+    #[must_use]
     pub fn tertiary_label(mut self, label: impl Into<SharedString>) -> Self {
         self.tertiary_label = Some(label.into());
         self
@@ -169,6 +172,7 @@ impl ConfirmationDialog {
 
     /// Map a key to a button (builder pattern)
     /// Keys are case-insensitive (both "y" and "Y" will match).
+    #[must_use]
     pub fn map_key(mut self, key: impl Into<String>, button: DialogButton) -> Self {
         let key_lower = key.into().to_lowercase();
         self.key_mappings.insert(key_lower, button);
@@ -176,12 +180,14 @@ impl ConfirmationDialog {
     }
 
     /// Set dialog style (builder pattern)
+    #[must_use]
     pub fn style(mut self, style: DialogStyle) -> Self {
         self.style = style;
         self
     }
 
     /// Set custom theme (builder pattern)
+    #[must_use]
     pub fn theme(mut self, theme: Theme) -> Self {
         self.custom_theme = Some(theme);
         self

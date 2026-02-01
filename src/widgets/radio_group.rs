@@ -65,6 +65,7 @@ impl RadioGroup {
     }
 
     /// Set choices (builder pattern)
+    #[must_use]
     pub fn choices(mut self, choices: Vec<String>) -> Self {
         self.choices = choices;
         if !self.choices.is_empty() && self.selected.is_empty() {
@@ -74,6 +75,7 @@ impl RadioGroup {
     }
 
     /// Set selected value (builder pattern)
+    #[must_use]
     pub fn with_selected_value(mut self, value: &str) -> Self {
         if let Some(index) = self.choices.iter().position(|c| c == value) {
             self.selected = value.to_string();
@@ -83,6 +85,7 @@ impl RadioGroup {
     }
 
     /// Set custom theme (builder pattern)
+    #[must_use]
     pub fn theme(mut self, theme: Theme) -> Self {
         self.custom_theme = Some(theme);
         self

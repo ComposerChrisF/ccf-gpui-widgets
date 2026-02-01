@@ -146,29 +146,29 @@ struct EventLogEntry {
 impl WidgetGallery {
     fn new(cx: &mut Context<Self>) -> Self {
         // Create collapsible sections
-        let section_text = cx.new(|_cx| Collapsible::new("Text Input"));
-        let section_checkbox = cx.new(|_cx| Collapsible::new("Checkbox"));
-        let section_dropdown = cx.new(|_cx| Collapsible::new("Dropdown"));
-        let section_number = cx.new(|_cx| Collapsible::new("Number Stepper"));
-        let section_radio = cx.new(|_cx| Collapsible::new("Radio Group"));
-        let section_checkbox_group = cx.new(|_cx| Collapsible::new("Checkbox Group"));
-        let section_color = cx.new(|_cx| Collapsible::new("Color Swatch"));
-        let section_tooltip = cx.new(|_cx| Collapsible::new("Tooltip"));
-        let section_button = cx.new(|_cx| Collapsible::new("Button"));
-        let section_password = cx.new(|_cx| Collapsible::new("Password Input"));
-        let section_tab_bar = cx.new(|_cx| Collapsible::new("Tab Bar"));
-        let section_repeatable_text = cx.new(|_cx| Collapsible::new("Repeatable Text Input"));
-        let section_toggle = cx.new(|_cx| Collapsible::new("Toggle Switch"));
-        let section_slider = cx.new(|_cx| Collapsible::new("Slider"));
-        let section_progress = cx.new(|_cx| Collapsible::new("Progress Bar"));
-        let section_spinner = cx.new(|_cx| Collapsible::new("Spinner"));
-        let section_dialog = cx.new(|_cx| Collapsible::new("Confirmation Dialog"));
+        let section_text = cx.new(|cx| Collapsible::new("Text Input", cx));
+        let section_checkbox = cx.new(|cx| Collapsible::new("Checkbox", cx));
+        let section_dropdown = cx.new(|cx| Collapsible::new("Dropdown", cx));
+        let section_number = cx.new(|cx| Collapsible::new("Number Stepper", cx));
+        let section_radio = cx.new(|cx| Collapsible::new("Radio Group", cx));
+        let section_checkbox_group = cx.new(|cx| Collapsible::new("Checkbox Group", cx));
+        let section_color = cx.new(|cx| Collapsible::new("Color Swatch", cx));
+        let section_tooltip = cx.new(|cx| Collapsible::new("Tooltip", cx));
+        let section_button = cx.new(|cx| Collapsible::new("Button", cx));
+        let section_password = cx.new(|cx| Collapsible::new("Password Input", cx));
+        let section_tab_bar = cx.new(|cx| Collapsible::new("Tab Bar", cx));
+        let section_repeatable_text = cx.new(|cx| Collapsible::new("Repeatable Text Input", cx));
+        let section_toggle = cx.new(|cx| Collapsible::new("Toggle Switch", cx));
+        let section_slider = cx.new(|cx| Collapsible::new("Slider", cx));
+        let section_progress = cx.new(|cx| Collapsible::new("Progress Bar", cx));
+        let section_spinner = cx.new(|cx| Collapsible::new("Spinner", cx));
+        let section_dialog = cx.new(|cx| Collapsible::new("Confirmation Dialog", cx));
         #[cfg(feature = "file-picker")]
-        let section_file = cx.new(|_cx| Collapsible::new("File Pickers"));
+        let section_file = cx.new(|cx| Collapsible::new("File Pickers", cx));
         #[cfg(feature = "file-picker")]
-        let section_repeatable_file = cx.new(|_cx| Collapsible::new("Repeatable File Picker"));
+        let section_repeatable_file = cx.new(|cx| Collapsible::new("Repeatable File Picker", cx));
         #[cfg(feature = "file-picker")]
-        let section_repeatable_dir = cx.new(|_cx| Collapsible::new("Repeatable Directory Picker"));
+        let section_repeatable_dir = cx.new(|cx| Collapsible::new("Repeatable Directory Picker", cx));
 
         // Create widgets
         let text_input = cx.new(|cx| TextInput::new(cx).placeholder("Type something..."));

@@ -127,6 +127,7 @@ impl<T: TabItem> TabBar<T> {
     }
 
     /// Set a custom theme for this widget
+    #[must_use]
     pub fn theme(mut self, theme: Theme) -> Self {
         self.custom_theme = Some(theme);
         self

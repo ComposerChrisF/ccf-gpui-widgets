@@ -158,6 +158,14 @@ The library is functional and being used by clui.
 - [x] TextInput: Added `Tab` and `ShiftTab` events to `TextInputEvent`
 - [x] **Breaking change**: `register_number_stepper_keybindings()` removed from exports
 
+### ✅ Code Review Improvements (2026-02-01)
+- [x] Added `#[must_use]` attribute to all builder methods across all widgets
+- [x] Collapsible: Now implements `Focusable` trait with keyboard support (Tab/Space/Enter)
+- [x] Collapsible: **Breaking change**: `new()` now requires `cx` parameter
+- [x] EditingCore: Word boundary functions use iterators instead of Vec allocation
+- [x] PasswordInput: Removed unused `get_theme()` method
+- [x] Slider: Removed unused `multiplier` variable
+
 ### ✅ New Widgets: Toggle, Slider, Progress, Spinner, Dialog (2026-01-30)
 - [x] ToggleSwitch: iOS-style toggle switch with pill-shaped track and circular thumb
 - [x] ToggleSwitch: Label support with configurable position (left or right)

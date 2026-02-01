@@ -94,18 +94,21 @@ impl Dropdown {
     }
 
     /// Set choices (builder pattern)
+    #[must_use]
     pub fn choices(mut self, choices: Vec<String>) -> Self {
         self.choices = choices;
         self
     }
 
     /// Set selected index (builder pattern)
+    #[must_use]
     pub fn with_selected_index(mut self, index: usize) -> Self {
         self.selected_index = index.min(self.choices.len().saturating_sub(1));
         self
     }
 
     /// Set selected value by string (builder pattern)
+    #[must_use]
     pub fn with_selected_value(mut self, value: &str) -> Self {
         if let Some(index) = self.choices.iter().position(|c| c == value) {
             self.selected_index = index;
@@ -114,6 +117,7 @@ impl Dropdown {
     }
 
     /// Set custom theme (builder pattern)
+    #[must_use]
     pub fn theme(mut self, theme: Theme) -> Self {
         self.custom_theme = Some(theme);
         self

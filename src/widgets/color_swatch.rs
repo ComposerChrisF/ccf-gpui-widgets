@@ -216,6 +216,7 @@ impl ColorSwatch {
 
     /// Set initial value (builder pattern)
     /// Accepts hex colors (#RGB, #RRGGBB, #RRGGBBAA) or CSS named colors
+    #[must_use]
     pub fn with_value(mut self, color: impl Into<String>) -> Self {
         let color_str = color.into();
         // Try to parse as hex or named color
@@ -236,18 +237,21 @@ impl ColorSwatch {
     }
 
     /// Set placeholder text (builder pattern)
+    #[must_use]
     pub fn placeholder(mut self, text: impl Into<String>) -> Self {
         self.placeholder = text.into();
         self
     }
 
     /// Enable or disable alpha channel support (builder pattern)
+    #[must_use]
     pub fn with_alpha(mut self, enabled: bool) -> Self {
         self.with_alpha = enabled;
         self
     }
 
     /// Set custom theme (builder pattern)
+    #[must_use]
     pub fn theme(mut self, theme: Theme) -> Self {
         self.custom_theme = Some(theme);
         self

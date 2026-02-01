@@ -113,12 +113,14 @@ impl Slider {
     }
 
     /// Set initial value (builder pattern)
+    #[must_use]
     pub fn with_value(mut self, value: f64) -> Self {
         self.value = value.clamp(self.min, self.max);
         self
     }
 
     /// Set minimum value (builder pattern)
+    #[must_use]
     pub fn min(mut self, min: f64) -> Self {
         self.min = min;
         self.value = self.value.clamp(self.min, self.max);
@@ -126,6 +128,7 @@ impl Slider {
     }
 
     /// Set maximum value (builder pattern)
+    #[must_use]
     pub fn max(mut self, max: f64) -> Self {
         self.max = max;
         self.value = self.value.clamp(self.min, self.max);
@@ -133,24 +136,28 @@ impl Slider {
     }
 
     /// Set step value (builder pattern)
+    #[must_use]
     pub fn step(mut self, step: f64) -> Self {
         self.step = Some(step);
         self
     }
 
     /// Show value display (builder pattern)
+    #[must_use]
     pub fn show_value(mut self, show: bool) -> Self {
         self.show_value = show;
         self
     }
 
     /// Set display precision (builder pattern)
+    #[must_use]
     pub fn display_precision(mut self, precision: usize) -> Self {
         self.display_precision = Some(precision);
         self
     }
 
     /// Set custom theme (builder pattern)
+    #[must_use]
     pub fn theme(mut self, theme: Theme) -> Self {
         self.custom_theme = Some(theme);
         self
@@ -376,16 +383,6 @@ impl Render for Slider {
             .on_drag_move(cx.listener(|slider, event: &DragMoveEvent<SliderDragState>, _window, cx| {
                 if slider.dragging {
                     let x: f32 = event.event.position.x.into();
-                    let multiplier = if event.event.modifiers.shift {
-                        10.0
-                    } else if event.event.modifiers.alt {
-                        0.1
-                    } else {
-                        1.0
-                    };
-                    // For drag with modifiers, we adjust relative to current position
-                    // For now, keep direct position mapping
-                    let _ = multiplier; // TODO: implement modifier-based sensitivity
                     slider.set_value_from_position(x, cx);
                 }
             }))

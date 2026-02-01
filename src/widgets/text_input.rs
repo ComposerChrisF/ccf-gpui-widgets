@@ -226,12 +226,14 @@ impl TextInput {
     }
 
     /// Set placeholder text (builder pattern)
+    #[must_use]
     pub fn placeholder(mut self, text: impl Into<SharedString>) -> Self {
         self.placeholder = Some(text.into());
         self
     }
 
     /// Set initial value (builder pattern)
+    #[must_use]
     pub fn with_value(mut self, text: impl Into<String>) -> Self {
         let text = text.into();
         self.core.set_content(&text);
@@ -239,12 +241,14 @@ impl TextInput {
     }
 
     /// Set custom theme (builder pattern)
+    #[must_use]
     pub fn theme(mut self, theme: Theme) -> Self {
         self.custom_theme = Some(theme);
         self
     }
 
     /// Set select on focus (builder pattern)
+    #[must_use]
     pub fn select_on_focus(mut self, select: bool) -> Self {
         self.select_on_focus = select;
         self
@@ -254,6 +258,7 @@ impl TextInput {
     ///
     /// When masked, the input displays bullet characters instead of the actual text,
     /// while retaining full editing functionality (cursor movement, selection, etc.)
+    #[must_use]
     pub fn masked(mut self, masked: bool) -> Self {
         self.core.set_masked(masked);
         self
@@ -274,6 +279,7 @@ impl TextInput {
     ///
     /// When borderless, the input renders without its own border, background,
     /// and rounded corners, allowing it to be embedded in unified containers.
+    #[must_use]
     pub fn borderless(mut self, borderless: bool) -> Self {
         self.borderless = borderless;
         self
@@ -289,6 +295,7 @@ impl TextInput {
     /// TextInput::new(cx)
     ///     .input_filter(|c| c.is_ascii_digit() || c == '.' || c == '-')
     /// ```
+    #[must_use]
     pub fn input_filter(mut self, filter: impl Fn(char) -> bool + 'static) -> Self {
         self.input_filter = Some(Box::new(filter));
         self
@@ -303,6 +310,7 @@ impl TextInput {
     ///
     /// When false (default), Tab/Shift+Tab directly calls `window.focus_next()`
     /// or `window.focus_prev()`.
+    #[must_use]
     pub fn emit_tab_events(mut self, emit: bool) -> Self {
         self.emit_tab_events = emit;
         self
