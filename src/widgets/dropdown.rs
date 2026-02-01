@@ -121,7 +121,7 @@ impl Dropdown {
 
     /// Get the currently selected value
     pub fn selected(&self) -> &str {
-        self.choices.get(self.selected_index).map(|s| s.as_str()).unwrap_or("")
+        self.choices.get(self.selected_index).map_or("", |s| s.as_str())
     }
 
     /// Get the currently selected index

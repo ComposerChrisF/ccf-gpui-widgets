@@ -151,6 +151,14 @@ pub fn expand_tilde(path: &str) -> String {
     path.to_string()
 }
 
+/// Build a path from components in reverse order
+fn build_suffix(components: &[std::ffi::OsString]) -> PathBuf {
+    components
+        .iter()
+        .rev()
+        .fold(PathBuf::new(), |acc, comp| acc.join(comp))
+}
+
 /// Find the longest prefix of the path that exists on disk
 fn find_existing_prefix(path: &Path) -> (PathBuf, PathBuf) {
     let mut current = path.to_path_buf();
@@ -158,11 +166,7 @@ fn find_existing_prefix(path: &Path) -> (PathBuf, PathBuf) {
 
     loop {
         if current.exists() {
-            let suffix = suffix_components
-                .iter()
-                .rev()
-                .fold(PathBuf::new(), |acc, comp| acc.join(comp));
-            return (current, suffix);
+            return (current, build_suffix(&suffix_components));
         }
 
         match current.file_name() {
@@ -174,20 +178,12 @@ fn find_existing_prefix(path: &Path) -> (PathBuf, PathBuf) {
                     .unwrap_or_else(|| PathBuf::from("/"));
             }
             None => {
-                let suffix = suffix_components
-                    .iter()
-                    .rev()
-                    .fold(PathBuf::new(), |acc, comp| acc.join(comp));
-                return (PathBuf::from("/"), suffix);
+                return (PathBuf::from("/"), build_suffix(&suffix_components));
             }
         }
 
         if current.as_os_str().is_empty() || current == Path::new("/") {
-            let suffix = suffix_components
-                .iter()
-                .rev()
-                .fold(PathBuf::new(), |acc, comp| acc.join(comp));
-            return (current, suffix);
+            return (current, build_suffix(&suffix_components));
         }
     }
 }

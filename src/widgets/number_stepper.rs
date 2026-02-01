@@ -409,11 +409,13 @@ impl NumberStepper {
         }
 
         // Calculate base value-per-pixel (auto-scale if enabled and range is defined)
-        let base_value_per_pixel = if self.auto_scale_drag
-            && self.min.is_some()
-            && self.max.is_some()
-        {
-            let range = self.max.unwrap() - self.min.unwrap();
+        let auto_scale_range = if self.auto_scale_drag {
+            self.min.zip(self.max).map(|(min, max)| max - min)
+        } else {
+            None
+        };
+
+        let base_value_per_pixel = if let Some(range) = auto_scale_range {
             let width = self.value_display_width.get();
             if width > 0.0 {
                 range / width as f64
@@ -426,13 +428,13 @@ impl NumberStepper {
 
         // Apply modifier-based scaling
         let value_per_pixel = if modifiers.shift {
-            if self.auto_scale_drag && self.min.is_some() && self.max.is_some() {
+            if auto_scale_range.is_some() {
                 base_value_per_pixel * 5.0 // 5x faster
             } else {
                 self.value_per_pixel_fast
             }
         } else if modifiers.alt {
-            if self.auto_scale_drag && self.min.is_some() && self.max.is_some() {
+            if auto_scale_range.is_some() {
                 base_value_per_pixel * 0.1 // 0.1x slower
             } else {
                 self.value_per_pixel_slow

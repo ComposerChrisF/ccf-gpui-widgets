@@ -220,10 +220,9 @@ impl<T: TabItem> Render for TabBar<T> {
             .on_action(cx.listener(|this, _: &SelectNextTab, _window, cx| {
                 this.select_next(cx);
             }))
-            .children(self.tabs.clone().into_iter().map(|tab| {
+            .children(self.tabs.iter().map(|tab| {
+                let tab = tab.clone();
                 let is_active = tab == active_tab;
-                let tab_for_click = tab.clone();
-                let tab_for_context = tab.clone();
                 // Show focus ring only on the active tab when the tab bar is focused
                 let show_focus_ring = is_active && is_focused;
 
@@ -255,17 +254,23 @@ impl<T: TabItem> Render for TabBar<T> {
                         d.border_2()
                             .border_color(rgb(theme.border_focus))
                     })
-                    .on_click(cx.listener(move |this, _event: &ClickEvent, _window, cx| {
-                        this.active = tab_for_click.clone();
-                        cx.emit(TabBarEvent::TabSelected(tab_for_click.clone()));
-                        cx.notify();
-                    }))
-                    .on_mouse_down(MouseButton::Right, cx.listener(move |_this, event: &MouseDownEvent, _window, cx| {
-                        cx.emit(TabBarEvent::ContextMenu {
-                            tab: tab_for_context.clone(),
-                            position: event.position,
-                        });
-                    }))
+                    .on_click({
+                        let tab = tab.clone();
+                        cx.listener(move |this, _event: &ClickEvent, _window, cx| {
+                            this.active = tab.clone();
+                            cx.emit(TabBarEvent::TabSelected(tab.clone()));
+                            cx.notify();
+                        })
+                    })
+                    .on_mouse_down(MouseButton::Right, {
+                        let tab = tab.clone();
+                        cx.listener(move |_this, event: &MouseDownEvent, _window, cx| {
+                            cx.emit(TabBarEvent::ContextMenu {
+                                tab: tab.clone(),
+                                position: event.position,
+                            });
+                        })
+                    })
                     .child(tab.label())
             }))
             // Filler area to the right of tabs with bottom border
