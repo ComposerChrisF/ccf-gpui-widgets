@@ -109,6 +109,9 @@ struct WidgetGallery {
     progress_bar: Entity<ProgressBar>,
     progress_bar_indeterminate: Entity<ProgressBar>,
     spinner: Entity<Spinner>,
+    spinner_small: Entity<Spinner>,
+    spinner_medium: Entity<Spinner>,
+    spinner_large: Entity<Spinner>,
     // Dialog state
     show_info_dialog: bool,
     info_dialog: Entity<ConfirmationDialog>,
@@ -355,6 +358,9 @@ impl WidgetGallery {
         });
 
         let spinner = cx.new(|_cx| Spinner::new().label("Processing..."));
+        let spinner_small = cx.new(|_cx| Spinner::new().size(SpinnerSize::Small));
+        let spinner_medium = cx.new(|_cx| Spinner::new().size(SpinnerSize::Medium));
+        let spinner_large = cx.new(|_cx| Spinner::new().size(SpinnerSize::Large));
 
         // Info dialog: single button, easy to dismiss
         let info_dialog = cx.new(|cx| {
@@ -507,6 +513,9 @@ impl WidgetGallery {
             progress_bar,
             progress_bar_indeterminate,
             spinner,
+            spinner_small,
+            spinner_medium,
+            spinner_large,
             show_info_dialog: false,
             info_dialog,
             info_result: None,
@@ -744,7 +753,7 @@ impl WidgetGallery {
         cx.notify();
     }
 
-    fn render_header(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_header(&self, cx: &Context<Self>) -> impl IntoElement {
         let theme = get_theme(cx);
         let theme_button_text = match self.current_theme {
             ThemeChoice::Dark => "Switch to Light",
@@ -878,8 +887,8 @@ impl WidgetGallery {
     }
 
     fn render_widget_row(
-        label: &str,
-        description: &str,
+        label: &'static str,
+        description: &'static str,
         widget: impl IntoElement,
         value_display: Option<String>,
         cx: &Context<Self>,
@@ -901,13 +910,13 @@ impl WidgetGallery {
                             .text_sm()
                             .font_weight(FontWeight::SEMIBOLD)
                             .text_color(rgb(theme.text_primary))
-                            .child(label.to_string()),
+                            .child(label),
                     )
                     .child(
                         div()
                             .text_xs()
                             .text_color(rgb(theme.text_muted))
-                            .child(description.to_string()),
+                            .child(description),
                     ),
             )
             .child(div().flex_1().child(widget))
@@ -1083,7 +1092,7 @@ impl WidgetGallery {
         ))
     }
 
-    fn render_button_section(&mut self, cx: &mut Context<Self>) -> Div {
+    fn render_button_section(&self, cx: &Context<Self>) -> Div {
         let theme = get_theme(cx);
         let primary_count = self.primary_click_count;
         let secondary_count = self.secondary_click_count;
@@ -1174,7 +1183,7 @@ impl WidgetGallery {
             .bg(rgb(theme.bg_secondary))
     }
 
-    fn render_button_section_wrapper(&mut self, cx: &mut Context<Self>) -> Div {
+    fn render_button_section_wrapper(&self, cx: &Context<Self>) -> Div {
         let is_collapsed = self.section_button.read(cx).is_collapsed();
         let content = if !is_collapsed { Some(self.render_button_section(cx)) } else { None };
         self.render_section_with_content(&self.section_button.clone(), content, cx)
@@ -1542,7 +1551,7 @@ impl WidgetGallery {
             ))
     }
 
-    fn render_spinner_section(&self, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_spinner_section(&self, cx: &Context<Self>) -> impl IntoElement {
         let theme = get_theme(cx);
 
         div()
@@ -1570,7 +1579,7 @@ impl WidgetGallery {
                             .flex_col()
                             .items_center()
                             .gap_1()
-                            .child(cx.new(|_cx| Spinner::new().size(SpinnerSize::Small)))
+                            .child(self.spinner_small.clone())
                             .child(
                                 div()
                                     .text_xs()
@@ -1584,7 +1593,7 @@ impl WidgetGallery {
                             .flex_col()
                             .items_center()
                             .gap_1()
-                            .child(cx.new(|_cx| Spinner::new().size(SpinnerSize::Medium)))
+                            .child(self.spinner_medium.clone())
                             .child(
                                 div()
                                     .text_xs()
@@ -1598,7 +1607,7 @@ impl WidgetGallery {
                             .flex_col()
                             .items_center()
                             .gap_1()
-                            .child(cx.new(|_cx| Spinner::new().size(SpinnerSize::Large)))
+                            .child(self.spinner_large.clone())
                             .child(
                                 div()
                                     .text_xs()
@@ -1611,7 +1620,7 @@ impl WidgetGallery {
             ))
     }
 
-    fn render_spinner_section_wrapper(&mut self, cx: &mut Context<Self>) -> Div {
+    fn render_spinner_section_wrapper(&self, cx: &Context<Self>) -> Div {
         let theme = get_theme(cx);
         let is_collapsed = self.section_spinner.read(cx).is_collapsed();
         let content = if !is_collapsed {
@@ -1622,7 +1631,7 @@ impl WidgetGallery {
         self.render_section_with_content(&self.section_spinner.clone(), content, cx)
     }
 
-    fn render_dialog_section(&mut self, cx: &mut Context<Self>) -> Div {
+    fn render_dialog_section(&self, cx: &Context<Self>) -> Div {
         let theme = get_theme(cx);
         let info_result = self.info_result;
         let yes_no_result = self.yes_no_result;
@@ -1765,7 +1774,7 @@ impl WidgetGallery {
             ))
     }
 
-    fn render_dialog_section_wrapper(&mut self, cx: &mut Context<Self>) -> Div {
+    fn render_dialog_section_wrapper(&self, cx: &Context<Self>) -> Div {
         let is_collapsed = self.section_dialog.read(cx).is_collapsed();
         let content = if !is_collapsed { Some(self.render_dialog_section(cx)) } else { None };
         self.render_section_with_content(&self.section_dialog.clone(), content, cx)

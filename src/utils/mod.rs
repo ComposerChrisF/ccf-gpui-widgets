@@ -36,8 +36,8 @@ mod tests {
 
     #[test]
     fn test_format_display_value_with_precision() {
-        assert_eq!(format_display_value(3.14159, Some(2)), "3.14");
-        assert_eq!(format_display_value(3.14559, Some(2)), "3.15");
+        assert_eq!(format_display_value(1.23456, Some(2)), "1.23");
+        assert_eq!(format_display_value(1.23956, Some(2)), "1.24");
         assert_eq!(format_display_value(5.0, Some(2)), "5.00");
         assert_eq!(format_display_value(0.1, Some(3)), "0.100");
     }
@@ -45,7 +45,7 @@ mod tests {
     #[test]
     fn test_format_display_value_without_precision() {
         assert_eq!(format_display_value(42.0, None), "42");
-        assert_eq!(format_display_value(3.14, None), "3.14");
+        assert_eq!(format_display_value(1.23, None), "1.23");
         assert_eq!(format_display_value(3.10, None), "3.1");
         assert_eq!(format_display_value(3.100, None), "3.1");
         assert_eq!(format_display_value(0.5, None), "0.5");

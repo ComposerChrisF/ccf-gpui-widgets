@@ -194,6 +194,10 @@ The library is functional and being used by clui.
 - [x] Widget gallery: Extracted `dialog_result_label()` helper for dialog event handlers
 - [x] Widget gallery: Consolidated repeatable picker rendering with `render_repeatable_picker_section()`
 - [x] Widget gallery: Reduced file size by ~170 lines (~8% reduction)
+- [x] Widget gallery: Pre-create spinner entities to avoid allocation on each render
+- [x] Widget gallery: Changed `render_widget_row` to use `&'static str` (avoids string allocations)
+- [x] Widget gallery: Changed render methods to use `&Context` instead of `&mut Context` where possible
+- [x] Fixed clippy `approx_constant` errors in format_display_value tests
 
 ### ✅ New Widgets: Toggle, Slider, Progress, Spinner, Dialog (2026-01-30)
 - [x] ToggleSwitch: iOS-style toggle switch with pill-shaped track and circular thumb
