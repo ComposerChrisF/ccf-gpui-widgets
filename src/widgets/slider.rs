@@ -253,16 +253,16 @@ impl Slider {
 
     /// Format value for display
     fn format_value(&self) -> String {
-        match self.display_precision {
-            Some(p) => format!("{:.prec$}", self.value, prec = p),
-            None => {
-                if self.value.fract() == 0.0 {
-                    format!("{:.0}", self.value)
-                } else {
-                    let s = format!("{}", self.value);
-                    s.trim_end_matches('0').trim_end_matches('.').to_string()
-                }
-            }
+        if let Some(p) = self.display_precision {
+            return format!("{:.prec$}", self.value, prec = p);
+        }
+        if self.value.fract() == 0.0 {
+            format!("{:.0}", self.value)
+        } else {
+            format!("{}", self.value)
+                .trim_end_matches('0')
+                .trim_end_matches('.')
+                .to_string()
         }
     }
 

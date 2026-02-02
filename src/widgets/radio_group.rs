@@ -242,14 +242,16 @@ impl Render for RadioGroup {
                             cx.notify();
                         }))
                     })
-                    .child(
+                    .child({
                         // Radio button (circle)
+                        let border_color = if enabled { theme.border_checkbox } else { theme.disabled_text };
+                        let inner_color = if enabled { theme.accent } else { theme.disabled_text };
+
                         div()
                             .w(px(16.))
                             .h(px(16.))
                             .border_1()
-                            .when(enabled, |d| d.border_color(rgb(theme.border_checkbox)))
-                            .when(!enabled, |d| d.border_color(rgb(theme.disabled_text)))
+                            .border_color(rgb(border_color))
                             .rounded(px(8.))
                             .when(is_selected, |d| {
                                 d.child(
@@ -262,13 +264,12 @@ impl Render for RadioGroup {
                                             div()
                                                 .w(px(8.))
                                                 .h(px(8.))
-                                                .when(enabled, |d| d.bg(rgb(theme.accent)))
-                                                .when(!enabled, |d| d.bg(rgb(theme.disabled_text)))
+                                                .bg(rgb(inner_color))
                                                 .rounded(px(4.))
                                         )
                                 )
                             })
-                    )
+                    })
                     .child(
                         div()
                             .text_sm()

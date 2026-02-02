@@ -187,17 +187,22 @@ impl Render for ToggleSwitch {
 
         // Helper to create toggle element
         let make_toggle = || {
+            let (track_bg, thumb_bg) = if enabled {
+                let track = if is_on { theme.primary } else { theme.bg_input };
+                (track, theme.bg_white)
+            } else {
+                let track = if is_on { theme.disabled_text } else { theme.disabled_bg };
+                (track, theme.disabled_bg)
+            };
+
             div()
                 .w(px(track_width))
                 .h(px(track_height))
                 .rounded(px(track_height / 2.0)) // Pill shape
                 .relative()
+                .bg(rgb(track_bg))
                 .when(enabled, |d| d.cursor_pointer())
                 .when(!enabled, |d| d.cursor_default())
-                .when(is_on && enabled, |d| d.bg(rgb(theme.primary)))
-                .when(is_on && !enabled, |d| d.bg(rgb(theme.disabled_text)))
-                .when(!is_on && enabled, |d| d.bg(rgb(theme.bg_input)))
-                .when(!is_on && !enabled, |d| d.bg(rgb(theme.disabled_bg)))
                 .child(
                     // Thumb
                     div()
@@ -207,8 +212,8 @@ impl Render for ToggleSwitch {
                         .w(px(thumb_size))
                         .h(px(thumb_size))
                         .rounded_full()
-                        .when(enabled, |d| d.bg(rgb(theme.bg_white)).shadow_sm())
-                        .when(!enabled, |d| d.bg(rgb(theme.disabled_bg)))
+                        .bg(rgb(thumb_bg))
+                        .when(enabled, |d| d.shadow_sm())
                 )
         };
 

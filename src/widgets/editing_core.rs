@@ -496,12 +496,10 @@ impl<S: ContentStorage> EditingCore<S> {
         let mut last_non_alnum_after_word = None;
 
         for (i, c) in s.char_indices() {
-            if c.is_alphanumeric() {
-                if !in_word {
-                    last_word_start = i;
-                    in_word = true;
-                }
-            } else {
+            if c.is_alphanumeric() && !in_word {
+                last_word_start = i;
+                in_word = true;
+            } else if !c.is_alphanumeric() {
                 if in_word {
                     last_non_alnum_after_word = Some(i);
                 }
@@ -542,8 +540,7 @@ impl<S: ContentStorage> EditingCore<S> {
             if c.is_alphanumeric() {
                 in_word = true;
             } else if in_word {
-                // We just exited a word
-                return pos + i;
+                return pos + i; // Just exited a word
             }
         }
 

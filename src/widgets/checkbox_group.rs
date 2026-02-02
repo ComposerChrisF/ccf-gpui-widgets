@@ -239,48 +239,40 @@ impl Render for CheckboxGroup {
                             cx.notify();
                         }))
                     })
-                    .child(
+                    .child({
                         // Checkbox
+                        let (bg_color, border_color, check_color) = if enabled {
+                            if is_selected {
+                                (theme.accent, theme.border_checkbox, theme.bg_white)
+                            } else {
+                                (theme.bg_input, theme.border_checkbox, 0)
+                            }
+                        } else if is_selected {
+                            (theme.disabled_text, theme.disabled_text, theme.disabled_bg)
+                        } else {
+                            (theme.disabled_bg, theme.disabled_text, 0)
+                        };
+
                         div()
                             .w(px(16.))
                             .h(px(16.))
                             .border_1()
-                            .when(enabled, |d| d.border_color(rgb(theme.border_checkbox)))
-                            .when(!enabled, |d| d.border_color(rgb(theme.disabled_text)))
+                            .border_color(rgb(border_color))
+                            .bg(rgb(bg_color))
                             .rounded(px(3.))
-                            .when(is_selected && enabled, |d| {
-                                d.bg(rgb(theme.accent))
-                                    .child(
-                                        div()
-                                            .flex()
-                                            .items_center()
-                                            .justify_center()
-                                            .size_full()
-                                            .text_color(rgb(theme.bg_white))
-                                            .text_xs()
-                                            .child("✓")
-                                    )
+                            .when(is_selected, |d| {
+                                d.child(
+                                    div()
+                                        .flex()
+                                        .items_center()
+                                        .justify_center()
+                                        .size_full()
+                                        .text_color(rgb(check_color))
+                                        .text_xs()
+                                        .child("✓")
+                                )
                             })
-                            .when(is_selected && !enabled, |d| {
-                                d.bg(rgb(theme.disabled_text))
-                                    .child(
-                                        div()
-                                            .flex()
-                                            .items_center()
-                                            .justify_center()
-                                            .size_full()
-                                            .text_color(rgb(theme.disabled_bg))
-                                            .text_xs()
-                                            .child("✓")
-                                    )
-                            })
-                            .when(!is_selected && enabled, |d| {
-                                d.bg(rgb(theme.bg_input))
-                            })
-                            .when(!is_selected && !enabled, |d| {
-                                d.bg(rgb(theme.disabled_bg))
-                            })
-                    )
+                    })
                     .child(
                         div()
                             .text_sm()
