@@ -155,6 +155,13 @@ macro_rules! subscribe_widget {
     };
 }
 
+/// Helper macro to update multiple widgets with set_enabled
+macro_rules! set_enabled_all {
+    ($cx:expr, $enabled:expr, $($widget:expr),+ $(,)?) => {
+        $( $widget.update($cx, |w, cx| w.set_enabled($enabled, cx)); )+
+    };
+}
+
 /// Maps dialog event to result label
 fn dialog_result_label(
     event: &ConfirmationDialogEvent,
@@ -672,55 +679,62 @@ impl WidgetGallery {
         let enabled = self.widgets_enabled;
 
         // Update all widgets
-        self.text_input.update(cx, |w, cx| w.set_enabled(enabled, cx));
-        self.text_input_placeholder.update(cx, |w, cx| w.set_enabled(enabled, cx));
-        self.checkbox.update(cx, |w, cx| w.set_enabled(enabled, cx));
-        self.checkbox_labeled.update(cx, |w, cx| w.set_enabled(enabled, cx));
-        self.dropdown.update(cx, |w, cx| w.set_enabled(enabled, cx));
-        self.number_stepper.update(cx, |w, cx| w.set_enabled(enabled, cx));
-        self.number_stepper_float.update(cx, |w, cx| w.set_enabled(enabled, cx));
-        self.radio_group.update(cx, |w, cx| w.set_enabled(enabled, cx));
-        self.checkbox_group.update(cx, |w, cx| w.set_enabled(enabled, cx));
-        self.color_swatch.update(cx, |w, cx| w.set_enabled(enabled, cx));
-        self.color_swatch_alpha.update(cx, |w, cx| w.set_enabled(enabled, cx));
-        self.password_input.update(cx, |w, cx| w.set_enabled(enabled, cx));
-        self.tab_bar.update(cx, |w, cx| w.set_enabled(enabled, cx));
-        self.repeatable_text_input.update(cx, |w, cx| w.set_enabled(enabled, cx));
-        self.toggle_switch.update(cx, |w, cx| w.set_enabled(enabled, cx));
-        self.toggle_switch_labeled.update(cx, |w, cx| w.set_enabled(enabled, cx));
-        self.slider.update(cx, |w, cx| w.set_enabled(enabled, cx));
-        self.slider_with_value.update(cx, |w, cx| w.set_enabled(enabled, cx));
+        set_enabled_all!(
+            cx, enabled,
+            self.text_input,
+            self.text_input_placeholder,
+            self.checkbox,
+            self.checkbox_labeled,
+            self.dropdown,
+            self.number_stepper,
+            self.number_stepper_float,
+            self.radio_group,
+            self.checkbox_group,
+            self.color_swatch,
+            self.color_swatch_alpha,
+            self.password_input,
+            self.tab_bar,
+            self.repeatable_text_input,
+            self.toggle_switch,
+            self.toggle_switch_labeled,
+            self.slider,
+            self.slider_with_value,
+        );
 
         // Collapsible sections
-        self.section_text.update(cx, |w, cx| w.set_enabled(enabled, cx));
-        self.section_checkbox.update(cx, |w, cx| w.set_enabled(enabled, cx));
-        self.section_dropdown.update(cx, |w, cx| w.set_enabled(enabled, cx));
-        self.section_number.update(cx, |w, cx| w.set_enabled(enabled, cx));
-        self.section_radio.update(cx, |w, cx| w.set_enabled(enabled, cx));
-        self.section_checkbox_group.update(cx, |w, cx| w.set_enabled(enabled, cx));
-        self.section_color.update(cx, |w, cx| w.set_enabled(enabled, cx));
-        self.section_tooltip.update(cx, |w, cx| w.set_enabled(enabled, cx));
-        self.section_button.update(cx, |w, cx| w.set_enabled(enabled, cx));
-        self.section_password.update(cx, |w, cx| w.set_enabled(enabled, cx));
-        self.section_tab_bar.update(cx, |w, cx| w.set_enabled(enabled, cx));
-        self.section_repeatable_text.update(cx, |w, cx| w.set_enabled(enabled, cx));
-        self.section_toggle.update(cx, |w, cx| w.set_enabled(enabled, cx));
-        self.section_slider.update(cx, |w, cx| w.set_enabled(enabled, cx));
-        self.section_progress.update(cx, |w, cx| w.set_enabled(enabled, cx));
-        self.section_spinner.update(cx, |w, cx| w.set_enabled(enabled, cx));
-        self.section_dialog.update(cx, |w, cx| w.set_enabled(enabled, cx));
+        set_enabled_all!(
+            cx, enabled,
+            self.section_text,
+            self.section_checkbox,
+            self.section_dropdown,
+            self.section_number,
+            self.section_radio,
+            self.section_checkbox_group,
+            self.section_color,
+            self.section_tooltip,
+            self.section_button,
+            self.section_password,
+            self.section_tab_bar,
+            self.section_repeatable_text,
+            self.section_toggle,
+            self.section_slider,
+            self.section_progress,
+            self.section_spinner,
+            self.section_dialog,
+        );
 
         // Feature-gated widgets
         #[cfg(feature = "file-picker")]
-        {
-            self.file_picker.update(cx, |w, cx| w.set_enabled(enabled, cx));
-            self.directory_picker.update(cx, |w, cx| w.set_enabled(enabled, cx));
-            self.repeatable_file_picker.update(cx, |w, cx| w.set_enabled(enabled, cx));
-            self.repeatable_directory_picker.update(cx, |w, cx| w.set_enabled(enabled, cx));
-            self.section_file.update(cx, |w, cx| w.set_enabled(enabled, cx));
-            self.section_repeatable_file.update(cx, |w, cx| w.set_enabled(enabled, cx));
-            self.section_repeatable_dir.update(cx, |w, cx| w.set_enabled(enabled, cx));
-        }
+        set_enabled_all!(
+            cx, enabled,
+            self.file_picker,
+            self.directory_picker,
+            self.repeatable_file_picker,
+            self.repeatable_directory_picker,
+            self.section_file,
+            self.section_repeatable_file,
+            self.section_repeatable_dir,
+        );
 
         self.log_event(
             "Gallery",
@@ -841,6 +855,26 @@ impl WidgetGallery {
                         .child(content()),
                 )
             })
+    }
+
+    /// Renders a collapsible section with optional content (for sections that need &mut self)
+    fn render_section_with_content(
+        &self,
+        section: &Entity<Collapsible>,
+        content: Option<Div>,
+        cx: &Context<Self>,
+    ) -> Div {
+        let theme = get_theme(cx);
+
+        div()
+            .w_full()
+            .mb_2()
+            .border_1()
+            .border_color(rgb(theme.border_default))
+            .rounded_md()
+            .overflow_hidden()
+            .child(section.clone())
+            .when_some(content, |d, c| d.child(c))
     }
 
     fn render_widget_row(
@@ -1141,24 +1175,9 @@ impl WidgetGallery {
     }
 
     fn render_button_section_wrapper(&mut self, cx: &mut Context<Self>) -> Div {
-        let theme = get_theme(cx);
         let is_collapsed = self.section_button.read(cx).is_collapsed();
-
-        let content = if !is_collapsed {
-            Some(self.render_button_section(cx))
-        } else {
-            None
-        };
-
-        div()
-            .w_full()
-            .mb_2()
-            .border_1()
-            .border_color(rgb(theme.border_default))
-            .rounded_md()
-            .overflow_hidden()
-            .child(self.section_button.clone())
-            .when_some(content, |d, c| d.child(c))
+        let content = if !is_collapsed { Some(self.render_button_section(cx)) } else { None };
+        self.render_section_with_content(&self.section_button.clone(), content, cx)
     }
 
     fn render_password_section(&self, cx: &Context<Self>) -> impl IntoElement {
@@ -1595,27 +1614,12 @@ impl WidgetGallery {
     fn render_spinner_section_wrapper(&mut self, cx: &mut Context<Self>) -> Div {
         let theme = get_theme(cx);
         let is_collapsed = self.section_spinner.read(cx).is_collapsed();
-
         let content = if !is_collapsed {
-            Some(self.render_spinner_section(cx))
+            Some(div().p_4().bg(rgb(theme.bg_secondary)).child(self.render_spinner_section(cx)))
         } else {
             None
         };
-
-        div()
-            .w_full()
-            .mb_2()
-            .border_1()
-            .border_color(rgb(theme.border_default))
-            .rounded_md()
-            .overflow_hidden()
-            .child(self.section_spinner.clone())
-            .when_some(content, |d, c| d.child(
-                div()
-                    .p_4()
-                    .bg(rgb(theme.bg_secondary))
-                    .child(c)
-            ))
+        self.render_section_with_content(&self.section_spinner.clone(), content, cx)
     }
 
     fn render_dialog_section(&mut self, cx: &mut Context<Self>) -> Div {
@@ -1762,24 +1766,9 @@ impl WidgetGallery {
     }
 
     fn render_dialog_section_wrapper(&mut self, cx: &mut Context<Self>) -> Div {
-        let theme = get_theme(cx);
         let is_collapsed = self.section_dialog.read(cx).is_collapsed();
-
-        let content = if !is_collapsed {
-            Some(self.render_dialog_section(cx))
-        } else {
-            None
-        };
-
-        div()
-            .w_full()
-            .mb_2()
-            .border_1()
-            .border_color(rgb(theme.border_default))
-            .rounded_md()
-            .overflow_hidden()
-            .child(self.section_dialog.clone())
-            .when_some(content, |d, c| d.child(c))
+        let content = if !is_collapsed { Some(self.render_dialog_section(cx)) } else { None };
+        self.render_section_with_content(&self.section_dialog.clone(), content, cx)
     }
 
     fn render_event_log(&self, cx: &Context<Self>) -> impl IntoElement {
