@@ -160,7 +160,7 @@ impl NumberStepper {
             step: None,
             resolution: None,
             display_precision: None,
-            focus_handle: cx.focus_handle(),
+            focus_handle: cx.focus_handle().tab_stop(true),
             custom_theme: None,
             enabled: true,
             value_per_pixel_normal: 0.5,

@@ -104,7 +104,7 @@ impl Slider {
             min: 0.0,
             max: 100.0,
             step: None,
-            focus_handle: cx.focus_handle(),
+            focus_handle: cx.focus_handle().tab_stop(true),
             custom_theme: None,
             show_value: false,
             display_precision: None,
