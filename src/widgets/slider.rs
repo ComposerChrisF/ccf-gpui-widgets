@@ -42,6 +42,7 @@ use gpui::prelude::*;
 use gpui::*;
 
 use crate::theme::{get_theme_or, Theme};
+use crate::utils::format_display_value;
 use super::focus_navigation::{FocusNext, FocusPrev};
 
 /// Events emitted by Slider
@@ -253,17 +254,7 @@ impl Slider {
 
     /// Format value for display
     fn format_value(&self) -> String {
-        if let Some(p) = self.display_precision {
-            return format!("{:.prec$}", self.value, prec = p);
-        }
-        if self.value.fract() == 0.0 {
-            format!("{:.0}", self.value)
-        } else {
-            format!("{}", self.value)
-                .trim_end_matches('0')
-                .trim_end_matches('.')
-                .to_string()
-        }
+        format_display_value(self.value, self.display_precision)
     }
 
     /// Set value from pixel position on track
@@ -304,19 +295,11 @@ impl Slider {
     }
 
     fn go_to_min(&mut self, cx: &mut Context<Self>) {
-        if (self.value - self.min).abs() > f64::EPSILON {
-            self.value = self.min;
-            cx.emit(SliderEvent::Change(self.value));
-            cx.notify();
-        }
+        self.set_value(self.min, cx);
     }
 
     fn go_to_max(&mut self, cx: &mut Context<Self>) {
-        if (self.value - self.max).abs() > f64::EPSILON {
-            self.value = self.max;
-            cx.emit(SliderEvent::Change(self.value));
-            cx.notify();
-        }
+        self.set_value(self.max, cx);
     }
 
     fn start_drag(&mut self) {

@@ -45,6 +45,7 @@ use gpui::prelude::*;
 use gpui::*;
 
 use crate::theme::{get_theme_or, Theme};
+use crate::utils::format_display_value;
 use super::focus_navigation::{FocusNext, FocusPrev};
 use super::text_input::{TextInput, TextInputEvent};
 
@@ -343,23 +344,7 @@ impl NumberStepper {
 
     /// Format the value for display, applying display_precision rounding
     fn format_value(&self) -> String {
-        match self.display_precision {
-            Some(p) => {
-                // Round to display precision
-                let multiplier = 10_f64.powi(p as i32);
-                let rounded = (self.value * multiplier).round() / multiplier;
-                format!("{:.prec$}", rounded, prec = p)
-            }
-            None => {
-                // Auto-format: show integer if whole number, otherwise trim trailing zeros
-                if self.value.fract() == 0.0 {
-                    format!("{:.0}", self.value)
-                } else {
-                    let s = format!("{}", self.value);
-                    s.trim_end_matches('0').trim_end_matches('.').to_string()
-                }
-            }
-        }
+        format_display_value(self.value, self.display_precision)
     }
 
     /// Snap value to resolution and clamp to min/max range

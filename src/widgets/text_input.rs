@@ -865,20 +865,15 @@ impl Render for TextInput {
         let cursor_x = self.x_for_cursor(cursor, window) - render_scroll_offset;
         let cursor_visible = is_focused && self.cursor_blink.is_visible();
 
-        // Only show selection when focused
-        let selection_bounds: Option<(f32, f32)> = if is_focused {
-            selection.and_then(|(start, end)| {
-                if start != end {
-                    let start_x = self.x_for_cursor(start, window) - render_scroll_offset;
-                    let end_x = self.x_for_cursor(end, window) - render_scroll_offset;
-                    Some((start_x, end_x - start_x))
-                } else {
-                    None
-                }
-            })
-        } else {
-            None
-        };
+        // Only show selection when focused and selection is non-empty
+        let selection_bounds: Option<(f32, f32)> = selection
+            .filter(|_| is_focused)
+            .filter(|(start, end)| start != end)
+            .map(|(start, end)| {
+                let start_x = self.x_for_cursor(start, window) - render_scroll_offset;
+                let end_x = self.x_for_cursor(end, window) - render_scroll_offset;
+                (start_x, end_x - start_x)
+            });
 
         let scroll_offset = render_scroll_offset;
         let enabled = self.enabled;

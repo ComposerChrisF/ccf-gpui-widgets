@@ -182,6 +182,13 @@ The library is functional and being used by clui.
 - [x] Added missing getters: NumberStepper (`get_min/max/step/resolution/display_precision`), Slider (`get_min/max/step/display_precision`), Dropdown (`is_open`)
 - [x] Widget gallery: Added "Enable/Disable Widgets" toggle button to demonstrate disabled state
 
+### ✅ Code Simplification (2026-02-01)
+- [x] Extracted duplicate `format_display_value()` utility function to `utils/mod.rs`
+- [x] NumberStepper and Slider now use shared `format_display_value()` function
+- [x] TextInput: Simplified selection bounds calculation using iterator chaining
+- [x] Slider: Simplified `go_to_min()`/`go_to_max()` to reuse `set_value()`
+- [x] Added unit tests for `format_display_value()` function
+
 ### ✅ New Widgets: Toggle, Slider, Progress, Spinner, Dialog (2026-01-30)
 - [x] ToggleSwitch: iOS-style toggle switch with pill-shaped track and circular thumb
 - [x] ToggleSwitch: Label support with configurable position (left or right)
