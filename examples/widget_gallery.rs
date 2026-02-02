@@ -145,6 +145,30 @@ struct EventLogEntry {
     event: String,
 }
 
+/// Helper macro to subscribe a widget to its event type and log events
+macro_rules! subscribe_widget {
+    ($cx:expr, $widget:expr, $name:expr, $event_type:ty) => {
+        $cx.subscribe($widget, |this, _entity, event: &$event_type, cx| {
+            this.log_event($name, format!("{:?}", event), cx);
+        })
+        .detach();
+    };
+}
+
+/// Maps dialog event to result label
+fn dialog_result_label(
+    event: &ConfirmationDialogEvent,
+    primary: &'static str,
+    secondary: &'static str,
+    tertiary: &'static str,
+) -> &'static str {
+    match event {
+        ConfirmationDialogEvent::Primary => primary,
+        ConfirmationDialogEvent::Secondary => secondary,
+        ConfirmationDialogEvent::Tertiary => tertiary,
+    }
+}
+
 impl WidgetGallery {
     fn new(cx: &mut Context<Self>) -> Self {
         // Create collapsible sections
@@ -513,101 +537,21 @@ impl WidgetGallery {
         #[cfg(feature = "file-picker")] file_picker: &Entity<FilePicker>,
         #[cfg(feature = "file-picker")] directory_picker: &Entity<DirectoryPicker>,
     ) {
-        // TextInput events
-        cx.subscribe(text_input, |this, _entity, event: &TextInputEvent, cx| {
-            this.log_event("TextInput", format!("{:?}", event), cx);
-        })
-        .detach();
-
-        cx.subscribe(
-            text_input_placeholder,
-            |this, _entity, event: &TextInputEvent, cx| {
-                this.log_event("TextInput (prefilled)", format!("{:?}", event), cx);
-            },
-        )
-        .detach();
-
-        // Checkbox events
-        cx.subscribe(checkbox, |this, _entity, event: &CheckboxEvent, cx| {
-            this.log_event("Checkbox", format!("{:?}", event), cx);
-        })
-        .detach();
-
-        cx.subscribe(
-            checkbox_labeled,
-            |this, _entity, event: &CheckboxEvent, cx| {
-                this.log_event("Checkbox (labeled)", format!("{:?}", event), cx);
-            },
-        )
-        .detach();
-
-        // Dropdown events
-        cx.subscribe(dropdown, |this, _entity, event: &DropdownEvent, cx| {
-            this.log_event("Dropdown", format!("{:?}", event), cx);
-        })
-        .detach();
-
-        // NumberStepper events
-        cx.subscribe(
-            number_stepper,
-            |this, _entity, event: &NumberStepperEvent, cx| {
-                this.log_event("NumberStepper (int)", format!("{:?}", event), cx);
-            },
-        )
-        .detach();
-
-        cx.subscribe(
-            number_stepper_float,
-            |this, _entity, event: &NumberStepperEvent, cx| {
-                this.log_event("NumberStepper (float)", format!("{:?}", event), cx);
-            },
-        )
-        .detach();
-
-        // RadioGroup events
-        cx.subscribe(radio_group, |this, _entity, event: &RadioGroupEvent, cx| {
-            this.log_event("RadioGroup", format!("{:?}", event), cx);
-        })
-        .detach();
-
-        // CheckboxGroup events
-        cx.subscribe(
-            checkbox_group,
-            |this, _entity, event: &CheckboxGroupEvent, cx| {
-                this.log_event("CheckboxGroup", format!("{:?}", event), cx);
-            },
-        )
-        .detach();
-
-        // ColorSwatch events
-        cx.subscribe(color_swatch, |this, _entity, event: &ColorSwatchEvent, cx| {
-            this.log_event("ColorSwatch", format!("{:?}", event), cx);
-        })
-        .detach();
-
-        cx.subscribe(
-            color_swatch_alpha,
-            |this, _entity, event: &ColorSwatchEvent, cx| {
-                this.log_event("ColorSwatch (alpha)", format!("{:?}", event), cx);
-            },
-        )
-        .detach();
-
-        // File picker events
+        subscribe_widget!(cx, text_input, "TextInput", TextInputEvent);
+        subscribe_widget!(cx, text_input_placeholder, "TextInput (prefilled)", TextInputEvent);
+        subscribe_widget!(cx, checkbox, "Checkbox", CheckboxEvent);
+        subscribe_widget!(cx, checkbox_labeled, "Checkbox (labeled)", CheckboxEvent);
+        subscribe_widget!(cx, dropdown, "Dropdown", DropdownEvent);
+        subscribe_widget!(cx, number_stepper, "NumberStepper (int)", NumberStepperEvent);
+        subscribe_widget!(cx, number_stepper_float, "NumberStepper (float)", NumberStepperEvent);
+        subscribe_widget!(cx, radio_group, "RadioGroup", RadioGroupEvent);
+        subscribe_widget!(cx, checkbox_group, "CheckboxGroup", CheckboxGroupEvent);
+        subscribe_widget!(cx, color_swatch, "ColorSwatch", ColorSwatchEvent);
+        subscribe_widget!(cx, color_swatch_alpha, "ColorSwatch (alpha)", ColorSwatchEvent);
         #[cfg(feature = "file-picker")]
         {
-            cx.subscribe(file_picker, |this, _entity, event: &FilePickerEvent, cx| {
-                this.log_event("FilePicker", format!("{:?}", event), cx);
-            })
-            .detach();
-
-            cx.subscribe(
-                directory_picker,
-                |this, _entity, event: &DirectoryPickerEvent, cx| {
-                    this.log_event("DirectoryPicker", format!("{:?}", event), cx);
-                },
-            )
-            .detach();
+            subscribe_widget!(cx, file_picker, "FilePicker", FilePickerEvent);
+            subscribe_widget!(cx, directory_picker, "DirectoryPicker", DirectoryPickerEvent);
         }
     }
 
@@ -619,41 +563,13 @@ impl WidgetGallery {
         #[cfg(feature = "file-picker")] repeatable_file_picker: &Entity<RepeatableFilePicker>,
         #[cfg(feature = "file-picker")] repeatable_directory_picker: &Entity<RepeatableDirectoryPicker>,
     ) {
-        cx.subscribe(password_input, |this, _entity, event: &PasswordInputEvent, cx| {
-            this.log_event("PasswordInput", format!("{:?}", event), cx);
-        })
-        .detach();
-
-        cx.subscribe(tab_bar, |this, _entity, event: &TabBarEvent<GalleryTab>, cx| {
-            this.log_event("TabBar", format!("{:?}", event), cx);
-        })
-        .detach();
-
-        cx.subscribe(
-            repeatable_text_input,
-            |this, _entity, event: &RepeatableTextInputEvent, cx| {
-                this.log_event("RepeatableTextInput", format!("{:?}", event), cx);
-            },
-        )
-        .detach();
-
+        subscribe_widget!(cx, password_input, "PasswordInput", PasswordInputEvent);
+        subscribe_widget!(cx, tab_bar, "TabBar", TabBarEvent<GalleryTab>);
+        subscribe_widget!(cx, repeatable_text_input, "RepeatableTextInput", RepeatableTextInputEvent);
         #[cfg(feature = "file-picker")]
-        cx.subscribe(
-            repeatable_file_picker,
-            |this, _entity, event: &RepeatableFilePickerEvent, cx| {
-                this.log_event("RepeatableFilePicker", format!("{:?}", event), cx);
-            },
-        )
-        .detach();
-
+        subscribe_widget!(cx, repeatable_file_picker, "RepeatableFilePicker", RepeatableFilePickerEvent);
         #[cfg(feature = "file-picker")]
-        cx.subscribe(
-            repeatable_directory_picker,
-            |this, _entity, event: &RepeatableDirectoryPickerEvent, cx| {
-                this.log_event("RepeatableDirectoryPicker", format!("{:?}", event), cx);
-            },
-        )
-        .detach();
+        subscribe_widget!(cx, repeatable_directory_picker, "RepeatableDirectoryPicker", RepeatableDirectoryPickerEvent);
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -669,38 +585,16 @@ impl WidgetGallery {
         save_dialog: &Entity<ConfirmationDialog>,
         danger_dialog: &Entity<ConfirmationDialog>,
     ) {
-        cx.subscribe(toggle_switch, |this, _entity, event: &ToggleSwitchEvent, cx| {
-            this.log_event("ToggleSwitch", format!("{:?}", event), cx);
-        })
-        .detach();
+        subscribe_widget!(cx, toggle_switch, "ToggleSwitch", ToggleSwitchEvent);
+        subscribe_widget!(cx, toggle_switch_labeled, "ToggleSwitch (labeled)", ToggleSwitchEvent);
+        subscribe_widget!(cx, slider, "Slider", SliderEvent);
+        subscribe_widget!(cx, slider_with_value, "Slider (with value)", SliderEvent);
+        subscribe_widget!(cx, progress_bar, "ProgressBar", ProgressBarEvent);
 
-        cx.subscribe(toggle_switch_labeled, |this, _entity, event: &ToggleSwitchEvent, cx| {
-            this.log_event("ToggleSwitch (labeled)", format!("{:?}", event), cx);
-        })
-        .detach();
-
-        cx.subscribe(slider, |this, _entity, event: &SliderEvent, cx| {
-            this.log_event("Slider", format!("{:?}", event), cx);
-        })
-        .detach();
-
-        cx.subscribe(slider_with_value, |this, _entity, event: &SliderEvent, cx| {
-            this.log_event("Slider (with value)", format!("{:?}", event), cx);
-        })
-        .detach();
-
-        cx.subscribe(progress_bar, |this, _entity, event: &ProgressBarEvent, cx| {
-            this.log_event("ProgressBar", format!("{:?}", event), cx);
-        })
-        .detach();
-
+        // Dialog subscriptions need custom handlers for result tracking
         cx.subscribe(info_dialog, |this, _entity, event: &ConfirmationDialogEvent, cx| {
             this.log_event("Dialog (Info)", format!("{:?}", event), cx);
-            this.info_result = Some(match event {
-                ConfirmationDialogEvent::Primary => "OK",
-                ConfirmationDialogEvent::Secondary => "Secondary",
-                ConfirmationDialogEvent::Tertiary => "Tertiary",
-            });
+            this.info_result = Some(dialog_result_label(event, "OK", "Secondary", "Tertiary"));
             this.show_info_dialog = false;
             cx.notify();
         })
@@ -708,11 +602,7 @@ impl WidgetGallery {
 
         cx.subscribe(yes_no_dialog, |this, _entity, event: &ConfirmationDialogEvent, cx| {
             this.log_event("Dialog (Yes/No)", format!("{:?}", event), cx);
-            this.yes_no_result = Some(match event {
-                ConfirmationDialogEvent::Primary => "Yes",
-                ConfirmationDialogEvent::Secondary => "No",
-                ConfirmationDialogEvent::Tertiary => "Tertiary",
-            });
+            this.yes_no_result = Some(dialog_result_label(event, "Yes", "No", "Tertiary"));
             this.show_yes_no_dialog = false;
             cx.notify();
         })
@@ -720,11 +610,7 @@ impl WidgetGallery {
 
         cx.subscribe(save_dialog, |this, _entity, event: &ConfirmationDialogEvent, cx| {
             this.log_event("Dialog (Save)", format!("{:?}", event), cx);
-            this.save_result = Some(match event {
-                ConfirmationDialogEvent::Primary => "Save",
-                ConfirmationDialogEvent::Secondary => "Cancel",
-                ConfirmationDialogEvent::Tertiary => "Don't Save",
-            });
+            this.save_result = Some(dialog_result_label(event, "Save", "Cancel", "Don't Save"));
             this.show_save_dialog = false;
             cx.notify();
         })
@@ -732,11 +618,7 @@ impl WidgetGallery {
 
         cx.subscribe(danger_dialog, |this, _entity, event: &ConfirmationDialogEvent, cx| {
             this.log_event("Dialog (Danger)", format!("{:?}", event), cx);
-            this.danger_result = Some(match event {
-                ConfirmationDialogEvent::Primary => "Delete",
-                ConfirmationDialogEvent::Secondary => "Cancel",
-                ConfirmationDialogEvent::Tertiary => "Tertiary",
-            });
+            this.danger_result = Some(dialog_result_label(event, "Delete", "Cancel", "Tertiary"));
             this.show_danger_dialog = false;
             cx.notify();
         })
@@ -1340,21 +1222,22 @@ impl WidgetGallery {
         ))
     }
 
+    /// Renders a repeatable picker section with value display and widget
     #[cfg(feature = "file-picker")]
-    fn render_repeatable_file_section(&self, cx: &Context<Self>) -> impl IntoElement {
+    fn render_repeatable_picker_section(
+        values: Vec<String>,
+        empty_label: &str,
+        title: &str,
+        description: &str,
+        widget: impl IntoElement,
+        cx: &Context<Self>,
+    ) -> Div {
         let theme = get_theme(cx);
-        let values = self.repeatable_file_picker.read(cx).values(cx);
-        let display = if values.is_empty() {
-            "(no files selected)".to_string()
-        } else {
-            values.join("\n")
-        };
 
         div()
             .flex()
             .flex_col()
             .gap_2()
-            // Value display at top with wrapping
             .child(
                 div()
                     .flex()
@@ -1374,7 +1257,7 @@ impl WidgetGallery {
                             .text_color(rgb(theme.text_muted))
                             .overflow_x_hidden()
                             .whitespace_nowrap()
-                            .when(values.is_empty(), |d| d.child(display.clone()))
+                            .when(values.is_empty(), |d| d.child(empty_label.to_string()))
                             .when(!values.is_empty(), |d| {
                                 d.flex()
                                     .flex_col()
@@ -1387,7 +1270,6 @@ impl WidgetGallery {
                             }),
                     ),
             )
-            // Widget row below
             .child(
                 div()
                     .flex()
@@ -1404,94 +1286,41 @@ impl WidgetGallery {
                                     .text_sm()
                                     .font_weight(FontWeight::SEMIBOLD)
                                     .text_color(rgb(theme.text_primary))
-                                    .child("Repeatable File Picker"),
+                                    .child(title.to_string()),
                             )
                             .child(
                                 div()
                                     .text_xs()
                                     .text_color(rgb(theme.text_muted))
-                                    .child("Add/remove file selections (min: 1)"),
+                                    .child(description.to_string()),
                             ),
                     )
-                    .child(div().flex_1().child(self.repeatable_file_picker.clone())),
+                    .child(div().flex_1().child(widget)),
             )
     }
 
     #[cfg(feature = "file-picker")]
-    fn render_repeatable_dir_section(&self, cx: &Context<Self>) -> impl IntoElement {
-        let theme = get_theme(cx);
-        let values = self.repeatable_directory_picker.read(cx).values(cx);
-        let display = if values.is_empty() {
-            "(no directories selected)".to_string()
-        } else {
-            values.join("\n")
-        };
+    fn render_repeatable_file_section(&self, cx: &Context<Self>) -> Div {
+        Self::render_repeatable_picker_section(
+            self.repeatable_file_picker.read(cx).values(cx),
+            "(no files selected)",
+            "Repeatable File Picker",
+            "Add/remove file selections (min: 1)",
+            self.repeatable_file_picker.clone(),
+            cx,
+        )
+    }
 
-        div()
-            .flex()
-            .flex_col()
-            .gap_2()
-            // Value display at top with wrapping
-            .child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap_1()
-                    .child(
-                        div()
-                            .text_xs()
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .text_color(rgb(theme.text_muted))
-                            .child("Value:"),
-                    )
-                    .child(
-                        div()
-                            .text_xs()
-                            .font_family("monospace")
-                            .text_color(rgb(theme.text_muted))
-                            .overflow_x_hidden()
-                            .whitespace_nowrap()
-                            .when(values.is_empty(), |d| d.child(display.clone()))
-                            .when(!values.is_empty(), |d| {
-                                d.flex()
-                                    .flex_col()
-                                    .children(values.iter().map(|v| {
-                                        div()
-                                            .overflow_x_hidden()
-                                            .text_ellipsis()
-                                            .child(v.clone())
-                                    }))
-                            }),
-                    ),
-            )
-            // Widget row below
-            .child(
-                div()
-                    .flex()
-                    .flex_row()
-                    .items_start()
-                    .gap_4()
-                    .py_2()
-                    .child(
-                        div()
-                            .w(px(200.0))
-                            .flex_shrink_0()
-                            .child(
-                                div()
-                                    .text_sm()
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .text_color(rgb(theme.text_primary))
-                                    .child("Repeatable Directory Picker"),
-                            )
-                            .child(
-                                div()
-                                    .text_xs()
-                                    .text_color(rgb(theme.text_muted))
-                                    .child("Add/remove directory selections (min: 1)"),
-                            ),
-                    )
-                    .child(div().flex_1().child(self.repeatable_directory_picker.clone())),
-            )
+    #[cfg(feature = "file-picker")]
+    fn render_repeatable_dir_section(&self, cx: &Context<Self>) -> Div {
+        Self::render_repeatable_picker_section(
+            self.repeatable_directory_picker.read(cx).values(cx),
+            "(no directories selected)",
+            "Repeatable Directory Picker",
+            "Add/remove directory selections (min: 1)",
+            self.repeatable_directory_picker.clone(),
+            cx,
+        )
     }
 
     #[cfg(feature = "file-picker")]

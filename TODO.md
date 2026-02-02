@@ -190,6 +190,10 @@ The library is functional and being used by clui.
 - [x] Added unit tests for `format_display_value()` function
 - [x] Extracted `handle_tab_navigation()` helper to focus_navigation module
 - [x] Simplified tab key handling across 9 widgets using the shared helper
+- [x] Widget gallery: Added `subscribe_widget!` macro to reduce event subscription boilerplate
+- [x] Widget gallery: Extracted `dialog_result_label()` helper for dialog event handlers
+- [x] Widget gallery: Consolidated repeatable picker rendering with `render_repeatable_picker_section()`
+- [x] Widget gallery: Reduced file size by ~170 lines (~8% reduction)
 
 ### ✅ New Widgets: Toggle, Slider, Progress, Spinner, Dialog (2026-01-30)
 - [x] ToggleSwitch: iOS-style toggle switch with pill-shaped track and circular thumb
