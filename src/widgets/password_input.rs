@@ -39,7 +39,7 @@ use secrecy::SecretString;
 use crate::theme::{get_theme_or, Theme};
 use super::cursor_blink::CursorBlink;
 use super::editing_core::EditingCore;
-use super::focus_navigation::{FocusNext, FocusPrev};
+use super::focus_navigation::{FocusNext, FocusPrev, handle_tab_navigation};
 use super::text_input::{
     MoveLeft, MoveRight, MoveWordLeft, MoveWordRight, MoveToStart, MoveToEnd,
     SelectLeft, SelectRight, SelectWordLeft, SelectWordRight, SelectToStart, SelectToEnd, SelectAll,
@@ -877,12 +877,7 @@ impl Render for PasswordInput {
                     }))
                     // Character input
                     .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
-                        if event.keystroke.key == "tab" {
-                            if event.keystroke.modifiers.shift {
-                                window.focus_prev();
-                            } else {
-                                window.focus_next();
-                            }
+                        if handle_tab_navigation(event, window) {
                             return;
                         }
                         if !this.enabled { return; }
@@ -1071,20 +1066,12 @@ impl Render for PasswordInput {
                     .when(enabled, |d| d.hover(|d| d.bg(rgb(theme.bg_hover))))
                     .track_focus(&toggle_focus_handle)
                     .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
-                        let key = event.keystroke.key.as_str();
-                        match key {
-                            "enter" | "space" => {
-                                if !this.enabled { return; }
-                                this.toggle_visibility(cx);
-                            }
-                            "tab" => {
-                                if event.keystroke.modifiers.shift {
-                                    window.focus_prev();
-                                } else {
-                                    window.focus_next();
-                                }
-                            }
-                            _ => {}
+                        if handle_tab_navigation(event, window) {
+                            return;
+                        }
+                        if matches!(event.keystroke.key.as_str(), "enter" | "space") {
+                            if !this.enabled { return; }
+                            this.toggle_visibility(cx);
                         }
                     }))
                     .when(enabled, |d| d.on_click(cx.listener(|this, _event, _window, cx| {

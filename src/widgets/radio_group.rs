@@ -26,7 +26,7 @@ use gpui::prelude::*;
 use gpui::*;
 
 use crate::theme::{get_theme_or, Theme};
-use super::focus_navigation::{FocusNext, FocusPrev};
+use super::focus_navigation::{FocusNext, FocusPrev, handle_tab_navigation};
 
 /// Events emitted by RadioGroup
 #[derive(Clone, Debug)]
@@ -170,14 +170,10 @@ impl Render for RadioGroup {
                 if !radio_group.enabled {
                     return;
                 }
+                if handle_tab_navigation(event, window) {
+                    return;
+                }
                 match event.keystroke.key.as_str() {
-                    "tab" => {
-                        if event.keystroke.modifiers.shift {
-                            window.focus_prev();
-                        } else {
-                            window.focus_next();
-                        }
-                    }
                     "up" => {
                         if radio_group.highlight_index > 0 {
                             radio_group.highlight_index -= 1;

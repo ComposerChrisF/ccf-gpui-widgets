@@ -46,7 +46,7 @@ use gpui::*;
 
 use crate::theme::{get_theme_or, Theme};
 use crate::utils::format_display_value;
-use super::focus_navigation::{FocusNext, FocusPrev};
+use super::focus_navigation::{FocusNext, FocusPrev, handle_tab_navigation};
 use super::text_input::{TextInput, TextInputEvent};
 
 /// Events emitted by NumberStepper
@@ -697,21 +697,14 @@ impl Render for NumberStepper {
             }))
             .on_key_down(cx.listener(|stepper, event: &KeyDownEvent, window, cx| {
                 // Don't handle keys when disabled or editing (TextInput handles them)
-                if !stepper.enabled {
+                if !stepper.enabled || stepper.editing {
                     return;
                 }
-                if stepper.editing {
+                if handle_tab_navigation(event, window) {
                     return;
                 }
                 let multiplier = if event.keystroke.modifiers.shift { 10.0 } else { 1.0 };
                 match event.keystroke.key.as_str() {
-                    "tab" => {
-                        if event.keystroke.modifiers.shift {
-                            window.focus_prev();
-                        } else {
-                            window.focus_next();
-                        }
-                    }
                     "enter" => stepper.enter_edit_mode(window, cx),
                     "up" => stepper.increment(multiplier, cx),
                     "down" => stepper.decrement(multiplier, cx),

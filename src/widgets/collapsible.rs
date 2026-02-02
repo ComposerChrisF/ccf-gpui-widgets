@@ -25,7 +25,7 @@ use gpui::prelude::*;
 use gpui::*;
 
 use crate::theme::{get_theme_or, Theme};
-use super::focus_navigation::{FocusNext, FocusPrev};
+use super::focus_navigation::{FocusNext, FocusPrev, handle_tab_navigation};
 
 /// Events emitted by Collapsible
 #[derive(Clone, Debug)]
@@ -156,24 +156,14 @@ impl Render for Collapsible {
                         if !this.enabled {
                             return;
                         }
-                        // Handle tab navigation and arrow keys for expand/collapse
+                        if handle_tab_navigation(event, window) {
+                            return;
+                        }
+                        // Arrow keys for expand/collapse
                         // Space/enter are handled by on_click via synthetic click events
                         match event.keystroke.key.as_str() {
-                            "tab" => {
-                                if event.keystroke.modifiers.shift {
-                                    window.focus_prev();
-                                } else {
-                                    window.focus_next();
-                                }
-                            }
-                            "down" => {
-                                // Down arrow expands
-                                this.set_collapsed(false, cx);
-                            }
-                            "up" => {
-                                // Up arrow collapses
-                                this.set_collapsed(true, cx);
-                            }
+                            "down" => this.set_collapsed(false, cx),
+                            "up" => this.set_collapsed(true, cx),
                             _ => {}
                         }
                     }))

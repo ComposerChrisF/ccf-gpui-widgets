@@ -29,7 +29,7 @@ use gpui::prelude::*;
 use gpui::*;
 
 use crate::theme::{get_theme_or, Theme};
-use super::focus_navigation::{FocusNext, FocusPrev};
+use super::focus_navigation::{FocusNext, FocusPrev, handle_tab_navigation};
 
 // Actions for keyboard navigation
 actions!(ccf_dropdown, [CloseDropdown, SelectPrevious, SelectNext, ConfirmSelection, ToggleDropdown]);
@@ -299,13 +299,7 @@ impl Render for Dropdown {
                 }
             }))
             .on_key_down(cx.listener(|_dropdown, event: &KeyDownEvent, window, _cx| {
-                if event.keystroke.key == "tab" {
-                    if event.keystroke.modifiers.shift {
-                        window.focus_prev();
-                    } else {
-                        window.focus_next();
-                    }
-                }
+                handle_tab_navigation(event, window);
             }))
             .child(
                 // Dropdown button

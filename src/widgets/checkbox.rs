@@ -26,7 +26,7 @@ use gpui::prelude::*;
 use gpui::*;
 
 use crate::theme::{get_theme_or, Theme};
-use super::focus_navigation::{FocusNext, FocusPrev};
+use super::focus_navigation::{FocusNext, FocusPrev, handle_tab_navigation};
 
 /// Events emitted by Checkbox
 #[derive(Clone, Debug)]
@@ -156,18 +156,11 @@ impl Render for Checkbox {
                 if !checkbox.enabled {
                     return;
                 }
-                match event.keystroke.key.as_str() {
-                    "tab" => {
-                        if event.keystroke.modifiers.shift {
-                            window.focus_prev();
-                        } else {
-                            window.focus_next();
-                        }
-                    }
-                    "space" | "enter" => {
-                        checkbox.toggle(cx);
-                    }
-                    _ => {}
+                if handle_tab_navigation(event, window) {
+                    return;
+                }
+                if matches!(event.keystroke.key.as_str(), "space" | "enter") {
+                    checkbox.toggle(cx);
                 }
             }))
             .flex()

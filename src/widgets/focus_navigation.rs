@@ -27,3 +27,18 @@ pub fn register_keybindings(cx: &mut App) {
         KeyBinding::new("shift-tab", FocusPrev, None),
     ]);
 }
+
+/// Handle tab key navigation in on_key_down handlers.
+/// Returns true if the event was handled (tab key was pressed).
+pub fn handle_tab_navigation(event: &KeyDownEvent, window: &mut Window) -> bool {
+    if event.keystroke.key == "tab" {
+        if event.keystroke.modifiers.shift {
+            window.focus_prev();
+        } else {
+            window.focus_next();
+        }
+        true
+    } else {
+        false
+    }
+}

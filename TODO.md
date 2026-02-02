@@ -188,6 +188,8 @@ The library is functional and being used by clui.
 - [x] TextInput: Simplified selection bounds calculation using iterator chaining
 - [x] Slider: Simplified `go_to_min()`/`go_to_max()` to reuse `set_value()`
 - [x] Added unit tests for `format_display_value()` function
+- [x] Extracted `handle_tab_navigation()` helper to focus_navigation module
+- [x] Simplified tab key handling across 9 widgets using the shared helper
 
 ### ✅ New Widgets: Toggle, Slider, Progress, Spinner, Dialog (2026-01-30)
 - [x] ToggleSwitch: iOS-style toggle switch with pill-shaped track and circular thumb

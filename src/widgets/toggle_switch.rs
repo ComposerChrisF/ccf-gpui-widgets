@@ -26,7 +26,7 @@ use gpui::prelude::*;
 use gpui::*;
 
 use crate::theme::{get_theme_or, Theme};
-use super::focus_navigation::{FocusNext, FocusPrev};
+use super::focus_navigation::{FocusNext, FocusPrev, handle_tab_navigation};
 
 /// Position of the label relative to the toggle switch
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -232,18 +232,11 @@ impl Render for ToggleSwitch {
                 if !toggle.enabled {
                     return;
                 }
-                match event.keystroke.key.as_str() {
-                    "tab" => {
-                        if event.keystroke.modifiers.shift {
-                            window.focus_prev();
-                        } else {
-                            window.focus_next();
-                        }
-                    }
-                    "space" | "enter" => {
-                        toggle.toggle(cx);
-                    }
-                    _ => {}
+                if handle_tab_navigation(event, window) {
+                    return;
+                }
+                if matches!(event.keystroke.key.as_str(), "space" | "enter") {
+                    toggle.toggle(cx);
                 }
             }))
             .flex()
