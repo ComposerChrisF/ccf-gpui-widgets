@@ -77,6 +77,7 @@ pub struct Slider {
     show_value: bool,
     /// Display precision (decimal places)
     display_precision: Option<usize>,
+    enabled: bool,
 
     // Measured track dimensions
     track_origin: Rc<Cell<f32>>,
@@ -102,10 +103,11 @@ impl Slider {
             min: 0.0,
             max: 100.0,
             step: None,
-            focus_handle: cx.focus_handle().tab_stop(true),
+            focus_handle: cx.focus_handle(),
             custom_theme: None,
             show_value: false,
             display_precision: None,
+            enabled: true,
             track_origin: Rc::new(Cell::new(0.0)),
             track_width: Rc::new(Cell::new(0.0)),
             dragging: false,
@@ -163,9 +165,49 @@ impl Slider {
         self
     }
 
+    /// Set enabled state (builder pattern)
+    #[must_use]
+    pub fn with_enabled(mut self, enabled: bool) -> Self {
+        self.enabled = enabled;
+        self
+    }
+
     /// Get the current value
     pub fn value(&self) -> f64 {
         self.value
+    }
+
+    /// Get the minimum value
+    pub fn get_min(&self) -> f64 {
+        self.min
+    }
+
+    /// Get the maximum value
+    pub fn get_max(&self) -> f64 {
+        self.max
+    }
+
+    /// Get the step value
+    pub fn get_step(&self) -> Option<f64> {
+        self.step
+    }
+
+    /// Get the display precision (decimal places)
+    pub fn get_display_precision(&self) -> Option<usize> {
+        self.display_precision
+    }
+
+    /// Check if the slider is enabled
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+
+    /// Set enabled state programmatically
+    pub fn set_enabled(&mut self, enabled: bool, cx: &mut Context<Self>) {
+        if self.enabled != enabled {
+            self.enabled = enabled;
+            cx.notify();
+        }
     }
 
     /// Set value programmatically
@@ -297,6 +339,7 @@ impl Render for Slider {
         let percentage = self.percentage();
         let show_value = self.show_value;
         let display_value = self.format_value();
+        let enabled = self.enabled;
 
         // Dimensions
         let track_height = 6.0;
@@ -306,13 +349,20 @@ impl Render for Slider {
         let track_origin = self.track_origin.clone();
         let track_width = self.track_width.clone();
 
+        // Colors based on enabled state
+        let track_bg = if enabled { theme.bg_input } else { theme.disabled_bg };
+        let filled_bg = if enabled { theme.primary } else { theme.disabled_text };
+        let thumb_border = if enabled { theme.primary } else { theme.disabled_text };
+        let value_color = if enabled { theme.text_value } else { theme.disabled_text };
+
         // Build track element with filled portion and thumb
-        let track_element = div()
+        let mut track_element = div()
             .id("ccf_slider_track")
             .relative()
             .flex_1()
             .h(px(thumb_size)) // Height includes thumb space
-            .cursor_pointer()
+            .when(enabled, |d| d.cursor_pointer())
+            .when(!enabled, |d| d.cursor_default())
             // Canvas to measure track position and dimensions
             .child(
                 canvas(
@@ -339,7 +389,7 @@ impl Render for Slider {
                     .right_0()
                     .h(px(track_height))
                     .rounded_full()
-                    .bg(rgb(theme.bg_input))
+                    .bg(rgb(track_bg))
             )
             // Filled portion
             .child(
@@ -350,7 +400,7 @@ impl Render for Slider {
                     .w(relative(percentage as f32))
                     .h(px(track_height))
                     .rounded_full()
-                    .bg(rgb(theme.primary))
+                    .bg(rgb(filled_bg))
             )
             // Thumb
             .child(
@@ -365,39 +415,50 @@ impl Render for Slider {
                     .rounded_full()
                     .bg(rgb(theme.bg_white))
                     .border_2()
-                    .border_color(rgb(theme.primary))
-                    .shadow_sm()
-            )
-            // Mouse down starts drag
-            .on_mouse_down(MouseButton::Left, cx.listener(|slider, event: &MouseDownEvent, window, cx| {
-                slider.focus_handle.focus(window);
-                slider.start_drag();
-                let x: f32 = event.position.x.into();
-                slider.set_value_from_position(x, cx);
-            }))
-            // Initiate drag
-            .on_drag(SliderDragState, |_state, _position, _window, cx| {
-                cx.new(|_| EmptyDragView)
-            })
-            // Track drag movement
-            .on_drag_move(cx.listener(|slider, event: &DragMoveEvent<SliderDragState>, _window, cx| {
-                if slider.dragging {
-                    let x: f32 = event.event.position.x.into();
+                    .border_color(rgb(thumb_border))
+                    .when(enabled, |d| d.shadow_sm())
+            );
+
+        // Only register interaction handlers when enabled
+        if enabled {
+            track_element = track_element
+                // Mouse down starts drag
+                .on_mouse_down(MouseButton::Left, cx.listener(|slider, event: &MouseDownEvent, window, cx| {
+                    if !slider.enabled {
+                        return;
+                    }
+                    slider.focus_handle.focus(window);
+                    slider.start_drag();
+                    let x: f32 = event.position.x.into();
                     slider.set_value_from_position(x, cx);
-                }
-            }))
-            // End drag on mouse up
-            .on_mouse_up(MouseButton::Left, cx.listener(|slider, _event: &MouseUpEvent, _window, cx| {
-                slider.end_drag(cx);
-            }))
-            .on_mouse_up_out(MouseButton::Left, cx.listener(|slider, _event: &MouseUpEvent, _window, cx| {
-                slider.end_drag(cx);
-            }));
+                }))
+                // Initiate drag
+                .on_drag(SliderDragState, |_state, _position, _window, cx| {
+                    cx.new(|_| EmptyDragView)
+                })
+                // Track drag movement
+                .on_drag_move(cx.listener(|slider, event: &DragMoveEvent<SliderDragState>, _window, cx| {
+                    if !slider.enabled {
+                        return;
+                    }
+                    if slider.dragging {
+                        let x: f32 = event.event.position.x.into();
+                        slider.set_value_from_position(x, cx);
+                    }
+                }))
+                // End drag on mouse up
+                .on_mouse_up(MouseButton::Left, cx.listener(|slider, _event: &MouseUpEvent, _window, cx| {
+                    slider.end_drag(cx);
+                }))
+                .on_mouse_up_out(MouseButton::Left, cx.listener(|slider, _event: &MouseUpEvent, _window, cx| {
+                    slider.end_drag(cx);
+                }));
+        }
 
         div()
             .id("ccf_slider")
             .track_focus(&focus_handle)
-            .tab_stop(true)
+            .tab_stop(enabled)
             // Focus navigation
             .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
                 window.focus_next();
@@ -406,6 +467,9 @@ impl Render for Slider {
                 window.focus_prev();
             }))
             .on_key_down(cx.listener(|slider, event: &KeyDownEvent, window, cx| {
+                if !slider.enabled {
+                    return;
+                }
                 let multiplier = if event.keystroke.modifiers.shift { 10.0 } else { 1.0 };
                 match event.keystroke.key.as_str() {
                     "tab" => {
@@ -431,14 +495,14 @@ impl Render for Slider {
             .px_1()
             .rounded_sm()
             .border_2()
-            .border_color(if is_focused { rgb(theme.border_focus) } else { rgba(0x00000000) })
+            .border_color(if is_focused && enabled { rgb(theme.border_focus) } else { rgba(0x00000000) })
             .child(track_element)
             .when(show_value, |d| {
                 d.child(
                     div()
                         .min_w(px(40.0))
                         .text_sm()
-                        .text_color(rgb(theme.text_value))
+                        .text_color(rgb(value_color))
                         .text_right()
                         .child(display_value)
                 )

@@ -81,6 +81,8 @@ pub struct RepeatableTextInput {
     /// Minimum number of entries (cannot remove below this)
     min_entries: usize,
     custom_theme: Option<Theme>,
+    /// Whether the widget is enabled (interactive)
+    enabled: bool,
 }
 
 impl RepeatableTextInput {
@@ -95,6 +97,7 @@ impl RepeatableTextInput {
             initialized: false,
             min_entries: 1,
             custom_theme: None,
+            enabled: true,
         }
     }
 
@@ -128,6 +131,30 @@ impl RepeatableTextInput {
         self
     }
 
+    /// Set enabled state (builder pattern)
+    #[must_use]
+    pub fn with_enabled(mut self, enabled: bool) -> Self {
+        self.enabled = enabled;
+        self
+    }
+
+    /// Check if the widget is enabled
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+
+    /// Set enabled state programmatically
+    pub fn set_enabled(&mut self, enabled: bool, cx: &mut Context<Self>) {
+        if self.enabled != enabled {
+            self.enabled = enabled;
+            // Update child entries
+            for entry in &self.entries {
+                entry.update(cx, |e, cx| e.set_enabled(enabled, cx));
+            }
+            cx.notify();
+        }
+    }
+
     /// Get all non-empty values
     pub fn values(&self, cx: &App) -> Vec<String> {
         self.entries
@@ -140,8 +167,9 @@ impl RepeatableTextInput {
     /// Create a new text input entry
     fn create_entry(&self, value: Option<&str>, cx: &mut Context<Self>) -> Entity<TextInput> {
         let placeholder = self.placeholder.clone();
+        let enabled = self.enabled;
         let entry = cx.new(|cx| {
-            let mut state = TextInput::new(cx);
+            let mut state = TextInput::new(cx).with_enabled(enabled);
             if let Some(ph) = placeholder {
                 state = state.placeholder(ph);
             }
@@ -230,6 +258,7 @@ impl Render for RepeatableTextInput {
         let entries_count = self.entries.len();
         let can_remove = entries_count > self.min_entries;
         let add_focused = self.add_focus_handle.is_focused(window);
+        let enabled = self.enabled;
 
         // Collect entries with their remove button focus handles
         let entry_data: Vec<_> = self.entries.iter()
@@ -252,6 +281,53 @@ impl Render for RepeatableTextInput {
                     .flex_col()
                     .gap_2()
                     .children(entry_data.into_iter().map(|(index, entry, focus_handle, is_focused)| {
+                        let mut remove_button = div()
+                            .id(SharedString::from(format!("repeatable_remove_{}", index)))
+                            .key_context("CcfRepeatableButton")
+                            .track_focus(&focus_handle)
+                            .tab_stop(enabled)
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .h(px(28.))
+                            .w(px(28.))
+                            .rounded_md()
+                            .border_2()
+                            .when(enabled, |d| {
+                                d.bg(rgb(theme.delete_bg))
+                                    .cursor_pointer()
+                                    .hover(|d| d.bg(rgb(theme.delete_bg_hover)))
+                                    .border_color(if is_focused { rgb(theme.border_focus) } else { rgba(0x00000000) })
+                            })
+                            .when(!enabled, |d| {
+                                d.bg(rgb(theme.disabled_bg))
+                                    .cursor_default()
+                                    .border_color(rgba(0x00000000))
+                            })
+                            .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
+                                window.focus_next();
+                            }))
+                            .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
+                                window.focus_prev();
+                            }))
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .when(enabled, |d| d.text_color(rgb(theme.text_label)))
+                                    .when(!enabled, |d| d.text_color(rgb(theme.disabled_text)))
+                                    .child("\u{2212}") // Minus sign
+                            );
+
+                        if enabled {
+                            remove_button = remove_button
+                                .on_action(cx.listener(move |this, _: &ActivateButton, _window, cx| {
+                                    this.remove_entry(index, cx);
+                                }))
+                                .on_click(cx.listener(move |this, _event, _window, cx| {
+                                    this.remove_entry(index, cx);
+                                }));
+                        }
+
                         div()
                             .flex()
                             .flex_row()
@@ -263,44 +339,7 @@ impl Render for RepeatableTextInput {
                                     .flex_1()
                                     .child(entry)
                             )
-                            .when(can_remove, |d| {
-                                d.child(
-                                    // Remove button - height matches text input (28px)
-                                    div()
-                                        .id(SharedString::from(format!("repeatable_remove_{}", index)))
-                                        .key_context("CcfRepeatableButton")
-                                        .track_focus(&focus_handle)
-                                        .flex()
-                                        .items_center()
-                                        .justify_center()
-                                        .h(px(28.))
-                                        .w(px(28.))
-                                        .bg(rgb(theme.delete_bg))
-                                        .rounded_md()
-                                        .cursor_pointer()
-                                        .hover(|d| d.bg(rgb(theme.delete_bg_hover)))
-                                        .border_2()
-                                        .border_color(if is_focused { rgb(theme.border_focus) } else { rgba(0x00000000) })
-                                        .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
-                                            window.focus_next();
-                                        }))
-                                        .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
-                                            window.focus_prev();
-                                        }))
-                                        .on_action(cx.listener(move |this, _: &ActivateButton, _window, cx| {
-                                            this.remove_entry(index, cx);
-                                        }))
-                                        .on_click(cx.listener(move |this, _event, _window, cx| {
-                                            this.remove_entry(index, cx);
-                                        }))
-                                        .child(
-                                            div()
-                                                .text_sm()
-                                                .text_color(rgb(theme.text_label))
-                                                .child("\u{2212}") // Minus sign
-                                        )
-                                )
-                            })
+                            .when(can_remove, |d| d.child(remove_button))
                     }))
             )
             .child(
@@ -308,42 +347,57 @@ impl Render for RepeatableTextInput {
                 div()
                     .flex()
                     .flex_row()
-                    .child(
+                    .child({
                         // Add button - height matches text input (28px)
-                        div()
+                        let mut add_button = div()
                             .id("repeatable_add_button")
                             .key_context("CcfRepeatableButton")
                             .track_focus(&self.add_focus_handle)
+                            .tab_stop(enabled)
                             .flex()
                             .items_center()
                             .justify_center()
                             .h(px(28.))
                             .w(px(28.))
-                            .bg(rgb(theme.bg_input_hover))
                             .rounded_md()
-                            .cursor_pointer()
-                            .hover(|d| d.bg(rgb(theme.bg_hover)))
                             .border_2()
-                            .border_color(if add_focused { rgb(theme.border_focus) } else { rgba(0x00000000) })
+                            .when(enabled, |d| {
+                                d.bg(rgb(theme.bg_input_hover))
+                                    .cursor_pointer()
+                                    .hover(|d| d.bg(rgb(theme.bg_hover)))
+                                    .border_color(if add_focused { rgb(theme.border_focus) } else { rgba(0x00000000) })
+                            })
+                            .when(!enabled, |d| {
+                                d.bg(rgb(theme.disabled_bg))
+                                    .cursor_default()
+                                    .border_color(rgba(0x00000000))
+                            })
                             .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
                                 window.focus_next();
                             }))
                             .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
                                 window.focus_prev();
                             }))
-                            .on_action(cx.listener(|this, _: &ActivateButton, _window, cx| {
-                                this.add_entry(cx);
-                            }))
-                            .on_click(cx.listener(|this, _event, _window, cx| {
-                                this.add_entry(cx);
-                            }))
                             .child(
                                 div()
                                     .text_sm()
-                                    .text_color(rgb(theme.text_label))
+                                    .when(enabled, |d| d.text_color(rgb(theme.text_label)))
+                                    .when(!enabled, |d| d.text_color(rgb(theme.disabled_text)))
                                     .child("+")
-                            )
-                    )
+                            );
+
+                        if enabled {
+                            add_button = add_button
+                                .on_action(cx.listener(|this, _: &ActivateButton, _window, cx| {
+                                    this.add_entry(cx);
+                                }))
+                                .on_click(cx.listener(|this, _event, _window, cx| {
+                                    this.add_entry(cx);
+                                }));
+                        }
+
+                        add_button
+                    })
             )
     }
 }

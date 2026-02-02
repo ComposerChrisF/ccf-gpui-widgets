@@ -10,14 +10,14 @@
 //!
 //! let toggle = cx.new(|cx| {
 //!     ToggleSwitch::new(cx)
-//!         .with_enabled(true)
+//!         .with_on(true)
 //!         .label("Enable notifications")
 //! });
 //!
 //! // Subscribe to changes
 //! cx.subscribe(&toggle, |this, _toggle, event: &ToggleSwitchEvent, cx| {
-//!     if let ToggleSwitchEvent::Toggle(enabled) = event {
-//!         println!("Toggle is now: {}", enabled);
+//!     if let ToggleSwitchEvent::Toggle(is_on) = event {
+//!         println!("Toggle is now: {}", is_on);
 //!     }
 //! }).detach();
 //! ```
@@ -47,11 +47,14 @@ pub enum ToggleSwitchEvent {
 
 /// Toggle switch widget
 pub struct ToggleSwitch {
-    enabled: bool,
+    /// Whether the toggle is in the "on" state
+    on: bool,
     label: Option<SharedString>,
     label_position: LabelPosition,
     focus_handle: FocusHandle,
     custom_theme: Option<Theme>,
+    /// Whether the widget is enabled (interactive)
+    enabled: bool,
 }
 
 impl EventEmitter<ToggleSwitchEvent> for ToggleSwitch {}
@@ -66,18 +69,19 @@ impl ToggleSwitch {
     /// Create a new toggle switch
     pub fn new(cx: &mut Context<Self>) -> Self {
         Self {
-            enabled: false,
+            on: false,
             label: None,
             label_position: LabelPosition::default(),
             focus_handle: cx.focus_handle().tab_stop(true),
             custom_theme: None,
+            enabled: true,
         }
     }
 
-    /// Set initial enabled state (builder pattern)
+    /// Set initial on/off state (builder pattern)
     #[must_use]
-    pub fn with_enabled(mut self, value: bool) -> Self {
-        self.enabled = value;
+    pub fn with_on(mut self, value: bool) -> Self {
+        self.on = value;
         self
     }
 
@@ -102,16 +106,23 @@ impl ToggleSwitch {
         self
     }
 
-    /// Get current enabled state
-    pub fn is_enabled(&self) -> bool {
-        self.enabled
+    /// Set enabled state (builder pattern)
+    #[must_use]
+    pub fn with_enabled(mut self, enabled: bool) -> Self {
+        self.enabled = enabled;
+        self
     }
 
-    /// Set enabled state programmatically
-    pub fn set_enabled(&mut self, enabled: bool, cx: &mut Context<Self>) {
-        if self.enabled != enabled {
-            self.enabled = enabled;
-            cx.emit(ToggleSwitchEvent::Toggle(enabled));
+    /// Get current on/off state
+    pub fn is_on(&self) -> bool {
+        self.on
+    }
+
+    /// Set on/off state programmatically
+    pub fn set_on(&mut self, on: bool, cx: &mut Context<Self>) {
+        if self.on != on {
+            self.on = on;
+            cx.emit(ToggleSwitchEvent::Toggle(on));
             cx.notify();
         }
     }
@@ -121,9 +132,22 @@ impl ToggleSwitch {
         &self.focus_handle
     }
 
+    /// Check if the toggle switch is enabled
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+
+    /// Set enabled state programmatically
+    pub fn set_enabled(&mut self, enabled: bool, cx: &mut Context<Self>) {
+        if self.enabled != enabled {
+            self.enabled = enabled;
+            cx.notify();
+        }
+    }
+
     fn toggle(&mut self, cx: &mut Context<Self>) {
-        self.enabled = !self.enabled;
-        cx.emit(ToggleSwitchEvent::Toggle(self.enabled));
+        self.on = !self.on;
+        cx.emit(ToggleSwitchEvent::Toggle(self.on));
         cx.notify();
     }
 }
@@ -131,11 +155,12 @@ impl ToggleSwitch {
 impl Render for ToggleSwitch {
     fn render(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) -> impl IntoElement {
         let theme = get_theme_or(cx, self.custom_theme.as_ref());
-        let enabled = self.enabled;
+        let is_on = self.on;
         let label = self.label.clone();
         let label_position = self.label_position;
         let focus_handle = self.focus_handle.clone();
         let is_focused = self.focus_handle.is_focused(window);
+        let enabled = self.enabled;
 
         // Toggle dimensions
         let track_width = 44.0;
@@ -144,7 +169,7 @@ impl Render for ToggleSwitch {
         let thumb_padding = 3.0;
 
         // Calculate thumb position (left edge when off, right edge when on)
-        let thumb_left = if enabled {
+        let thumb_left = if is_on {
             track_width - thumb_size - thumb_padding
         } else {
             thumb_padding
@@ -155,7 +180,8 @@ impl Render for ToggleSwitch {
             div()
                 .text_sm()
                 .font_weight(FontWeight::SEMIBOLD)
-                .text_color(rgb(theme.text_label))
+                .when(enabled, |d| d.text_color(rgb(theme.text_label)))
+                .when(!enabled, |d| d.text_color(rgb(theme.disabled_text)))
                 .child(text)
         };
 
@@ -166,9 +192,12 @@ impl Render for ToggleSwitch {
                 .h(px(track_height))
                 .rounded(px(track_height / 2.0)) // Pill shape
                 .relative()
-                .cursor_pointer()
-                .when(enabled, |d| d.bg(rgb(theme.primary)))
-                .when(!enabled, |d| d.bg(rgb(theme.bg_input)))
+                .when(enabled, |d| d.cursor_pointer())
+                .when(!enabled, |d| d.cursor_default())
+                .when(is_on && enabled, |d| d.bg(rgb(theme.primary)))
+                .when(is_on && !enabled, |d| d.bg(rgb(theme.disabled_text)))
+                .when(!is_on && enabled, |d| d.bg(rgb(theme.bg_input)))
+                .when(!is_on && !enabled, |d| d.bg(rgb(theme.disabled_bg)))
                 .child(
                     // Thumb
                     div()
@@ -178,15 +207,15 @@ impl Render for ToggleSwitch {
                         .w(px(thumb_size))
                         .h(px(thumb_size))
                         .rounded_full()
-                        .bg(rgb(theme.bg_white))
-                        .shadow_sm()
+                        .when(enabled, |d| d.bg(rgb(theme.bg_white)).shadow_sm())
+                        .when(!enabled, |d| d.bg(rgb(theme.disabled_bg)))
                 )
         };
 
         let mut container = div()
             .id("ccf_toggle_switch")
             .track_focus(&focus_handle)
-            .tab_stop(true)
+            .tab_stop(enabled)
             // Focus navigation (Tab / Shift+Tab)
             .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
                 window.focus_next();
@@ -194,7 +223,10 @@ impl Render for ToggleSwitch {
             .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
                 window.focus_prev();
             }))
-            .on_key_down(cx.listener(|toggle, event: &KeyDownEvent, window, cx| {
+            .on_key_down(cx.listener(move |toggle, event: &KeyDownEvent, window, cx| {
+                if !toggle.enabled {
+                    return;
+                }
                 match event.keystroke.key.as_str() {
                     "tab" => {
                         if event.keystroke.modifiers.shift {
@@ -216,13 +248,17 @@ impl Render for ToggleSwitch {
             .py_1()
             .px_1()
             .rounded_sm()
-            .cursor_pointer()
+            .when(enabled, |d| d.cursor_pointer())
+            .when(!enabled, |d| d.cursor_default())
             .border_2()
-            .border_color(if is_focused { rgb(theme.border_focus) } else { rgba(0x00000000) })
-            .on_mouse_down(MouseButton::Left, cx.listener(|toggle, _event, window, cx| {
+            .border_color(if is_focused && enabled { rgb(theme.border_focus) } else { rgba(0x00000000) });
+
+        if enabled {
+            container = container.on_mouse_down(MouseButton::Left, cx.listener(|toggle, _event, window, cx| {
                 toggle.focus_handle.focus(window);
                 toggle.toggle(cx);
             }));
+        }
 
         // Arrange label and toggle based on position
         match (label_position, label) {

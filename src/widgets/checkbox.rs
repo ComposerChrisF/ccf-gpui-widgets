@@ -41,6 +41,8 @@ pub struct Checkbox {
     label: Option<SharedString>,
     focus_handle: FocusHandle,
     custom_theme: Option<Theme>,
+    /// Whether the widget is enabled (interactive)
+    enabled: bool,
 }
 
 impl EventEmitter<CheckboxEvent> for Checkbox {}
@@ -59,6 +61,7 @@ impl Checkbox {
             label: None,
             focus_handle: cx.focus_handle().tab_stop(true),
             custom_theme: None,
+            enabled: true,
         }
     }
 
@@ -83,6 +86,13 @@ impl Checkbox {
         self
     }
 
+    /// Set enabled state (builder pattern)
+    #[must_use]
+    pub fn with_enabled(mut self, enabled: bool) -> Self {
+        self.enabled = enabled;
+        self
+    }
+
     /// Get current checked state
     pub fn is_checked(&self) -> bool {
         self.checked
@@ -102,6 +112,19 @@ impl Checkbox {
         &self.focus_handle
     }
 
+    /// Check if the checkbox is enabled
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+
+    /// Set enabled state programmatically
+    pub fn set_enabled(&mut self, enabled: bool, cx: &mut Context<Self>) {
+        if self.enabled != enabled {
+            self.enabled = enabled;
+            cx.notify();
+        }
+    }
+
     fn toggle(&mut self, cx: &mut Context<Self>) {
         self.checked = !self.checked;
         cx.emit(CheckboxEvent::Change(self.checked));
@@ -116,11 +139,12 @@ impl Render for Checkbox {
         let label = self.label.clone();
         let focus_handle = self.focus_handle.clone();
         let is_focused = self.focus_handle.is_focused(window);
+        let enabled = self.enabled;
 
         div()
             .id("ccf_checkbox")
             .track_focus(&focus_handle)
-            .tab_stop(true)
+            .tab_stop(enabled)
             // Focus navigation (Tab / Shift+Tab)
             .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
                 window.focus_next();
@@ -128,7 +152,10 @@ impl Render for Checkbox {
             .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
                 window.focus_prev();
             }))
-            .on_key_down(cx.listener(|checkbox, event: &KeyDownEvent, window, cx| {
+            .on_key_down(cx.listener(move |checkbox, event: &KeyDownEvent, window, cx| {
+                if !checkbox.enabled {
+                    return;
+                }
                 match event.keystroke.key.as_str() {
                     "tab" => {
                         if event.keystroke.modifiers.shift {
@@ -150,25 +177,40 @@ impl Render for Checkbox {
             .py_1()
             .px_1()
             .rounded_sm()
-            .cursor_pointer()
+            .when(enabled, |d| d.cursor_pointer())
+            .when(!enabled, |d| d.cursor_default())
             .border_2()
-            .border_color(if is_focused { rgb(theme.border_focus) } else { rgba(0x00000000) })
-            .on_mouse_down(MouseButton::Left, cx.listener(|checkbox, _event, window, cx| {
-                checkbox.focus_handle.focus(window);
-                checkbox.toggle(cx);
-            }))
+            .border_color(if is_focused && enabled { rgb(theme.border_focus) } else { rgba(0x00000000) })
+            .when(enabled, |d| {
+                d.on_mouse_down(MouseButton::Left, cx.listener(|checkbox, _event, window, cx| {
+                    checkbox.focus_handle.focus(window);
+                    checkbox.toggle(cx);
+                }))
+            })
             .child(
                 // Checkbox box
                 div()
                     .w(px(20.))
                     .h(px(20.))
                     .border_1()
-                    .border_color(rgb(theme.border_input))
                     .rounded_sm()
                     .flex()
                     .items_center()
                     .justify_center()
-                    .when(checked, |d| {
+                    .when(!enabled, |d| {
+                        // Disabled styling
+                        d.bg(rgb(theme.disabled_bg))
+                            .border_color(rgb(theme.disabled_bg))
+                            .when(checked, |d| {
+                                d.child(
+                                    div()
+                                        .text_color(rgb(theme.disabled_text))
+                                        .text_sm()
+                                        .child("✓")
+                                )
+                            })
+                    })
+                    .when(enabled && checked, |d| {
                         d.bg(rgb(theme.primary))
                             .border_color(rgb(theme.primary))
                             .child(
@@ -178,8 +220,9 @@ impl Render for Checkbox {
                                     .child("✓")
                             )
                     })
-                    .when(!checked, |d| {
+                    .when(enabled && !checked, |d| {
                         d.bg(rgb(theme.bg_input))
+                            .border_color(rgb(theme.border_input))
                             .hover(|d| d.bg(rgb(theme.bg_input_hover)))
                     })
             )
@@ -188,7 +231,8 @@ impl Render for Checkbox {
                     div()
                         .text_sm()
                         .font_weight(FontWeight::SEMIBOLD)
-                        .text_color(rgb(theme.text_label))
+                        .when(enabled, |d| d.text_color(rgb(theme.text_label)))
+                        .when(!enabled, |d| d.text_color(rgb(theme.disabled_text)))
                         .child(label_text)
                 )
             })

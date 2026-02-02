@@ -205,6 +205,8 @@ pub struct DirectoryPicker {
     browse_shortcut_enabled: bool,
     /// How validation feedback is displayed
     validation_display: ValidationDisplay,
+    /// Whether the widget is enabled
+    enabled: bool,
 }
 
 #[cfg(feature = "file-picker")]
@@ -233,6 +235,7 @@ impl DirectoryPicker {
             pending_refocus: false,
             browse_shortcut_enabled: true,
             validation_display: ValidationDisplay::default(),
+            enabled: true,
         }
     }
 
@@ -277,6 +280,16 @@ impl DirectoryPicker {
         self
     }
 
+    /// Set whether the widget is enabled (builder pattern)
+    ///
+    /// When disabled, the widget cannot be edited or used to browse for directories.
+    /// Default is `true`.
+    #[must_use]
+    pub fn with_enabled(mut self, enabled: bool) -> Self {
+        self.enabled = enabled;
+        self
+    }
+
     /// Get the current directory path
     pub fn value(&self) -> &str {
         &self.value
@@ -301,6 +314,19 @@ impl DirectoryPicker {
     /// Use this to check if the path is valid before taking action.
     pub fn validate(&self) -> DirectoryPickerValidation {
         validate_directory_path(&self.value)
+    }
+
+    /// Returns whether the widget is enabled
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+
+    /// Set whether the widget is enabled
+    pub fn set_enabled(&mut self, enabled: bool, cx: &mut Context<Self>) {
+        if self.enabled != enabled {
+            self.enabled = enabled;
+            cx.notify();
+        }
     }
 
     /// Returns true if the current path is valid (exists and is a directory)
@@ -341,6 +367,9 @@ impl DirectoryPicker {
     }
 
     fn start_editing(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.enabled {
+            return;
+        }
         self.is_editing = true;
 
         let value = self.value.clone();
@@ -378,6 +407,9 @@ impl DirectoryPicker {
     }
 
     fn open_directory_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.enabled {
+            return;
+        }
         let entity = cx.entity().clone();
 
         let initial_dir = if !self.value.is_empty() {
@@ -462,6 +494,7 @@ impl Render for DirectoryPicker {
             .unwrap_or_else(|| SharedString::from("Click to enter path, or drag & drop"));
 
         let browse_shortcut_enabled = self.browse_shortcut_enabled;
+        let enabled = self.enabled;
         let edit_button_focus_handle = self.edit_button_focus_handle.clone();
         let edit_button_is_focused = edit_button_focus_handle.is_focused(window);
         let browse_button_focus_handle = self.browse_button_focus_handle.clone();
@@ -473,23 +506,26 @@ impl Render for DirectoryPicker {
             .flex()
             .flex_row()
             .w_full()
-            .bg(rgb(theme.bg_input))
+            .when(enabled, |d| d.bg(rgb(theme.bg_input)))
+            .when(!enabled, |d| d.bg(rgb(theme.disabled_bg)))
             .rounded_md()
             .border_1()
             .border_color(rgb(theme.border_default))
             // Handle Cmd+O / Ctrl+O to open directory dialog (when enabled)
-            .when(browse_shortcut_enabled, |d| {
+            .when(browse_shortcut_enabled && enabled, |d| {
                 d.on_action(cx.listener(|picker, _: &BrowseDirectory, window, cx| {
                     picker.open_directory_dialog(window, cx);
                 }))
             })
-            .drag_over::<ExternalPaths>({
-                let bg_hover = theme.bg_input_hover;
-                let border = theme.border_focus;
-                move |d, _, _, _| {
-                    d.bg(rgb(bg_hover))
-                        .border_color(rgb(border))
-                }
+            .when(enabled, |d| {
+                d.drag_over::<ExternalPaths>({
+                    let bg_hover = theme.bg_input_hover;
+                    let border = theme.border_focus;
+                    move |d, _, _, _| {
+                        d.bg(rgb(bg_hover))
+                            .border_color(rgb(border))
+                    }
+                })
             })
             .child(
                 // Path display area
@@ -502,27 +538,29 @@ impl Render for DirectoryPicker {
                     .min_h(px(52.))
                     .px_3()
                     .py_2()
-                    .on_drop(cx.listener(|picker, paths: &ExternalPaths, _window, cx| {
-                        if let Some(path) = paths.paths().first() {
-                            let dir_path = if path.is_dir() {
-                                path.to_string_lossy().to_string()
-                            } else if path.is_file() {
-                                path.parent()
-                                    .map(|p| p.to_string_lossy().to_string())
-                                    .unwrap_or_default()
-                            } else {
-                                String::new()
-                            };
+                    .when(enabled, |d| {
+                        d.on_drop(cx.listener(|picker, paths: &ExternalPaths, _window, cx| {
+                            if let Some(path) = paths.paths().first() {
+                                let dir_path = if path.is_dir() {
+                                    path.to_string_lossy().to_string()
+                                } else if path.is_file() {
+                                    path.parent()
+                                        .map(|p| p.to_string_lossy().to_string())
+                                        .unwrap_or_default()
+                                } else {
+                                    String::new()
+                                };
 
-                            if !dir_path.is_empty() && picker.value != dir_path {
-                                picker.value = dir_path;
-                                cx.emit(DirectoryPickerEvent::Change(picker.value.clone()));
-                                cx.notify();
+                                if !dir_path.is_empty() && picker.value != dir_path {
+                                    picker.value = dir_path;
+                                    cx.emit(DirectoryPickerEvent::Change(picker.value.clone()));
+                                    cx.notify();
+                                }
                             }
-                        }
-                    }))
-                    // Empty state
-                    .when(!self.is_editing && self.value.is_empty(), |d| {
+                        }))
+                    })
+                    // Empty state (enabled)
+                    .when(!self.is_editing && self.value.is_empty() && enabled, |d| {
                         d.on_click(cx.listener(|picker, _event, window, cx| {
                             picker.start_editing(window, cx);
                             cx.notify();
@@ -545,8 +583,27 @@ impl Render for DirectoryPicker {
                                 .child(placeholder.clone())
                         )
                     })
-                    // Display mode
-                    .when(!self.is_editing && !self.value.is_empty(), |d| {
+                    // Empty state (disabled)
+                    .when(!self.is_editing && self.value.is_empty() && !enabled, |d| {
+                        d.cursor_default()
+                        .child(
+                            div()
+                                .text_sm()
+                                .italic()
+                                .text_color(rgb(theme.disabled_text))
+                                .child("No directory selected")
+                        )
+                        .child(
+                            div()
+                                .text_xs()
+                                .italic()
+                                .text_color(rgb(theme.disabled_text))
+                                .line_height(relative(1.4))
+                                .child(placeholder.clone())
+                        )
+                    })
+                    // Display mode (enabled)
+                    .when(!self.is_editing && !self.value.is_empty() && enabled, |d| {
                         d.on_click(cx.listener(|picker, _event, window, cx| {
                             picker.start_editing(window, cx);
                             cx.notify();
@@ -577,6 +634,27 @@ impl Render for DirectoryPicker {
                                     .text_color(rgb(color))
                                     .mt_1()
                                     .child(msg)
+                            )
+                        })
+                    })
+                    // Display mode (disabled)
+                    .when(!self.is_editing && !self.value.is_empty() && !enabled, |d| {
+                        d.cursor_default()
+                        .child(
+                            div()
+                                .text_sm()
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .text_color(rgb(theme.disabled_text))
+                                .child(dirname.clone().unwrap_or_default())
+                        )
+                        .when(!path_display.is_empty(), |d| {
+                            d.child(
+                                div()
+                                    .text_xs()
+                                    .min_w_0()
+                                    .line_height(relative(1.4))
+                                    .text_color(rgb(theme.disabled_text))
+                                    .child(self.value.clone())
                             )
                         })
                     })
@@ -639,24 +717,32 @@ impl Render for DirectoryPicker {
                             .justify_center()
                             .key_context("CcfDirectoryPickerButton")
                             .track_focus(&edit_button_focus_handle)
+                            .tab_stop(enabled)
                             .px_2()
-                            .bg(rgb(theme.bg_input_hover))
+                            .when(enabled, |d| d.bg(rgb(theme.bg_input_hover)))
+                            .when(!enabled, |d| d.bg(rgb(theme.disabled_bg)))
                             .border_1()
-                            .border_color(rgb(if edit_button_is_focused {
-                                theme.border_focus
-                            } else {
-                                theme.bg_input_hover // Invisible border when not focused
-                            }))
-                            .cursor_pointer()
-                            .hover(|d| d.bg(rgb(theme.bg_hover)))
-                            .on_click(cx.listener(|picker, _event, window, cx| {
-                                picker.start_editing(window, cx);
-                                cx.notify();
-                            }))
-                            .on_action(cx.listener(|picker, _: &ActivateButton, window, cx| {
-                                picker.start_editing(window, cx);
-                                cx.notify();
-                            }))
+                            .when(enabled, |d| {
+                                d.border_color(rgb(if edit_button_is_focused {
+                                    theme.border_focus
+                                } else {
+                                    theme.bg_input_hover // Invisible border when not focused
+                                }))
+                            })
+                            .when(!enabled, |d| d.border_color(rgb(theme.disabled_bg)))
+                            .when(enabled, |d| d.cursor_pointer())
+                            .when(!enabled, |d| d.cursor_default())
+                            .when(enabled, |d| d.hover(|d| d.bg(rgb(theme.bg_hover))))
+                            .when(enabled, |d| {
+                                d.on_click(cx.listener(|picker, _event, window, cx| {
+                                    picker.start_editing(window, cx);
+                                    cx.notify();
+                                }))
+                                .on_action(cx.listener(|picker, _: &ActivateButton, window, cx| {
+                                    picker.start_editing(window, cx);
+                                    cx.notify();
+                                }))
+                            })
                             .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
                                 window.focus_next();
                             }))
@@ -672,11 +758,14 @@ impl Render for DirectoryPicker {
                                     }
                                 }
                             }))
-                            .tooltip(|_window, cx| cx.new(|_cx| Tooltip::new("Edit path")).into())
+                            .when(enabled, |d| {
+                                d.tooltip(|_window, cx| cx.new(|_cx| Tooltip::new("Edit path")).into())
+                            })
                             .child(
                                 div()
                                     .text_sm()
-                                    .text_color(rgb(theme.text_label))
+                                    .when(enabled, |d| d.text_color(rgb(theme.text_label)))
+                                    .when(!enabled, |d| d.text_color(rgb(theme.disabled_text)))
                                     .child("✎")
                             )
                     )
@@ -696,22 +785,30 @@ impl Render for DirectoryPicker {
                             .justify_center()
                             .key_context("CcfDirectoryPickerButton")
                             .track_focus(&browse_button_focus_handle)
+                            .tab_stop(enabled)
                             .px_2()
-                            .bg(rgb(theme.bg_input_hover))
+                            .when(enabled, |d| d.bg(rgb(theme.bg_input_hover)))
+                            .when(!enabled, |d| d.bg(rgb(theme.disabled_bg)))
                             .border_1()
-                            .border_color(rgb(if browse_button_is_focused {
-                                theme.border_focus
-                            } else {
-                                theme.bg_input_hover // Invisible border when not focused
-                            }))
-                            .cursor_pointer()
-                            .hover(|d| d.bg(rgb(theme.bg_hover)))
-                            .on_click(cx.listener(|picker, _event, window, cx| {
-                                picker.open_directory_dialog(window, cx);
-                            }))
-                            .on_action(cx.listener(|picker, _: &ActivateButton, window, cx| {
-                                picker.open_directory_dialog(window, cx);
-                            }))
+                            .when(enabled, |d| {
+                                d.border_color(rgb(if browse_button_is_focused {
+                                    theme.border_focus
+                                } else {
+                                    theme.bg_input_hover // Invisible border when not focused
+                                }))
+                            })
+                            .when(!enabled, |d| d.border_color(rgb(theme.disabled_bg)))
+                            .when(enabled, |d| d.cursor_pointer())
+                            .when(!enabled, |d| d.cursor_default())
+                            .when(enabled, |d| d.hover(|d| d.bg(rgb(theme.bg_hover))))
+                            .when(enabled, |d| {
+                                d.on_click(cx.listener(|picker, _event, window, cx| {
+                                    picker.open_directory_dialog(window, cx);
+                                }))
+                                .on_action(cx.listener(|picker, _: &ActivateButton, window, cx| {
+                                    picker.open_directory_dialog(window, cx);
+                                }))
+                            })
                             .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
                                 window.focus_next();
                             }))
@@ -727,11 +824,14 @@ impl Render for DirectoryPicker {
                                     }
                                 }
                             }))
-                            .tooltip(|_window, cx| cx.new(|_cx| Tooltip::new("Select directory...")).into())
+                            .when(enabled, |d| {
+                                d.tooltip(|_window, cx| cx.new(|_cx| Tooltip::new("Select directory...")).into())
+                            })
                             .child(
                                 div()
                                     .text_sm()
-                                    .text_color(rgb(theme.text_label))
+                                    .when(enabled, |d| d.text_color(rgb(theme.text_label)))
+                                    .when(!enabled, |d| d.text_color(rgb(theme.disabled_text)))
                                     .child("📂")
                             )
                     )

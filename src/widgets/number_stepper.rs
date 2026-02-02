@@ -80,6 +80,8 @@ pub struct NumberStepper {
     display_precision: Option<usize>,
     focus_handle: FocusHandle,
     custom_theme: Option<Theme>,
+    /// Whether the stepper is enabled
+    enabled: bool,
 
     // Drag sensitivity: value change per pixel of mouse movement
     /// Normal drag: value change per pixel (no modifier key)
@@ -157,8 +159,9 @@ impl NumberStepper {
             step: None,
             resolution: None,
             display_precision: None,
-            focus_handle: cx.focus_handle().tab_stop(true),
+            focus_handle: cx.focus_handle(),
             custom_theme: None,
+            enabled: true,
             value_per_pixel_normal: 0.5,
             value_per_pixel_fast: 2.5,   // 5x normal
             value_per_pixel_slow: 0.05,  // 0.1x normal
@@ -229,6 +232,13 @@ impl NumberStepper {
         self
     }
 
+    /// Set enabled state (builder pattern)
+    #[must_use]
+    pub fn with_enabled(mut self, enabled: bool) -> Self {
+        self.enabled = enabled;
+        self
+    }
+
     /// Set drag sensitivities as value change per pixel (builder pattern)
     ///
     /// Each parameter specifies how much the value changes per pixel of mouse movement:
@@ -278,9 +288,47 @@ impl NumberStepper {
         &self.focus_handle
     }
 
+    /// Check if the stepper is enabled
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+
+    /// Set enabled state programmatically
+    pub fn set_enabled(&mut self, enabled: bool, cx: &mut Context<Self>) {
+        if self.enabled != enabled {
+            self.enabled = enabled;
+            cx.notify();
+        }
+    }
+
     /// Get the current value
     pub fn value(&self) -> f64 {
         self.value
+    }
+
+    /// Get the minimum value constraint
+    pub fn get_min(&self) -> Option<f64> {
+        self.min
+    }
+
+    /// Get the maximum value constraint
+    pub fn get_max(&self) -> Option<f64> {
+        self.max
+    }
+
+    /// Get the step value for +/- buttons
+    pub fn get_step(&self) -> Option<f64> {
+        self.step
+    }
+
+    /// Get the value resolution
+    pub fn get_resolution(&self) -> Option<f64> {
+        self.resolution
+    }
+
+    /// Get the display precision (decimal places)
+    pub fn get_display_precision(&self) -> Option<usize> {
+        self.display_precision
     }
 
     /// Set value programmatically
@@ -474,6 +522,7 @@ impl Render for NumberStepper {
         let display_value = self.format_value();
         let focus_handle = self.focus_handle.clone();
         let editing = self.editing;
+        let enabled = self.enabled;
 
         // Handle pending refocus (after Enter/Escape/Tab from TextInput)
         if self.pending_refocus {
@@ -484,15 +533,21 @@ impl Render for NumberStepper {
         // Check focus state after handling pending refocus
         let is_focused = self.focus_handle.is_focused(window);
 
-        // Colors for the unified control
-        let bg_color = theme.bg_input;
-        let border_color = if is_focused || editing { theme.border_focus } else { theme.border_input };
-        let separator_color = theme.text_muted;  // Light color for visibility
-        let text_color = theme.text_value;
-        let button_text_color = theme.text_value;  // Light color for +/- buttons
+        // Colors for the unified control (use disabled colors when disabled)
+        let bg_color = if enabled { theme.bg_input } else { theme.disabled_bg };
+        let border_color = if !enabled {
+            theme.disabled_bg
+        } else if is_focused || editing {
+            theme.border_focus
+        } else {
+            theme.border_input
+        };
+        let separator_color = if enabled { theme.text_muted } else { theme.disabled_text };
+        let text_color = if enabled { theme.text_value } else { theme.disabled_text };
+        let button_text_color = if enabled { theme.text_value } else { theme.disabled_text };
 
         // Build the center value element (without its own border/background)
-        let value_element = if editing {
+        let value_element = if editing && enabled {
             // Text edit mode - use embedded TextInput
             div()
                 .id("ccf_number_value")
@@ -508,7 +563,7 @@ impl Render for NumberStepper {
             // Clone the width cell for the canvas closure
             let width_cell = self.value_display_width.clone();
 
-            div()
+            let mut value_div = div()
                 .id("ccf_number_value")
                 .relative()
                 .px_2()
@@ -519,38 +574,49 @@ impl Render for NumberStepper {
                 .justify_center()
                 .text_sm()
                 .text_color(rgb(text_color))
-                .cursor(CursorStyle::ResizeLeftRight)
-                // Double-click to edit, single-click starts drag state tracking
-                .on_mouse_down(MouseButton::Left, cx.listener(|stepper, event: &MouseDownEvent, window, cx| {
-                    stepper.focus_handle.focus(window);
-                    if event.click_count == 2 {
-                        // Double-click: enter edit mode
-                        stepper.enter_edit_mode(window, cx);
-                    } else {
-                        // Single click: record drag start position for on_drag_move
-                        let x: f32 = event.position.x.into();
-                        stepper.start_drag(x);
-                    }
-                }))
-                // Initiate drag - this enables on_drag_move to track outside element bounds
-                .on_drag(NumberDragState, |_state, _position, _window, cx| {
-                    cx.new(|_| EmptyDragView)
-                })
-                // Track drag movement even outside element bounds (Shift=fast, Alt/Option=slow)
-                .on_drag_move(cx.listener(|stepper, event: &DragMoveEvent<NumberDragState>, _window, cx| {
-                    if stepper.dragging {
-                        let x: f32 = event.event.position.x.into();
-                        stepper.update_drag(x, &event.event.modifiers, cx);
-                    }
-                }))
-                // End drag on mouse up (inside element)
-                .on_mouse_up(MouseButton::Left, cx.listener(|stepper, _event: &MouseUpEvent, _window, _cx| {
-                    stepper.end_drag();
-                }))
-                // End drag on mouse up outside element
-                .on_mouse_up_out(MouseButton::Left, cx.listener(|stepper, _event: &MouseUpEvent, _window, _cx| {
-                    stepper.end_drag();
-                }))
+                .when(enabled, |d| d.cursor(CursorStyle::ResizeLeftRight))
+                .when(!enabled, |d| d.cursor_default());
+
+            // Only add mouse/drag handlers when enabled
+            if enabled {
+                value_div = value_div
+                    // Double-click to edit, single-click starts drag state tracking
+                    .on_mouse_down(MouseButton::Left, cx.listener(|stepper, event: &MouseDownEvent, window, cx| {
+                        if !stepper.enabled {
+                            return;
+                        }
+                        stepper.focus_handle.focus(window);
+                        if event.click_count == 2 {
+                            // Double-click: enter edit mode
+                            stepper.enter_edit_mode(window, cx);
+                        } else {
+                            // Single click: record drag start position for on_drag_move
+                            let x: f32 = event.position.x.into();
+                            stepper.start_drag(x);
+                        }
+                    }))
+                    // Initiate drag - this enables on_drag_move to track outside element bounds
+                    .on_drag(NumberDragState, |_state, _position, _window, cx| {
+                        cx.new(|_| EmptyDragView)
+                    })
+                    // Track drag movement even outside element bounds (Shift=fast, Alt/Option=slow)
+                    .on_drag_move(cx.listener(|stepper, event: &DragMoveEvent<NumberDragState>, _window, cx| {
+                        if stepper.dragging {
+                            let x: f32 = event.event.position.x.into();
+                            stepper.update_drag(x, &event.event.modifiers, cx);
+                        }
+                    }))
+                    // End drag on mouse up (inside element)
+                    .on_mouse_up(MouseButton::Left, cx.listener(|stepper, _event: &MouseUpEvent, _window, _cx| {
+                        stepper.end_drag();
+                    }))
+                    // End drag on mouse up outside element
+                    .on_mouse_up_out(MouseButton::Left, cx.listener(|stepper, _event: &MouseUpEvent, _window, _cx| {
+                        stepper.end_drag();
+                    }));
+            }
+
+            value_div
                 // Canvas to measure width for auto-scaling drag sensitivity
                 .child(
                     canvas(
@@ -574,11 +640,69 @@ impl Render for NumberStepper {
                 .bg(rgb(separator_color))
         };
 
+        // Build decrement button
+        let mut decrement_button = div()
+            .id("ccf_number_decrement")
+            .flex()
+            .items_center()
+            .justify_center()
+            .px_2()
+            .py_1()
+            .text_color(rgb(button_text_color))
+            .when(enabled, |d| d.cursor_pointer())
+            .when(!enabled, |d| d.cursor_default())
+            .when(enabled, |d| d.hover(|h| h.bg(rgb(theme.bg_hover))))
+            .child("\u{2212}");  // Using proper minus sign
+
+        if enabled {
+            decrement_button = decrement_button.on_click(cx.listener(|stepper, event: &ClickEvent, window, cx| {
+                if !stepper.enabled {
+                    return;
+                }
+                stepper.focus_handle.focus(window);
+                if stepper.editing {
+                    // Set editing to false before anything that could trigger blur
+                    stepper.editing = false;
+                }
+                let multiplier = if event.modifiers().shift { 10.0 } else { 1.0 };
+                stepper.decrement(multiplier, cx);
+            }));
+        }
+
+        // Build increment button
+        let mut increment_button = div()
+            .id("ccf_number_increment")
+            .flex()
+            .items_center()
+            .justify_center()
+            .px_2()
+            .py_1()
+            .text_color(rgb(button_text_color))
+            .when(enabled, |d| d.cursor_pointer())
+            .when(!enabled, |d| d.cursor_default())
+            .when(enabled, |d| d.hover(|h| h.bg(rgb(theme.bg_hover))))
+            .child("+");
+
+        if enabled {
+            increment_button = increment_button.on_click(cx.listener(|stepper, event: &ClickEvent, window, cx| {
+                if !stepper.enabled {
+                    return;
+                }
+                stepper.focus_handle.focus(window);
+                if stepper.editing {
+                    // Set editing to false before anything that could trigger blur
+                    stepper.editing = false;
+                }
+                let multiplier = if event.modifiers().shift { 10.0 } else { 1.0 };
+                stepper.increment(multiplier, cx);
+            }));
+        }
+
         // Unified container with all three parts
         div()
             .id("ccf_number_stepper")
             .track_focus(&focus_handle)
-            .tab_stop(true)
+            .tab_stop(enabled)
             // Focus navigation (Tab / Shift+Tab)
             .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
                 window.focus_next();
@@ -587,7 +711,10 @@ impl Render for NumberStepper {
                 window.focus_prev();
             }))
             .on_key_down(cx.listener(|stepper, event: &KeyDownEvent, window, cx| {
-                // Don't handle keys when editing (TextInput handles them)
+                // Don't handle keys when disabled or editing (TextInput handles them)
+                if !stepper.enabled {
+                    return;
+                }
                 if stepper.editing {
                     return;
                 }
@@ -617,28 +744,7 @@ impl Render for NumberStepper {
             .rounded_md()
             .overflow_hidden()
             // Decrement button
-            .child(
-                div()
-                    .id("ccf_number_decrement")
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .px_2()
-                    .py_1()
-                    .cursor_pointer()
-                    .text_color(rgb(button_text_color))
-                    .hover(|d| d.bg(rgb(theme.bg_hover)))
-                    .on_click(cx.listener(|stepper, event: &ClickEvent, window, cx| {
-                        stepper.focus_handle.focus(window);
-                        if stepper.editing {
-                            // Set editing to false before anything that could trigger blur
-                            stepper.editing = false;
-                        }
-                        let multiplier = if event.modifiers().shift { 10.0 } else { 1.0 };
-                        stepper.decrement(multiplier, cx);
-                    }))
-                    .child("−")  // Using proper minus sign
-            )
+            .child(decrement_button)
             // Left separator
             .child(separator())
             // Value display
@@ -646,27 +752,6 @@ impl Render for NumberStepper {
             // Right separator
             .child(separator())
             // Increment button
-            .child(
-                div()
-                    .id("ccf_number_increment")
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .px_2()
-                    .py_1()
-                    .cursor_pointer()
-                    .text_color(rgb(button_text_color))
-                    .hover(|d| d.bg(rgb(theme.bg_hover)))
-                    .on_click(cx.listener(|stepper, event: &ClickEvent, window, cx| {
-                        stepper.focus_handle.focus(window);
-                        if stepper.editing {
-                            // Set editing to false before anything that could trigger blur
-                            stepper.editing = false;
-                        }
-                        let multiplier = if event.modifiers().shift { 10.0 } else { 1.0 };
-                        stepper.increment(multiplier, cx);
-                    }))
-                    .child("+")
-            )
+            .child(increment_button)
     }
 }

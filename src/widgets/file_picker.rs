@@ -295,6 +295,8 @@ pub struct FilePicker {
     browse_shortcut_enabled: bool,
     /// How validation feedback is displayed
     validation_display: ValidationDisplay,
+    /// Whether the widget is enabled for interaction
+    enabled: bool,
 }
 
 #[cfg(feature = "file-picker")]
@@ -326,6 +328,7 @@ impl FilePicker {
             pending_refocus: false,
             browse_shortcut_enabled: true,
             validation_display: ValidationDisplay::default(),
+            enabled: true,
         }
     }
 
@@ -389,6 +392,29 @@ impl FilePicker {
     pub fn validation_display(mut self, display: ValidationDisplay) -> Self {
         self.validation_display = display;
         self
+    }
+
+    /// Set whether the widget is enabled (builder pattern)
+    ///
+    /// When disabled, the widget cannot be edited or browsed.
+    /// Default is `true`.
+    #[must_use]
+    pub fn with_enabled(mut self, enabled: bool) -> Self {
+        self.enabled = enabled;
+        self
+    }
+
+    /// Returns whether the widget is enabled
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+
+    /// Set whether the widget is enabled
+    pub fn set_enabled(&mut self, enabled: bool, cx: &mut Context<Self>) {
+        if self.enabled != enabled {
+            self.enabled = enabled;
+            cx.notify();
+        }
     }
 
     /// Get the current file path
@@ -549,6 +575,9 @@ impl FilePicker {
     }
 
     fn start_editing(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.enabled {
+            return;
+        }
         self.is_editing = true;
 
         let value = self.value.clone();
@@ -589,6 +618,9 @@ impl FilePicker {
     }
 
     fn open_file_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.enabled {
+            return;
+        }
         let extensions = self.extensions.clone();
         let entity = cx.entity().clone();
         let is_save_mode = self.mode == FileMode::Save;
@@ -682,6 +714,7 @@ impl Render for FilePicker {
             .unwrap_or_else(|| SharedString::from("Click to enter path, or drag & drop"));
 
         let browse_shortcut_enabled = self.browse_shortcut_enabled;
+        let enabled = self.enabled;
 
         let is_save_mode = self.mode == FileMode::Save;
         let edit_button_focus_handle = self.edit_button_focus_handle.clone();
@@ -695,23 +728,26 @@ impl Render for FilePicker {
             .flex()
             .flex_row()
             .w_full()
-            .bg(rgb(theme.bg_input))
+            .when(enabled, |d| d.bg(rgb(theme.bg_input)))
+            .when(!enabled, |d| d.bg(rgb(theme.disabled_bg)))
             .rounded_md()
             .border_1()
             .border_color(rgb(theme.border_default))
             // Handle Cmd+O / Ctrl+O to open file dialog (when enabled)
-            .when(browse_shortcut_enabled, |d| {
+            .when(browse_shortcut_enabled && enabled, |d| {
                 d.on_action(cx.listener(|picker, _: &BrowseFile, window, cx| {
                     picker.open_file_dialog(window, cx);
                 }))
             })
-            .drag_over::<ExternalPaths>({
-                let bg_hover = theme.bg_input_hover;
-                let border = theme.border_focus;
-                move |d, _, _, _| {
-                    d.bg(rgb(bg_hover))
-                        .border_color(rgb(border))
-                }
+            .when(enabled, |d| {
+                d.drag_over::<ExternalPaths>({
+                    let bg_hover = theme.bg_input_hover;
+                    let border = theme.border_focus;
+                    move |d, _, _, _| {
+                        d.bg(rgb(bg_hover))
+                            .border_color(rgb(border))
+                    }
+                })
             })
             .child(
                 // Path display area
@@ -724,20 +760,22 @@ impl Render for FilePicker {
                     .min_h(px(52.))
                     .px_3()
                     .py_2()
-                    .on_drop(cx.listener(|picker, paths: &ExternalPaths, _window, cx| {
-                        if let Some(path) = paths.paths().first() {
-                            if path.is_file() {
-                                let path_str = path.to_string_lossy().to_string();
-                                if picker.value != path_str {
-                                    picker.value = path_str;
-                                    cx.emit(FilePickerEvent::Change(picker.value.clone()));
+                    .when(enabled, |d| {
+                        d.on_drop(cx.listener(|picker, paths: &ExternalPaths, _window, cx| {
+                            if let Some(path) = paths.paths().first() {
+                                if path.is_file() {
+                                    let path_str = path.to_string_lossy().to_string();
+                                    if picker.value != path_str {
+                                        picker.value = path_str;
+                                        cx.emit(FilePickerEvent::Change(picker.value.clone()));
+                                    }
+                                    cx.notify();
                                 }
-                                cx.notify();
                             }
-                        }
-                    }))
-                    // Empty state
-                    .when(!self.is_editing && self.value.is_empty(), |d| {
+                        }))
+                    })
+                    // Empty state (enabled)
+                    .when(!self.is_editing && self.value.is_empty() && enabled, |d| {
                         d.on_click(cx.listener(|picker, _event, window, cx| {
                             picker.start_editing(window, cx);
                             cx.notify();
@@ -760,8 +798,27 @@ impl Render for FilePicker {
                                 .child(placeholder.clone())
                         )
                     })
-                    // Display mode
-                    .when(!self.is_editing && !self.value.is_empty(), |d| {
+                    // Empty state (disabled)
+                    .when(!self.is_editing && self.value.is_empty() && !enabled, |d| {
+                        d.cursor_default()
+                        .child(
+                            div()
+                                .text_sm()
+                                .italic()
+                                .text_color(rgb(theme.disabled_text))
+                                .child("No file selected")
+                        )
+                        .child(
+                            div()
+                                .text_xs()
+                                .italic()
+                                .text_color(rgb(theme.disabled_text))
+                                .line_height(relative(1.4))
+                                .child(placeholder.clone())
+                        )
+                    })
+                    // Display mode (enabled)
+                    .when(!self.is_editing && !self.value.is_empty() && enabled, |d| {
                         d.on_click(cx.listener(|picker, _event, window, cx| {
                             picker.start_editing(window, cx);
                             cx.notify();
@@ -792,6 +849,27 @@ impl Render for FilePicker {
                                     .text_color(rgb(color))
                                     .mt_1()
                                     .child(msg)
+                            )
+                        })
+                    })
+                    // Display mode (disabled)
+                    .when(!self.is_editing && !self.value.is_empty() && !enabled, |d| {
+                        d.cursor_default()
+                        .child(
+                            div()
+                                .text_sm()
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .text_color(rgb(theme.disabled_text))
+                                .child(basename.clone().unwrap_or_default())
+                        )
+                        .when(!path_display.is_empty(), |d| {
+                            d.child(
+                                div()
+                                    .text_xs()
+                                    .min_w_0()
+                                    .text_color(rgb(theme.disabled_text))
+                                    .line_height(relative(1.4))
+                                    .child(path_display.full_text.clone())
                             )
                         })
                     })
@@ -854,20 +932,27 @@ impl Render for FilePicker {
                             .justify_center()
                             .key_context("CcfFilePickerButton")
                             .track_focus(&edit_button_focus_handle)
+                            .tab_stop(enabled)
                             .px_2()
-                            .bg(rgb(theme.bg_input_hover))
+                            .when(enabled, |d| d.bg(rgb(theme.bg_input_hover)))
+                            .when(!enabled, |d| d.bg(rgb(theme.disabled_bg)))
                             .border_1()
-                            .border_color(rgb(if edit_button_is_focused {
+                            .border_color(rgb(if edit_button_is_focused && enabled {
                                 theme.border_focus
-                            } else {
+                            } else if enabled {
                                 theme.bg_input_hover // Invisible border when not focused
+                            } else {
+                                theme.disabled_bg
                             }))
-                            .cursor_pointer()
-                            .hover(|d| d.bg(rgb(theme.bg_hover)))
-                            .on_click(cx.listener(|picker, _event, window, cx| {
-                                picker.start_editing(window, cx);
-                                cx.notify();
-                            }))
+                            .when(enabled, |d| d.cursor_pointer())
+                            .when(!enabled, |d| d.cursor_default())
+                            .when(enabled, |d| d.hover(|d| d.bg(rgb(theme.bg_hover))))
+                            .when(enabled, |d| {
+                                d.on_click(cx.listener(|picker, _event, window, cx| {
+                                    picker.start_editing(window, cx);
+                                    cx.notify();
+                                }))
+                            })
                             .on_action(cx.listener(|picker, _: &ActivateButton, window, cx| {
                                 picker.start_editing(window, cx);
                                 cx.notify();
@@ -887,11 +972,14 @@ impl Render for FilePicker {
                                     }
                                 }
                             }))
-                            .tooltip(|_window, cx| cx.new(|_cx| Tooltip::new("Edit path")).into())
+                            .when(enabled, |d| {
+                                d.tooltip(|_window, cx| cx.new(|_cx| Tooltip::new("Edit path")).into())
+                            })
                             .child(
                                 div()
                                     .text_sm()
-                                    .text_color(rgb(theme.text_label))
+                                    .when(enabled, |d| d.text_color(rgb(theme.text_label)))
+                                    .when(!enabled, |d| d.text_color(rgb(theme.disabled_text)))
                                     .child("✎")
                             )
                     )
@@ -911,19 +999,26 @@ impl Render for FilePicker {
                             .justify_center()
                             .key_context("CcfFilePickerButton")
                             .track_focus(&browse_button_focus_handle)
+                            .tab_stop(enabled)
                             .px_2()
-                            .bg(rgb(theme.bg_input_hover))
+                            .when(enabled, |d| d.bg(rgb(theme.bg_input_hover)))
+                            .when(!enabled, |d| d.bg(rgb(theme.disabled_bg)))
                             .border_1()
-                            .border_color(rgb(if browse_button_is_focused {
+                            .border_color(rgb(if browse_button_is_focused && enabled {
                                 theme.border_focus
-                            } else {
+                            } else if enabled {
                                 theme.bg_input_hover // Invisible border when not focused
+                            } else {
+                                theme.disabled_bg
                             }))
-                            .cursor_pointer()
-                            .hover(|d| d.bg(rgb(theme.bg_hover)))
-                            .on_click(cx.listener(|picker, _event, window, cx| {
-                                picker.open_file_dialog(window, cx);
-                            }))
+                            .when(enabled, |d| d.cursor_pointer())
+                            .when(!enabled, |d| d.cursor_default())
+                            .when(enabled, |d| d.hover(|d| d.bg(rgb(theme.bg_hover))))
+                            .when(enabled, |d| {
+                                d.on_click(cx.listener(|picker, _event, window, cx| {
+                                    picker.open_file_dialog(window, cx);
+                                }))
+                            })
                             .on_action(cx.listener(|picker, _: &ActivateButton, window, cx| {
                                 picker.open_file_dialog(window, cx);
                             }))
@@ -942,13 +1037,16 @@ impl Render for FilePicker {
                                     }
                                 }
                             }))
-                            .tooltip(move |_window, cx| {
-                                cx.new(|_cx| Tooltip::new(if is_save_mode { "Save as..." } else { "Select file..." })).into()
+                            .when(enabled, |d| {
+                                d.tooltip(move |_window, cx| {
+                                    cx.new(|_cx| Tooltip::new(if is_save_mode { "Save as..." } else { "Select file..." })).into()
+                                })
                             })
                             .child(
                                 div()
                                     .text_sm()
-                                    .text_color(rgb(theme.text_label))
+                                    .when(enabled, |d| d.text_color(rgb(theme.text_label)))
+                                    .when(!enabled, |d| d.text_color(rgb(theme.disabled_text)))
                                     .child(if is_save_mode { "💾" } else { "📂" })
                             )
                     )

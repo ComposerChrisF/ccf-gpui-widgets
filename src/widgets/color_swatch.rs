@@ -122,6 +122,8 @@ pub struct ColorSwatch {
     placeholder: String,
     /// Whether alpha channel is enabled
     with_alpha: bool,
+    /// Whether the widget is enabled
+    enabled: bool,
     /// Custom theme
     custom_theme: Option<Theme>,
     /// Focus handle (for focus navigation, not key capture)
@@ -194,6 +196,7 @@ impl ColorSwatch {
             value: "#000000".to_string(),
             placeholder: "#000000".to_string(),
             with_alpha: false,
+            enabled: true,
             custom_theme: None,
             focus_handle: cx.focus_handle(),
             picker_focus_handle: cx.focus_handle(),
@@ -250,6 +253,13 @@ impl ColorSwatch {
         self
     }
 
+    /// Set enabled state (builder pattern)
+    #[must_use]
+    pub fn with_enabled(mut self, enabled: bool) -> Self {
+        self.enabled = enabled;
+        self
+    }
+
     /// Set custom theme (builder pattern)
     #[must_use]
     pub fn theme(mut self, theme: Theme) -> Self {
@@ -275,6 +285,23 @@ impl ColorSwatch {
     /// Get current alpha value (0-255)
     pub fn alpha(&self) -> u8 {
         self.current_alpha
+    }
+
+    /// Check if the widget is enabled
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+
+    /// Set enabled state programmatically
+    pub fn set_enabled(&mut self, enabled: bool, cx: &mut Context<Self>) {
+        if self.enabled != enabled {
+            self.enabled = enabled;
+            // Sync enabled state to the hex input
+            self.hex_input.update(cx, |input, cx| {
+                input.set_enabled(enabled, cx);
+            });
+            cx.notify();
+        }
     }
 
     /// Set value programmatically
@@ -478,8 +505,10 @@ impl Render for ColorSwatch {
         if self.needs_input_sync {
             self.needs_input_sync = false;
             let value = self.value.clone();
+            let enabled = self.enabled;
             self.hex_input.update(cx, |input, cx| {
                 input.set_value(&value, cx);
+                input.set_enabled(enabled, cx);
             });
         }
 
@@ -487,6 +516,7 @@ impl Render for ColorSwatch {
         let color = self.parse_display_color();
         let is_picker_open = self.is_picker_open;
         let hex_input = self.hex_input.clone();
+        let enabled = self.enabled;
 
         let bg_popup = theme.bg_secondary;
         let border_checkbox = theme.border_checkbox;
@@ -498,10 +528,16 @@ impl Render for ColorSwatch {
             .id("ccf_color_swatch")
             .relative()
             // Focus navigation (Tab / Shift+Tab) - but don't track focus, let TextInput handle it
-            .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
+            .on_action(cx.listener(|this, _: &FocusNext, window, _cx| {
+                if !this.enabled {
+                    return;
+                }
                 window.focus_next();
             }))
-            .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
+            .on_action(cx.listener(|this, _: &FocusPrev, window, _cx| {
+                if !this.enabled {
+                    return;
+                }
                 window.focus_prev();
             }))
             .child(
@@ -521,7 +557,8 @@ impl Render for ColorSwatch {
                             .border_color(rgb(border_checkbox))
                             .rounded_md()
                             .overflow_hidden()
-                            .cursor_pointer()
+                            .when(enabled, |d| d.cursor_pointer())
+                            .when(!enabled, |d| d.cursor_default().opacity(0.5))
                             // Checkerboard background for alpha visualization
                             .when(self.with_alpha, |d| d.child(Self::render_checkerboard()))
                             // Color overlay
@@ -532,6 +569,9 @@ impl Render for ColorSwatch {
                                     .bg(color)
                             )
                             .on_click(cx.listener(|this, _event, window, cx| {
+                                if !this.enabled {
+                                    return;
+                                }
                                 if this.is_picker_open {
                                     this.close_picker(cx);
                                 } else {

@@ -42,6 +42,8 @@ pub struct RadioGroup {
     focus_handle: FocusHandle,
     highlight_index: usize,
     custom_theme: Option<Theme>,
+    /// Whether the widget is enabled (interactive)
+    enabled: bool,
 }
 
 impl EventEmitter<RadioGroupEvent> for RadioGroup {}
@@ -61,6 +63,7 @@ impl RadioGroup {
             focus_handle: cx.focus_handle().tab_stop(true),
             highlight_index: 0,
             custom_theme: None,
+            enabled: true,
         }
     }
 
@@ -91,6 +94,13 @@ impl RadioGroup {
         self
     }
 
+    /// Set enabled state (builder pattern)
+    #[must_use]
+    pub fn with_enabled(mut self, enabled: bool) -> Self {
+        self.enabled = enabled;
+        self
+    }
+
     /// Get the currently selected value
     pub fn selected(&self) -> &str {
         &self.selected
@@ -113,6 +123,19 @@ impl RadioGroup {
         &self.focus_handle
     }
 
+    /// Check if the radio group is enabled
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+
+    /// Set enabled state programmatically
+    pub fn set_enabled(&mut self, enabled: bool, cx: &mut Context<Self>) {
+        if self.enabled != enabled {
+            self.enabled = enabled;
+            cx.notify();
+        }
+    }
+
     fn select_by_index(&mut self, cx: &mut Context<Self>) {
         if let Some(choice) = self.choices.get(self.highlight_index) {
             if self.selected != *choice {
@@ -130,11 +153,12 @@ impl Render for RadioGroup {
         let is_focused = self.focus_handle.is_focused(window);
         let highlight_index = self.highlight_index;
         let num_choices = self.choices.len();
+        let enabled = self.enabled;
 
         div()
             .id("ccf_radio_group")
             .track_focus(&focus_handle)
-            .tab_stop(true)
+            .tab_stop(enabled)
             // Focus navigation (Tab / Shift+Tab)
             .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
                 window.focus_next();
@@ -143,6 +167,9 @@ impl Render for RadioGroup {
                 window.focus_prev();
             }))
             .on_key_down(cx.listener(move |radio_group, event: &KeyDownEvent, window, cx| {
+                if !radio_group.enabled {
+                    return;
+                }
                 match event.keystroke.key.as_str() {
                     "tab" => {
                         if event.keystroke.modifiers.shift {
@@ -180,14 +207,18 @@ impl Render for RadioGroup {
             .flex_col()
             .gap_1()
             .p_2()
-            .bg(rgb(theme.bg_input))
+            .when(enabled, |d| d.bg(rgb(theme.bg_input)))
+            .when(!enabled, |d| d.bg(rgb(theme.disabled_bg)))
             .border_1()
-            .border_color(if is_focused { rgb(theme.border_focus) } else { rgb(theme.border_input) })
+            .when(enabled, |d| {
+                d.border_color(if is_focused { rgb(theme.border_focus) } else { rgb(theme.border_input) })
+            })
+            .when(!enabled, |d| d.border_color(rgb(theme.disabled_bg)))
             .rounded_md()
             .children(self.choices.iter().enumerate().map(|(idx, choice)| {
                 let choice_clone = choice.clone();
                 let is_selected = self.selected == *choice;
-                let is_highlighted = is_focused && idx == highlight_index;
+                let is_highlighted = is_focused && idx == highlight_index && enabled;
 
                 div()
                     .id(("ccf_radio_choice", idx))
@@ -197,24 +228,28 @@ impl Render for RadioGroup {
                     .items_center()
                     .py_1()
                     .px_1()
-                    .cursor_pointer()
+                    .when(enabled, |d| d.cursor_pointer())
+                    .when(!enabled, |d| d.cursor_default())
                     .rounded_sm()
                     .when(is_highlighted, |d| d.bg(rgb(theme.bg_input_hover)))
-                    .when(!is_highlighted, |d| d.hover(|d| d.bg(rgb(theme.bg_input_hover))))
-                    .on_click(cx.listener(move |radio_group, _event, window, cx| {
-                        radio_group.focus_handle.focus(window);
-                        radio_group.selected = choice_clone.clone();
-                        radio_group.highlight_index = idx;
-                        cx.emit(RadioGroupEvent::Change(choice_clone.clone()));
-                        cx.notify();
-                    }))
+                    .when(!is_highlighted && enabled, |d| d.hover(|d| d.bg(rgb(theme.bg_input_hover))))
+                    .when(enabled, |d| {
+                        d.on_click(cx.listener(move |radio_group, _event, window, cx| {
+                            radio_group.focus_handle.focus(window);
+                            radio_group.selected = choice_clone.clone();
+                            radio_group.highlight_index = idx;
+                            cx.emit(RadioGroupEvent::Change(choice_clone.clone()));
+                            cx.notify();
+                        }))
+                    })
                     .child(
                         // Radio button (circle)
                         div()
                             .w(px(16.))
                             .h(px(16.))
                             .border_1()
-                            .border_color(rgb(theme.border_checkbox))
+                            .when(enabled, |d| d.border_color(rgb(theme.border_checkbox)))
+                            .when(!enabled, |d| d.border_color(rgb(theme.disabled_text)))
                             .rounded(px(8.))
                             .when(is_selected, |d| {
                                 d.child(
@@ -227,7 +262,8 @@ impl Render for RadioGroup {
                                             div()
                                                 .w(px(8.))
                                                 .h(px(8.))
-                                                .bg(rgb(theme.accent))
+                                                .when(enabled, |d| d.bg(rgb(theme.accent)))
+                                                .when(!enabled, |d| d.bg(rgb(theme.disabled_text)))
                                                 .rounded(px(4.))
                                         )
                                 )
@@ -236,7 +272,8 @@ impl Render for RadioGroup {
                     .child(
                         div()
                             .text_sm()
-                            .text_color(rgb(theme.text_value))
+                            .when(enabled, |d| d.text_color(rgb(theme.text_value)))
+                            .when(!enabled, |d| d.text_color(rgb(theme.disabled_text)))
                             .child(choice.clone())
                     )
             }))

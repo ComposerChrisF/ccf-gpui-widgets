@@ -118,6 +118,8 @@ pub struct PasswordInput {
     pending_placeholder: Option<SharedString>,
     /// Pending value from builder
     pending_value: Option<String>,
+    /// Whether the input is enabled
+    enabled: bool,
 }
 
 impl EventEmitter<PasswordInputEvent> for PasswordInput {}
@@ -155,6 +157,7 @@ impl PasswordInput {
             auto_scroll_speed: 0.0,
             pending_placeholder: None,
             pending_value: None,
+            enabled: true,
         }
     }
 
@@ -176,6 +179,13 @@ impl PasswordInput {
     #[must_use]
     pub fn theme(mut self, theme: Theme) -> Self {
         self.custom_theme = Some(theme);
+        self
+    }
+
+    /// Set whether the input is enabled (builder pattern)
+    #[must_use]
+    pub fn with_enabled(mut self, enabled: bool) -> Self {
+        self.enabled = enabled;
         self
     }
 
@@ -236,6 +246,19 @@ impl PasswordInput {
     /// Check if the password is currently visible (unmasked)
     pub fn is_password_visible(&self) -> bool {
         self.show_password
+    }
+
+    /// Check if the input is enabled
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+
+    /// Set whether the input is enabled
+    pub fn set_enabled(&mut self, enabled: bool, cx: &mut Context<Self>) {
+        if self.enabled != enabled {
+            self.enabled = enabled;
+            cx.notify();
+        }
     }
 
     fn emit_change(&self, cx: &mut Context<Self>) {
@@ -616,8 +639,9 @@ impl Render for PasswordInput {
         self.apply_pending();
 
         let theme = get_theme_or(cx, self.custom_theme.as_ref());
-        let input_focus_handle = self.input_focus_handle.clone();
-        let toggle_focus_handle = self.toggle_focus_handle.clone();
+        let enabled = self.enabled;
+        let input_focus_handle = self.input_focus_handle.clone().tab_stop(enabled);
+        let toggle_focus_handle = self.toggle_focus_handle.clone().tab_stop(enabled);
         let input_is_focused = self.input_focus_handle.is_focused(window);
         let toggle_is_focused = self.toggle_focus_handle.is_focused(window);
         let either_focused = input_is_focused || toggle_is_focused;
@@ -706,16 +730,16 @@ impl Render for PasswordInput {
         let scroll_offset = render_scroll_offset;
 
         // Colors
-        let bg_color = theme.bg_input;
-        let border_color = if either_focused {
+        let bg_color = if enabled { theme.bg_input } else { theme.disabled_bg };
+        let border_color = if either_focused && enabled {
             theme.border_focus
         } else {
             theme.border_input
         };
         let separator_color = theme.text_muted;
-        let button_text_color = theme.text_muted;
+        let button_text_color = if enabled { theme.text_muted } else { theme.disabled_text };
         let selection_color = theme.selection;
-        let text_color = theme.text_primary;
+        let text_color = if enabled { theme.text_primary } else { theme.disabled_text };
         let text_placeholder = theme.text_placeholder;
 
         // Eye icons
@@ -745,82 +769,103 @@ impl Render for PasswordInput {
                     .id("ccf_password_input_field")
                     .key_context("CcfTextInput")
                     .track_focus(&input_focus_handle)
-                    .tab_stop(true)
                     .flex_1()
                     .h_full()
                     .px_2()
-                    .cursor_text()
+                    .when(enabled, |d| d.cursor_text())
+                    .when(!enabled, |d| d.cursor_default())
                     .relative()
                     .overflow_hidden()
                     // Navigation actions
                     .on_action(cx.listener(|this, _: &MoveLeft, _window, cx| {
+                        if !this.enabled { return; }
                         this.handle_move_left(cx);
                     }))
                     .on_action(cx.listener(|this, _: &MoveRight, _window, cx| {
+                        if !this.enabled { return; }
                         this.handle_move_right(cx);
                     }))
                     .on_action(cx.listener(|this, _: &MoveWordLeft, _window, cx| {
+                        if !this.enabled { return; }
                         this.handle_move_word_left(cx);
                     }))
                     .on_action(cx.listener(|this, _: &MoveWordRight, _window, cx| {
+                        if !this.enabled { return; }
                         this.handle_move_word_right(cx);
                     }))
                     .on_action(cx.listener(|this, _: &MoveToStart, _window, cx| {
+                        if !this.enabled { return; }
                         this.handle_move_to_start(cx);
                     }))
                     .on_action(cx.listener(|this, _: &MoveToEnd, _window, cx| {
+                        if !this.enabled { return; }
                         this.handle_move_to_end(cx);
                     }))
                     // Selection actions
                     .on_action(cx.listener(|this, _: &SelectLeft, _window, cx| {
+                        if !this.enabled { return; }
                         this.handle_select_left(cx);
                     }))
                     .on_action(cx.listener(|this, _: &SelectRight, _window, cx| {
+                        if !this.enabled { return; }
                         this.handle_select_right(cx);
                     }))
                     .on_action(cx.listener(|this, _: &SelectWordLeft, _window, cx| {
+                        if !this.enabled { return; }
                         this.handle_select_word_left(cx);
                     }))
                     .on_action(cx.listener(|this, _: &SelectWordRight, _window, cx| {
+                        if !this.enabled { return; }
                         this.handle_select_word_right(cx);
                     }))
                     .on_action(cx.listener(|this, _: &SelectToStart, _window, cx| {
+                        if !this.enabled { return; }
                         this.handle_select_to_start(cx);
                     }))
                     .on_action(cx.listener(|this, _: &SelectToEnd, _window, cx| {
+                        if !this.enabled { return; }
                         this.handle_select_to_end(cx);
                     }))
                     .on_action(cx.listener(|this, _: &SelectAll, _window, cx| {
+                        if !this.enabled { return; }
                         this.handle_select_all(cx);
                     }))
                     // Delete actions
                     .on_action(cx.listener(|this, _: &DeleteBackward, _window, cx| {
+                        if !this.enabled { return; }
                         this.handle_delete_backward(cx);
                     }))
                     .on_action(cx.listener(|this, _: &DeleteForward, _window, cx| {
+                        if !this.enabled { return; }
                         this.handle_delete_forward(cx);
                     }))
                     .on_action(cx.listener(|this, _: &DeleteWordBackward, _window, cx| {
+                        if !this.enabled { return; }
                         this.handle_delete_word_backward(cx);
                     }))
                     .on_action(cx.listener(|this, _: &DeleteWordForward, _window, cx| {
+                        if !this.enabled { return; }
                         this.handle_delete_word_forward(cx);
                     }))
                     // Clipboard actions - Copy is disabled for security
                     .on_action(cx.listener(|this, _: &Cut, _window, cx| {
+                        if !this.enabled { return; }
                         this.cut(cx);
                     }))
                     .on_action(cx.listener(|_this, _: &Copy, _window, _cx| {
                         // Intentionally empty - don't allow copying password
                     }))
                     .on_action(cx.listener(|this, _: &Paste, _window, cx| {
+                        if !this.enabled { return; }
                         this.paste(cx);
                     }))
                     // Enter/Escape
-                    .on_action(cx.listener(|_this, _: &Enter, _window, cx| {
+                    .on_action(cx.listener(|this, _: &Enter, _window, cx| {
+                        if !this.enabled { return; }
                         cx.emit(PasswordInputEvent::Enter);
                     }))
                     .on_action(cx.listener(|this, _: &Escape, _window, cx| {
+                        if !this.enabled { return; }
                         this.on_blur(cx);
                     }))
                     // Focus navigation
@@ -840,6 +885,7 @@ impl Render for PasswordInput {
                             }
                             return;
                         }
+                        if !this.enabled { return; }
                         if !event.keystroke.modifiers.alt
                             && !event.keystroke.modifiers.control
                             && !event.keystroke.modifiers.platform
@@ -850,7 +896,7 @@ impl Render for PasswordInput {
                         }
                     }))
                     // Click to focus and position cursor
-                    .on_mouse_down(MouseButton::Left, cx.listener(|this, event: &MouseDownEvent, window, cx| {
+                    .when(enabled, |d| d.on_mouse_down(MouseButton::Left, cx.listener(|this, event: &MouseDownEvent, window, cx| {
                         let was_focused = this.input_focus_handle.is_focused(window);
                         this.input_focus_handle.focus(window);
 
@@ -876,9 +922,9 @@ impl Render for PasswordInput {
                         this.is_dragging = true;
                         this.reset_cursor_blink();
                         cx.notify();
-                    }))
+                    })))
                     // Drag to select
-                    .on_mouse_move(cx.listener(|this, event: &MouseMoveEvent, window, cx| {
+                    .when(enabled, |d| d.on_mouse_move(cx.listener(|this, event: &MouseMoveEvent, window, cx| {
                         if !this.is_dragging {
                             return;
                         }
@@ -886,12 +932,12 @@ impl Render for PasswordInput {
                         let scroll_speed = this.handle_drag_move(mouse_x, window);
                         this.spawn_auto_scroll_timer_if_needed(scroll_speed, window, cx);
                         cx.notify();
-                    }))
+                    })))
                     // Mouse up ends drag
-                    .on_mouse_up(MouseButton::Left, cx.listener(|this, _event: &MouseUpEvent, _window, cx| {
+                    .when(enabled, |d| d.on_mouse_up(MouseButton::Left, cx.listener(|this, _event: &MouseUpEvent, _window, cx| {
                         this.stop_drag();
                         cx.notify();
-                    }))
+                    })))
                     // Content
                     .child({
                         let entity = cx.entity();
@@ -1018,15 +1064,17 @@ impl Render for PasswordInput {
                     .justify_center()
                     .w(px(28.0))
                     .h_full()
-                    .cursor_pointer()
+                    .when(enabled, |d| d.cursor_pointer())
+                    .when(!enabled, |d| d.cursor_default())
                     .text_color(rgb(button_text_color))
-                    .when(toggle_is_focused, |d| d.bg(rgb(theme.bg_hover)))
-                    .hover(|d| d.bg(rgb(theme.bg_hover)))
+                    .when(toggle_is_focused && enabled, |d| d.bg(rgb(theme.bg_hover)))
+                    .when(enabled, |d| d.hover(|d| d.bg(rgb(theme.bg_hover))))
                     .track_focus(&toggle_focus_handle)
                     .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
                         let key = event.keystroke.key.as_str();
                         match key {
                             "enter" | "space" => {
+                                if !this.enabled { return; }
                                 this.toggle_visibility(cx);
                             }
                             "tab" => {
@@ -1039,9 +1087,9 @@ impl Render for PasswordInput {
                             _ => {}
                         }
                     }))
-                    .on_click(cx.listener(|this, _event, _window, cx| {
+                    .when(enabled, |d| d.on_click(cx.listener(|this, _event, _window, cx| {
                         this.toggle_visibility(cx);
-                    }))
+                    })))
                     .child(
                         div()
                             .text_sm()

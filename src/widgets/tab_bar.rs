@@ -107,6 +107,8 @@ pub struct TabBar<T: TabItem> {
     active: T,
     focus_handle: FocusHandle,
     custom_theme: Option<Theme>,
+    /// Whether the widget is enabled (interactive)
+    enabled: bool,
 }
 
 impl<T: TabItem> TabBar<T> {
@@ -123,6 +125,7 @@ impl<T: TabItem> TabBar<T> {
             active,
             focus_handle: cx.focus_handle().tab_stop(true),
             custom_theme: None,
+            enabled: true,
         }
     }
 
@@ -130,6 +133,13 @@ impl<T: TabItem> TabBar<T> {
     #[must_use]
     pub fn theme(mut self, theme: Theme) -> Self {
         self.custom_theme = Some(theme);
+        self
+    }
+
+    /// Set enabled state (builder pattern)
+    #[must_use]
+    pub fn with_enabled(mut self, enabled: bool) -> Self {
+        self.enabled = enabled;
         self
     }
 
@@ -151,6 +161,19 @@ impl<T: TabItem> TabBar<T> {
 
     fn get_theme(&self, cx: &App) -> Theme {
         self.custom_theme.unwrap_or_else(|| get_theme(cx))
+    }
+
+    /// Check if the tab bar is enabled
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+
+    /// Set enabled state programmatically
+    pub fn set_enabled(&mut self, enabled: bool, cx: &mut Context<Self>) {
+        if self.enabled != enabled {
+            self.enabled = enabled;
+            cx.notify();
+        }
     }
 
     /// Select the previous tab (wraps around)
@@ -199,14 +222,17 @@ impl<T: TabItem> Render for TabBar<T> {
         let theme = self.get_theme(cx);
         let active_tab = self.active.clone();
         let is_focused = self.focus_handle.is_focused(window);
+        let enabled = self.enabled;
 
         div()
             .id("ccf_tab_bar")
             .key_context("CcfTabBar")
             .track_focus(&self.focus_handle)
+            .tab_stop(enabled)
             .flex()
             .flex_row()
-            .bg(rgb(theme.bg_secondary))
+            .when(enabled, |d| d.bg(rgb(theme.bg_secondary)))
+            .when(!enabled, |d| d.bg(rgb(theme.disabled_bg)))
             // Focus navigation (Tab / Shift+Tab)
             .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
                 window.focus_next();
@@ -216,31 +242,43 @@ impl<T: TabItem> Render for TabBar<T> {
             }))
             // Tab navigation (Left / Right arrows)
             .on_action(cx.listener(|this, _: &SelectPreviousTab, _window, cx| {
-                this.select_previous(cx);
+                if this.enabled {
+                    this.select_previous(cx);
+                }
             }))
             .on_action(cx.listener(|this, _: &SelectNextTab, _window, cx| {
-                this.select_next(cx);
+                if this.enabled {
+                    this.select_next(cx);
+                }
             }))
             .children(self.tabs.iter().map(|tab| {
                 let tab = tab.clone();
                 let is_active = tab == active_tab;
-                // Show focus ring only on the active tab when the tab bar is focused
-                let show_focus_ring = is_active && is_focused;
+                // Show focus ring only on the active tab when the tab bar is focused and enabled
+                let show_focus_ring = is_active && is_focused && enabled;
 
                 div()
                     .id(tab.id())
                     .px_4()
                     .py_2()
-                    .cursor_pointer()
+                    .when(enabled, |d| d.cursor_pointer())
+                    .when(!enabled, |d| d.cursor_default())
                     .border_r_1()
-                    .border_color(rgb(theme.border_default))
-                    .when(is_active, |d| {
+                    .when(enabled, |d| d.border_color(rgb(theme.border_default)))
+                    .when(!enabled, |d| d.border_color(rgb(theme.disabled_bg)))
+                    .when(is_active && enabled, |d| {
                         d.bg(rgb(theme.bg_primary))
                             .text_color(rgb(theme.text_primary))
                             .border_t_2()
                             .border_color(rgb(theme.border_tab_active))
                     })
-                    .when(!is_active, |d| {
+                    .when(is_active && !enabled, |d| {
+                        d.bg(rgb(theme.disabled_bg))
+                            .text_color(rgb(theme.disabled_text))
+                            .border_t_2()
+                            .border_color(rgb(theme.disabled_text))
+                    })
+                    .when(!is_active && enabled, |d| {
                         d.bg(rgb(theme.bg_input))
                             .text_color(rgb(theme.text_dimmed))
                             .border_b_1()
@@ -250,26 +288,34 @@ impl<T: TabItem> Render for TabBar<T> {
                                     .text_color(rgb(theme.text_muted))
                             })
                     })
+                    .when(!is_active && !enabled, |d| {
+                        d.bg(rgb(theme.disabled_bg))
+                            .text_color(rgb(theme.disabled_text))
+                            .border_b_1()
+                            .border_color(rgb(theme.disabled_bg))
+                    })
                     // Focus ring on active tab only
                     .when(show_focus_ring, |d| {
                         d.border_2()
                             .border_color(rgb(theme.border_focus))
                     })
-                    .on_click({
-                        let tab = tab.clone();
-                        cx.listener(move |this, _event: &ClickEvent, _window, cx| {
-                            this.active = tab.clone();
-                            cx.emit(TabBarEvent::TabSelected(tab.clone()));
-                            cx.notify();
+                    .when(enabled, |d| {
+                        let tab_clone = tab.clone();
+                        d.on_click({
+                            let tab = tab.clone();
+                            cx.listener(move |this, _event: &ClickEvent, _window, cx| {
+                                this.active = tab.clone();
+                                cx.emit(TabBarEvent::TabSelected(tab.clone()));
+                                cx.notify();
+                            })
                         })
-                    })
-                    .on_mouse_down(MouseButton::Right, {
-                        let tab = tab.clone();
-                        cx.listener(move |_this, event: &MouseDownEvent, _window, cx| {
-                            cx.emit(TabBarEvent::ContextMenu {
-                                tab: tab.clone(),
-                                position: event.position,
-                            });
+                        .on_mouse_down(MouseButton::Right, {
+                            cx.listener(move |_this, event: &MouseDownEvent, _window, cx| {
+                                cx.emit(TabBarEvent::ContextMenu {
+                                    tab: tab_clone.clone(),
+                                    position: event.position,
+                                });
+                            })
                         })
                     })
                     .child(tab.label())
@@ -278,9 +324,11 @@ impl<T: TabItem> Render for TabBar<T> {
             .child(
                 div()
                     .flex_1()
-                    .bg(rgb(theme.bg_secondary))
+                    .when(enabled, |d| d.bg(rgb(theme.bg_secondary)))
+                    .when(!enabled, |d| d.bg(rgb(theme.disabled_bg)))
                     .border_b_1()
-                    .border_color(rgb(theme.border_default))
+                    .when(enabled, |d| d.border_color(rgb(theme.border_default)))
+                    .when(!enabled, |d| d.border_color(rgb(theme.disabled_bg)))
             )
     }
 }

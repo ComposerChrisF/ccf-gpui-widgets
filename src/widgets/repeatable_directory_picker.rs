@@ -77,6 +77,8 @@ pub struct RepeatableDirectoryPicker {
     /// Minimum number of entries (cannot remove below this)
     min_entries: usize,
     custom_theme: Option<Theme>,
+    /// Whether the widget is enabled (interactive)
+    enabled: bool,
 }
 
 impl RepeatableDirectoryPicker {
@@ -93,6 +95,7 @@ impl RepeatableDirectoryPicker {
             initialized: false,
             min_entries: 1,
             custom_theme: None,
+            enabled: true,
         }
     }
 
@@ -144,6 +147,30 @@ impl RepeatableDirectoryPicker {
         self
     }
 
+    /// Set enabled state (builder pattern)
+    #[must_use]
+    pub fn with_enabled(mut self, enabled: bool) -> Self {
+        self.enabled = enabled;
+        self
+    }
+
+    /// Check if the widget is enabled
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+
+    /// Set enabled state programmatically
+    pub fn set_enabled(&mut self, enabled: bool, cx: &mut Context<Self>) {
+        if self.enabled != enabled {
+            self.enabled = enabled;
+            // Update child entries
+            for entry in &self.entries {
+                entry.update(cx, |e, cx| e.set_enabled(enabled, cx));
+            }
+            cx.notify();
+        }
+    }
+
     /// Get all non-empty values
     pub fn values(&self, cx: &App) -> Vec<String> {
         self.entries
@@ -182,11 +209,13 @@ impl RepeatableDirectoryPicker {
         let browse_shortcut_enabled = self.browse_shortcut_enabled;
         let validation_display = self.validation_display.clone();
         let theme = self.custom_theme;
+        let enabled = self.enabled;
 
         let picker = cx.new(|cx| {
             let mut p = DirectoryPicker::new(cx)
                 .browse_shortcut(browse_shortcut_enabled)
-                .validation_display(validation_display);
+                .validation_display(validation_display)
+                .with_enabled(enabled);
 
             if let Some(ph) = placeholder {
                 p = p.placeholder(ph);
@@ -274,6 +303,7 @@ impl Render for RepeatableDirectoryPicker {
         let entries_count = self.entries.len();
         let can_remove = entries_count > self.min_entries;
         let add_focused = self.add_focus_handle.is_focused(window);
+        let enabled = self.enabled;
 
         // Collect entries with their remove button focus handles
         let entry_data: Vec<_> = self.entries.iter()
@@ -296,6 +326,53 @@ impl Render for RepeatableDirectoryPicker {
                     .flex_col()
                     .gap_2()
                     .children(entry_data.into_iter().map(|(index, entry, focus_handle, is_focused)| {
+                        let mut remove_button = div()
+                            .id(SharedString::from(format!("dir_remove_{}", index)))
+                            .key_context("CcfRepeatableButton")
+                            .track_focus(&focus_handle)
+                            .tab_stop(enabled)
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .h(px(52.)) // Match DirectoryPicker height
+                            .w(px(28.))
+                            .rounded_md()
+                            .border_2()
+                            .when(enabled, |d| {
+                                d.bg(rgb(theme.delete_bg))
+                                    .cursor_pointer()
+                                    .hover(|d| d.bg(rgb(theme.delete_bg_hover)))
+                                    .border_color(if is_focused { rgb(theme.border_focus) } else { rgba(0x00000000) })
+                            })
+                            .when(!enabled, |d| {
+                                d.bg(rgb(theme.disabled_bg))
+                                    .cursor_default()
+                                    .border_color(rgba(0x00000000))
+                            })
+                            .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
+                                window.focus_next();
+                            }))
+                            .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
+                                window.focus_prev();
+                            }))
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .when(enabled, |d| d.text_color(rgb(theme.text_label)))
+                                    .when(!enabled, |d| d.text_color(rgb(theme.disabled_text)))
+                                    .child("\u{2212}") // Minus sign
+                            );
+
+                        if enabled {
+                            remove_button = remove_button
+                                .on_action(cx.listener(move |this, _: &RepeatableActivateButton, _window, cx| {
+                                    this.remove_entry(index, cx);
+                                }))
+                                .on_click(cx.listener(move |this, _event, _window, cx| {
+                                    this.remove_entry(index, cx);
+                                }));
+                        }
+
                         div()
                             .flex()
                             .flex_row()
@@ -307,44 +384,7 @@ impl Render for RepeatableDirectoryPicker {
                                     .flex_1()
                                     .child(entry)
                             )
-                            .when(can_remove, |d| {
-                                d.child(
-                                    // Remove button
-                                    div()
-                                        .id(SharedString::from(format!("dir_remove_{}", index)))
-                                        .key_context("CcfRepeatableButton")
-                                        .track_focus(&focus_handle)
-                                        .flex()
-                                        .items_center()
-                                        .justify_center()
-                                        .h(px(52.)) // Match DirectoryPicker height
-                                        .w(px(28.))
-                                        .bg(rgb(theme.delete_bg))
-                                        .rounded_md()
-                                        .cursor_pointer()
-                                        .hover(|d| d.bg(rgb(theme.delete_bg_hover)))
-                                        .border_2()
-                                        .border_color(if is_focused { rgb(theme.border_focus) } else { rgba(0x00000000) })
-                                        .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
-                                            window.focus_next();
-                                        }))
-                                        .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
-                                            window.focus_prev();
-                                        }))
-                                        .on_action(cx.listener(move |this, _: &RepeatableActivateButton, _window, cx| {
-                                            this.remove_entry(index, cx);
-                                        }))
-                                        .on_click(cx.listener(move |this, _event, _window, cx| {
-                                            this.remove_entry(index, cx);
-                                        }))
-                                        .child(
-                                            div()
-                                                .text_sm()
-                                                .text_color(rgb(theme.text_label))
-                                                .child("\u{2212}") // Minus sign
-                                        )
-                                )
-                            })
+                            .when(can_remove, |d| d.child(remove_button))
                     }))
             )
             .child(
@@ -352,41 +392,56 @@ impl Render for RepeatableDirectoryPicker {
                 div()
                     .flex()
                     .flex_row()
-                    .child(
-                        div()
+                    .child({
+                        let mut add_button = div()
                             .id("repeatable_dir_add_button")
                             .key_context("CcfRepeatableButton")
                             .track_focus(&self.add_focus_handle)
+                            .tab_stop(enabled)
                             .flex()
                             .items_center()
                             .justify_center()
                             .h(px(28.))
                             .w(px(28.))
-                            .bg(rgb(theme.bg_input_hover))
                             .rounded_md()
-                            .cursor_pointer()
-                            .hover(|d| d.bg(rgb(theme.bg_hover)))
                             .border_2()
-                            .border_color(if add_focused { rgb(theme.border_focus) } else { rgba(0x00000000) })
+                            .when(enabled, |d| {
+                                d.bg(rgb(theme.bg_input_hover))
+                                    .cursor_pointer()
+                                    .hover(|d| d.bg(rgb(theme.bg_hover)))
+                                    .border_color(if add_focused { rgb(theme.border_focus) } else { rgba(0x00000000) })
+                            })
+                            .when(!enabled, |d| {
+                                d.bg(rgb(theme.disabled_bg))
+                                    .cursor_default()
+                                    .border_color(rgba(0x00000000))
+                            })
                             .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
                                 window.focus_next();
                             }))
                             .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
                                 window.focus_prev();
                             }))
-                            .on_action(cx.listener(|this, _: &RepeatableActivateButton, _window, cx| {
-                                this.add_entry(cx);
-                            }))
-                            .on_click(cx.listener(|this, _event, _window, cx| {
-                                this.add_entry(cx);
-                            }))
                             .child(
                                 div()
                                     .text_sm()
-                                    .text_color(rgb(theme.text_label))
+                                    .when(enabled, |d| d.text_color(rgb(theme.text_label)))
+                                    .when(!enabled, |d| d.text_color(rgb(theme.disabled_text)))
                                     .child("+")
-                            )
-                    )
+                            );
+
+                        if enabled {
+                            add_button = add_button
+                                .on_action(cx.listener(|this, _: &RepeatableActivateButton, _window, cx| {
+                                    this.add_entry(cx);
+                                }))
+                                .on_click(cx.listener(|this, _event, _window, cx| {
+                                    this.add_entry(cx);
+                                }));
+                        }
+
+                        add_button
+                    })
             )
     }
 }

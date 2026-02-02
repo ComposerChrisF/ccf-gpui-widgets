@@ -173,6 +173,15 @@ The library is functional and being used by clui.
 - [x] ConfirmationDialog: Dismissal keys (Enter/Escape/custom) now respond on keyup instead of keydown
 - [x] ConfirmationDialog: Prevents race condition where keydown launches dialog, same keydown dismisses it, keyup relaunches
 
+### ✅ Disabled State Support (2026-02-01)
+- [x] Added disabled state to all 17 interactive widgets
+- [x] Each widget has: `enabled: bool` field, `with_enabled()` builder, `is_enabled()` getter, `set_enabled()` setter
+- [x] Disabled widgets: grayed styling, no hover effects, removed from tab order, interactions blocked
+- [x] Widgets updated: TextInput, Checkbox, Collapsible, Dropdown, RadioGroup, CheckboxGroup, ToggleSwitch, TabBar, Slider, NumberStepper, PasswordInput, ColorSwatch, FilePicker, DirectoryPicker, RepeatableTextInput, RepeatableFilePicker, RepeatableDirectoryPicker
+- [x] **Breaking change**: ToggleSwitch renamed `enabled`→`on`, `with_enabled()`→`with_on()`, `is_enabled()`→`is_on()`, `set_enabled()`→`set_on()` (to avoid conflict with disabled state)
+- [x] Added missing getters: NumberStepper (`get_min/max/step/resolution/display_precision`), Slider (`get_min/max/step/display_precision`), Dropdown (`is_open`)
+- [x] Widget gallery: Added "Enable/Disable Widgets" toggle button to demonstrate disabled state
+
 ### ✅ New Widgets: Toggle, Slider, Progress, Spinner, Dialog (2026-01-30)
 - [x] ToggleSwitch: iOS-style toggle switch with pill-shaped track and circular thumb
 - [x] ToggleSwitch: Label support with configurable position (left or right)

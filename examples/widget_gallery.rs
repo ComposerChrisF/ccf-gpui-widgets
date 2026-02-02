@@ -46,6 +46,8 @@ impl TabItem for GalleryTab {
 struct WidgetGallery {
     // Theme
     current_theme: ThemeChoice,
+    // Whether widgets are enabled (for disabled state demo)
+    widgets_enabled: bool,
 
     // Collapsible sections
     section_text: Entity<Collapsible>,
@@ -288,7 +290,7 @@ impl WidgetGallery {
         let toggle_switch = cx.new(ToggleSwitch::new);
         let toggle_switch_labeled = cx.new(|cx| {
             ToggleSwitch::new(cx)
-                .with_enabled(true)
+                .with_on(true)
                 .label("Enable notifications")
         });
 
@@ -421,6 +423,7 @@ impl WidgetGallery {
 
         Self {
             current_theme: ThemeChoice::Dark,
+            widgets_enabled: true,
             section_text,
             section_checkbox,
             section_dropdown,
@@ -782,11 +785,84 @@ impl WidgetGallery {
         cx.notify();
     }
 
+    fn toggle_widgets_enabled(&mut self, cx: &mut Context<Self>) {
+        self.widgets_enabled = !self.widgets_enabled;
+        let enabled = self.widgets_enabled;
+
+        // Update all widgets
+        self.text_input.update(cx, |w, cx| w.set_enabled(enabled, cx));
+        self.text_input_placeholder.update(cx, |w, cx| w.set_enabled(enabled, cx));
+        self.checkbox.update(cx, |w, cx| w.set_enabled(enabled, cx));
+        self.checkbox_labeled.update(cx, |w, cx| w.set_enabled(enabled, cx));
+        self.dropdown.update(cx, |w, cx| w.set_enabled(enabled, cx));
+        self.number_stepper.update(cx, |w, cx| w.set_enabled(enabled, cx));
+        self.number_stepper_float.update(cx, |w, cx| w.set_enabled(enabled, cx));
+        self.radio_group.update(cx, |w, cx| w.set_enabled(enabled, cx));
+        self.checkbox_group.update(cx, |w, cx| w.set_enabled(enabled, cx));
+        self.color_swatch.update(cx, |w, cx| w.set_enabled(enabled, cx));
+        self.color_swatch_alpha.update(cx, |w, cx| w.set_enabled(enabled, cx));
+        self.password_input.update(cx, |w, cx| w.set_enabled(enabled, cx));
+        self.tab_bar.update(cx, |w, cx| w.set_enabled(enabled, cx));
+        self.repeatable_text_input.update(cx, |w, cx| w.set_enabled(enabled, cx));
+        self.toggle_switch.update(cx, |w, cx| w.set_enabled(enabled, cx));
+        self.toggle_switch_labeled.update(cx, |w, cx| w.set_enabled(enabled, cx));
+        self.slider.update(cx, |w, cx| w.set_enabled(enabled, cx));
+        self.slider_with_value.update(cx, |w, cx| w.set_enabled(enabled, cx));
+
+        // Collapsible sections
+        self.section_text.update(cx, |w, cx| w.set_enabled(enabled, cx));
+        self.section_checkbox.update(cx, |w, cx| w.set_enabled(enabled, cx));
+        self.section_dropdown.update(cx, |w, cx| w.set_enabled(enabled, cx));
+        self.section_number.update(cx, |w, cx| w.set_enabled(enabled, cx));
+        self.section_radio.update(cx, |w, cx| w.set_enabled(enabled, cx));
+        self.section_checkbox_group.update(cx, |w, cx| w.set_enabled(enabled, cx));
+        self.section_color.update(cx, |w, cx| w.set_enabled(enabled, cx));
+        self.section_tooltip.update(cx, |w, cx| w.set_enabled(enabled, cx));
+        self.section_button.update(cx, |w, cx| w.set_enabled(enabled, cx));
+        self.section_password.update(cx, |w, cx| w.set_enabled(enabled, cx));
+        self.section_tab_bar.update(cx, |w, cx| w.set_enabled(enabled, cx));
+        self.section_repeatable_text.update(cx, |w, cx| w.set_enabled(enabled, cx));
+        self.section_toggle.update(cx, |w, cx| w.set_enabled(enabled, cx));
+        self.section_slider.update(cx, |w, cx| w.set_enabled(enabled, cx));
+        self.section_progress.update(cx, |w, cx| w.set_enabled(enabled, cx));
+        self.section_spinner.update(cx, |w, cx| w.set_enabled(enabled, cx));
+        self.section_dialog.update(cx, |w, cx| w.set_enabled(enabled, cx));
+
+        // Feature-gated widgets
+        #[cfg(feature = "file-picker")]
+        {
+            self.file_picker.update(cx, |w, cx| w.set_enabled(enabled, cx));
+            self.directory_picker.update(cx, |w, cx| w.set_enabled(enabled, cx));
+            self.repeatable_file_picker.update(cx, |w, cx| w.set_enabled(enabled, cx));
+            self.repeatable_directory_picker.update(cx, |w, cx| w.set_enabled(enabled, cx));
+            self.section_file.update(cx, |w, cx| w.set_enabled(enabled, cx));
+            self.section_repeatable_file.update(cx, |w, cx| w.set_enabled(enabled, cx));
+            self.section_repeatable_dir.update(cx, |w, cx| w.set_enabled(enabled, cx));
+        }
+
+        self.log_event(
+            "Gallery",
+            format!("Widgets {}", if enabled { "enabled" } else { "disabled" }),
+            cx,
+        );
+        cx.notify();
+    }
+
     fn render_header(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = get_theme(cx);
         let theme_button_text = match self.current_theme {
             ThemeChoice::Dark => "Switch to Light",
             ThemeChoice::Light => "Switch to Dark",
+        };
+        let enabled_button_text = if self.widgets_enabled {
+            "Disable Widgets"
+        } else {
+            "Enable Widgets"
+        };
+        let enabled_button_bg = if self.widgets_enabled {
+            theme.warning
+        } else {
+            theme.success
         };
 
         div()
@@ -821,18 +897,39 @@ impl WidgetGallery {
             )
             .child(
                 div()
-                    .id("theme-toggle")
-                    .px_3()
-                    .py_1()
-                    .bg(rgb(theme.primary))
-                    .hover(|s| s.bg(rgb(theme.primary_hover)))
-                    .text_color(rgb(theme.text_primary))
-                    .rounded_md()
-                    .cursor_pointer()
-                    .child(theme_button_text)
-                    .on_click(cx.listener(|this, _event, _window, cx| {
-                        this.toggle_theme(cx);
-                    })),
+                    .flex()
+                    .flex_row()
+                    .gap_2()
+                    .child(
+                        div()
+                            .id("enable-toggle")
+                            .px_3()
+                            .py_1()
+                            .bg(rgb(enabled_button_bg))
+                            .hover(|s| s.opacity(0.8))
+                            .text_color(rgb(theme.text_primary))
+                            .rounded_md()
+                            .cursor_pointer()
+                            .child(enabled_button_text)
+                            .on_click(cx.listener(|this, _event, _window, cx| {
+                                this.toggle_widgets_enabled(cx);
+                            })),
+                    )
+                    .child(
+                        div()
+                            .id("theme-toggle")
+                            .px_3()
+                            .py_1()
+                            .bg(rgb(theme.primary))
+                            .hover(|s| s.bg(rgb(theme.primary_hover)))
+                            .text_color(rgb(theme.text_primary))
+                            .rounded_md()
+                            .cursor_pointer()
+                            .child(theme_button_text)
+                            .on_click(cx.listener(|this, _event, _window, cx| {
+                                this.toggle_theme(cx);
+                            })),
+                    ),
             )
     }
 
@@ -1527,8 +1624,8 @@ impl WidgetGallery {
     }
 
     fn render_toggle_section(&self, cx: &Context<Self>) -> impl IntoElement {
-        let toggle_value = self.toggle_switch.read(cx).is_enabled();
-        let labeled_value = self.toggle_switch_labeled.read(cx).is_enabled();
+        let toggle_value = self.toggle_switch.read(cx).is_on();
+        let labeled_value = self.toggle_switch_labeled.read(cx).is_on();
 
         div()
             .flex()

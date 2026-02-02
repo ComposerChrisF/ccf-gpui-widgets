@@ -40,6 +40,8 @@ pub struct Collapsible {
     collapsed: bool,
     focus_handle: FocusHandle,
     custom_theme: Option<Theme>,
+    /// Whether the widget is enabled (interactive)
+    enabled: bool,
 }
 
 impl EventEmitter<CollapsibleEvent> for Collapsible {}
@@ -58,6 +60,7 @@ impl Collapsible {
             collapsed: false,
             focus_handle: cx.focus_handle().tab_stop(true),
             custom_theme: None,
+            enabled: true,
         }
     }
 
@@ -72,6 +75,13 @@ impl Collapsible {
     #[must_use]
     pub fn theme(mut self, theme: Theme) -> Self {
         self.custom_theme = Some(theme);
+        self
+    }
+
+    /// Set enabled state (builder pattern)
+    #[must_use]
+    pub fn with_enabled(mut self, enabled: bool) -> Self {
+        self.enabled = enabled;
         self
     }
 
@@ -100,6 +110,19 @@ impl Collapsible {
         cx.emit(CollapsibleEvent::Toggle(self.collapsed));
         cx.notify();
     }
+
+    /// Check if the collapsible is enabled
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+
+    /// Set enabled state programmatically
+    pub fn set_enabled(&mut self, enabled: bool, cx: &mut Context<Self>) {
+        if self.enabled != enabled {
+            self.enabled = enabled;
+            cx.notify();
+        }
+    }
 }
 
 impl Render for Collapsible {
@@ -110,6 +133,7 @@ impl Render for Collapsible {
         let title = self.title.clone();
         let focus_handle = self.focus_handle.clone();
         let is_focused = self.focus_handle.is_focused(window);
+        let enabled = self.enabled;
 
         div()
             .flex()
@@ -120,7 +144,7 @@ impl Render for Collapsible {
                 div()
                     .id("ccf_collapsible_header")
                     .track_focus(&focus_handle)
-                    .tab_stop(true)
+                    .tab_stop(enabled)
                     // Focus navigation (Tab / Shift+Tab)
                     .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
                         window.focus_next();
@@ -128,7 +152,10 @@ impl Render for Collapsible {
                     .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
                         window.focus_prev();
                     }))
-                    .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
+                    .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| {
+                        if !this.enabled {
+                            return;
+                        }
                         // Handle tab navigation and arrow keys for expand/collapse
                         // Space/enter are handled by on_click via synthetic click events
                         match event.keystroke.key.as_str() {
@@ -156,21 +183,26 @@ impl Render for Collapsible {
                     .gap_2()
                     .py_2()
                     .px_2()
-                    .bg(rgb(theme.bg_section_header))
+                    .when(enabled, |d| d.bg(rgb(theme.bg_section_header)))
+                    .when(!enabled, |d| d.bg(rgb(theme.disabled_bg)))
                     .rounded_md()
-                    .cursor_pointer()
+                    .when(enabled, |d| d.cursor_pointer())
+                    .when(!enabled, |d| d.cursor_default())
                     .border_2()
-                    .border_color(if is_focused { rgb(theme.border_focus) } else { rgba(0x00000000) })
-                    .hover(|d| d.bg(rgb(theme.bg_section_header_hover)))
-                    .on_click(cx.listener(|this, _event, window, cx| {
-                        this.focus_handle.focus(window);
-                        this.toggle(cx);
-                    }))
+                    .border_color(if is_focused && enabled { rgb(theme.border_focus) } else { rgba(0x00000000) })
+                    .when(enabled, |d| {
+                        d.hover(|d| d.bg(rgb(theme.bg_section_header_hover)))
+                            .on_click(cx.listener(|this, _event, window, cx| {
+                                this.focus_handle.focus(window);
+                                this.toggle(cx);
+                            }))
+                    })
                     .child(
                         // Chevron icon
                         div()
                             .text_sm()
-                            .text_color(rgb(theme.text_dimmed))
+                            .when(enabled, |d| d.text_color(rgb(theme.text_dimmed)))
+                            .when(!enabled, |d| d.text_color(rgb(theme.disabled_text)))
                             .w(px(16.))
                             .child(chevron)
                     )
@@ -179,7 +211,8 @@ impl Render for Collapsible {
                         div()
                             .text_sm()
                             .font_weight(FontWeight::SEMIBOLD)
-                            .text_color(rgb(theme.text_section_header))
+                            .when(enabled, |d| d.text_color(rgb(theme.text_section_header)))
+                            .when(!enabled, |d| d.text_color(rgb(theme.disabled_text)))
                             .child(title)
                     )
             )

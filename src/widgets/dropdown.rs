@@ -70,6 +70,8 @@ pub struct Dropdown {
     custom_theme: Option<Theme>,
     /// Whether focus-out subscription has been set up
     focus_out_subscribed: bool,
+    /// Whether the widget is enabled (interactive)
+    enabled: bool,
 }
 
 impl EventEmitter<DropdownEvent> for Dropdown {}
@@ -90,6 +92,7 @@ impl Dropdown {
             focus_handle: cx.focus_handle().tab_stop(true),
             custom_theme: None,
             focus_out_subscribed: false,
+            enabled: true,
         }
     }
 
@@ -123,6 +126,13 @@ impl Dropdown {
         self
     }
 
+    /// Set enabled state (builder pattern)
+    #[must_use]
+    pub fn with_enabled(mut self, enabled: bool) -> Self {
+        self.enabled = enabled;
+        self
+    }
+
     /// Get the currently selected value
     pub fn selected(&self) -> &str {
         self.choices.get(self.selected_index).map_or("", |s| s.as_str())
@@ -148,6 +158,29 @@ impl Dropdown {
     /// Get the focus handle
     pub fn focus_handle(&self) -> &FocusHandle {
         &self.focus_handle
+    }
+
+    /// Check if the dropdown menu is currently open
+    pub fn is_open(&self) -> bool {
+        self.is_open
+    }
+
+    /// Check if the dropdown is enabled
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+
+    /// Set enabled state programmatically
+    pub fn set_enabled(&mut self, enabled: bool, cx: &mut Context<Self>) {
+        if self.enabled != enabled {
+            self.enabled = enabled;
+            // Close dropdown if disabling while open
+            if !enabled && self.is_open {
+                self.is_open = false;
+                cx.emit(DropdownEvent::Close);
+            }
+            cx.notify();
+        }
     }
 
     fn select_by_offset(&mut self, offset: isize, cx: &mut Context<Self>) {
@@ -193,6 +226,7 @@ impl Render for Dropdown {
     fn render(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) -> impl IntoElement {
         let theme = get_theme_or(cx, self.custom_theme.as_ref());
         let is_focused = self.focus_handle.is_focused(window);
+        let enabled = self.enabled;
 
         // Set up focus-out subscription once
         if !self.focus_out_subscribed {
@@ -211,7 +245,7 @@ impl Render for Dropdown {
             .get(self.selected_index)
             .cloned()
             .unwrap_or_default();
-        let is_open = self.is_open;
+        let is_open = self.is_open && enabled;
         let focus_handle = self.focus_handle.clone();
 
         let bg_input = theme.bg_input;
@@ -222,13 +256,15 @@ impl Render for Dropdown {
         let text_primary = theme.text_primary;
         let text_muted = theme.text_muted;
         let primary = theme.primary;
+        let disabled_bg = theme.disabled_bg;
+        let disabled_text = theme.disabled_text;
 
         div()
             .id("ccf_dropdown")
             .relative()
             .key_context("CcfDropdown")
             .track_focus(&focus_handle)
-            .tab_stop(true)
+            .tab_stop(enabled)
             // Focus navigation (Tab / Shift+Tab)
             .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
                 window.focus_next();
@@ -237,20 +273,30 @@ impl Render for Dropdown {
                 window.focus_prev();
             }))
             .on_action(cx.listener(|dropdown, _: &CloseDropdown, _window, cx| {
-                dropdown.close(cx);
+                if dropdown.enabled {
+                    dropdown.close(cx);
+                }
             }))
             .on_action(cx.listener(|dropdown, _: &SelectPrevious, _window, cx| {
-                dropdown.select_previous(cx);
+                if dropdown.enabled {
+                    dropdown.select_previous(cx);
+                }
             }))
             .on_action(cx.listener(|dropdown, _: &SelectNext, _window, cx| {
-                dropdown.select_next(cx);
+                if dropdown.enabled {
+                    dropdown.select_next(cx);
+                }
             }))
             .on_action(cx.listener(|dropdown, _: &ConfirmSelection, _window, cx| {
-                dropdown.close(cx);
+                if dropdown.enabled {
+                    dropdown.close(cx);
+                }
             }))
             .on_action(cx.listener(|dropdown, _: &ToggleDropdown, window, cx| {
-                dropdown.toggle(cx);
-                dropdown.focus_handle.focus(window);
+                if dropdown.enabled {
+                    dropdown.toggle(cx);
+                    dropdown.focus_handle.focus(window);
+                }
             }))
             .on_key_down(cx.listener(|_dropdown, event: &KeyDownEvent, window, _cx| {
                 if event.keystroke.key == "tab" {
@@ -273,24 +319,33 @@ impl Render for Dropdown {
                     .h(px(32.))
                     .px_3()
                     .border_1()
-                    .border_color(if is_focused { rgb(border_focus) } else { rgb(border_input) })
+                    .when(enabled, |d| {
+                        d.border_color(if is_focused { rgb(border_focus) } else { rgb(border_input) })
+                            .bg(rgb(bg_input))
+                            .text_color(rgb(text_primary))
+                            .cursor_pointer()
+                            .hover(|d| d.bg(rgb(bg_input_hover)))
+                            .on_click(cx.listener(move |dropdown, _event, window, cx| {
+                                dropdown.toggle(cx);
+                                dropdown.focus_handle.focus(window);
+                            }))
+                    })
+                    .when(!enabled, |d| {
+                        d.border_color(rgb(disabled_bg))
+                            .bg(rgb(disabled_bg))
+                            .text_color(rgb(disabled_text))
+                            .cursor_default()
+                    })
                     .rounded_md()
-                    .cursor_pointer()
-                    .bg(rgb(bg_input))
                     .text_sm()
-                    .text_color(rgb(text_primary))
-                    .hover(|d| d.bg(rgb(bg_input_hover)))
                     .child(selected.clone())
                     .child(
                         div()
                             .text_xs()
-                            .text_color(rgb(text_muted))
+                            .when(enabled, |d| d.text_color(rgb(text_muted)))
+                            .when(!enabled, |d| d.text_color(rgb(disabled_text)))
                             .child("▼")
                     )
-                    .on_click(cx.listener(move |dropdown, _event, window, cx| {
-                        dropdown.toggle(cx);
-                        dropdown.focus_handle.focus(window);
-                    }))
             )
             .when(is_open, |parent| {
                 let selected_index = self.selected_index;
