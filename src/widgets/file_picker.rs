@@ -39,6 +39,8 @@ use crate::utils::path::{parse_path, PathInfo};
 use crate::widgets::{TextInput, TextInputEvent, Tooltip};
 #[cfg(feature = "file-picker")]
 use std::path::Path;
+#[cfg(feature = "file-picker")]
+use super::path_display::PathDisplayInfo;
 
 use std::str::FromStr;
 
@@ -149,19 +151,8 @@ pub enum FilePickerValidation {
     WillCreatePath,
 }
 
-/// Controls how validation feedback is displayed
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub enum ValidationDisplay {
-    /// Show colored path segments and explanation message (default)
-    #[default]
-    Full,
-    /// Show colored path segments only, hide explanation message
-    ColorsOnly,
-    /// Show explanation message only, no path coloring
-    MessageOnly,
-    /// Hide all validation feedback (no colors, no message)
-    Hidden,
-}
+// Re-export ValidationDisplay from shared module
+pub use super::path_display::ValidationDisplay;
 
 /// Validate a file path for the given mode and missing directories policy
 ///
@@ -215,65 +206,6 @@ pub fn validate_file_path(
     }
 }
 
-#[cfg(feature = "file-picker")]
-struct PathHighlight {
-    start: usize,
-    end: usize,
-    color: u32,
-}
-
-#[cfg(feature = "file-picker")]
-struct PathDisplayInfo {
-    full_text: String,
-    highlights: Vec<PathHighlight>,
-    explanation: Option<(String, u32)>,
-}
-
-#[cfg(feature = "file-picker")]
-impl PathDisplayInfo {
-    fn new() -> Self {
-        Self {
-            full_text: String::new(),
-            highlights: Vec::new(),
-            explanation: None,
-        }
-    }
-
-    fn add_segment(&mut self, text: &str, color: u32) {
-        if !text.is_empty() {
-            let start = self.full_text.len();
-            self.full_text.push_str(text);
-            let end = self.full_text.len();
-            self.highlights.push(PathHighlight { start, end, color });
-        }
-    }
-
-    fn add_path_prefix(&mut self, text: &str, color: u32) {
-        let start = self.full_text.len();
-        self.full_text.push('/');
-        self.full_text.push_str(text);
-        let end = self.full_text.len();
-        self.highlights.push(PathHighlight { start, end, color });
-    }
-
-    fn set_explanation(&mut self, msg: &str, color: u32) {
-        self.explanation = Some((msg.to_string(), color));
-    }
-
-    fn to_styled_text(&self) -> StyledText {
-        let highlights: Vec<(std::ops::Range<usize>, HighlightStyle)> = self
-            .highlights
-            .iter()
-            .map(|h| (h.start..h.end, HighlightStyle::color(rgb(h.color).into())))
-            .collect();
-
-        StyledText::new(self.full_text.clone()).with_highlights(highlights)
-    }
-
-    fn is_empty(&self) -> bool {
-        self.full_text.is_empty()
-    }
-}
 
 /// File picker widget
 #[cfg(feature = "file-picker")]

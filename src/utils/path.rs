@@ -96,7 +96,10 @@ pub fn parse_path(input: &str) -> PathInfo {
         // Resolve relative to current directory
         std::env::current_dir()
             .map(|cwd| cwd.join(path))
-            .unwrap_or_else(|_| path.to_path_buf())
+            .unwrap_or_else(|err| {
+                log::warn!("Could not determine current directory: {}. Using relative path.", err);
+                path.to_path_buf()
+            })
     };
 
     // Find the longest existing prefix
@@ -105,7 +108,10 @@ pub fn parse_path(input: &str) -> PathInfo {
     // Try to canonicalize the existing portion
     let canonical = existing
         .canonicalize()
-        .unwrap_or_else(|_| existing.clone());
+        .unwrap_or_else(|err| {
+            log::warn!("Could not canonicalize path {:?}: {}", existing, err);
+            existing.clone()
+        });
 
     // Reconstruct full path
     let full = if suffix.as_os_str().is_empty() {

@@ -57,10 +57,12 @@ pub enum NumberStepperEvent {
 }
 
 /// Marker type for number scrubbing drag operations
+#[doc(hidden)]
 #[derive(Clone)]
 struct NumberDragState;
 
 /// Empty view used as drag visual (we don't want a visible drag indicator)
+#[doc(hidden)]
 struct EmptyDragView;
 
 impl Render for EmptyDragView {

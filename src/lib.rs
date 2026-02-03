@@ -50,10 +50,10 @@
 //! - [`Collapsible`](widgets::Collapsible) - Expandable/collapsible section header
 //! - [`Tooltip`](widgets::Tooltip) - Simple tooltip for hover text
 //!
-//! ## File Widgets (requires `file-picker` feature)
-//!
-//! - [`FilePicker`](widgets::FilePicker) - File selection with native dialog, drag-drop
-//! - [`DirectoryPicker`](widgets::DirectoryPicker) - Directory selection with native dialog
+#![cfg_attr(feature = "file-picker", doc = "## File Widgets (requires `file-picker` feature)")]
+#![cfg_attr(feature = "file-picker", doc = "")]
+#![cfg_attr(feature = "file-picker", doc = "- [`FilePicker`](widgets::FilePicker) - File selection with native dialog, drag-drop")]
+#![cfg_attr(feature = "file-picker", doc = "- [`DirectoryPicker`](widgets::DirectoryPicker) - Directory selection with native dialog")]
 //!
 //! # Feature Flags
 //!

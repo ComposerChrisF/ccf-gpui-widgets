@@ -55,10 +55,12 @@ pub enum SliderEvent {
 }
 
 /// Marker type for slider drag operations
+#[doc(hidden)]
 #[derive(Clone)]
 struct SliderDragState;
 
 /// Empty view used as drag visual (we don't want a visible drag indicator)
+#[doc(hidden)]
 struct EmptyDragView;
 
 impl Render for EmptyDragView {

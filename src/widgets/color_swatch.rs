@@ -60,6 +60,7 @@ pub fn register_keybindings(cx: &mut App) {
 }
 
 /// Drag state for saturation/lightness canvas
+#[doc(hidden)]
 #[derive(Clone)]
 struct SlDrag {
     canvas_origin: Rc<Cell<Point<Pixels>>>,
@@ -68,6 +69,7 @@ struct SlDrag {
 }
 
 /// Drag state for hue slider
+#[doc(hidden)]
 #[derive(Clone)]
 struct HueDrag {
     origin: Rc<Cell<f32>>,
@@ -75,6 +77,7 @@ struct HueDrag {
 }
 
 /// Drag state for alpha slider
+#[doc(hidden)]
 #[derive(Clone)]
 struct AlphaDrag {
     origin: Rc<Cell<f32>>,
@@ -82,6 +85,7 @@ struct AlphaDrag {
 }
 
 /// Drag state for component sliders (R, G, B, S, L)
+#[doc(hidden)]
 #[derive(Clone)]
 struct ComponentDrag {
     origin: Rc<Cell<f32>>,
@@ -92,6 +96,7 @@ struct ComponentDrag {
 }
 
 /// Empty view for drag visualization (we don't need a visual)
+#[doc(hidden)]
 struct EmptyDragView;
 
 impl Render for EmptyDragView {

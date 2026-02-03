@@ -35,6 +35,8 @@ use super::focus_navigation::{FocusNext, FocusPrev};
 use crate::utils::path::{parse_path, PathInfo};
 #[cfg(feature = "file-picker")]
 use crate::widgets::{TextInput, TextInputEvent, Tooltip};
+#[cfg(feature = "file-picker")]
+use super::path_display::PathDisplayInfo;
 
 // Actions for keyboard handling
 #[cfg(feature = "file-picker")]
@@ -92,19 +94,8 @@ pub enum DirectoryPickerValidation {
     IsFile,
 }
 
-/// Controls how validation feedback is displayed
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub enum ValidationDisplay {
-    /// Show colored path segments and explanation message (default)
-    #[default]
-    Full,
-    /// Show colored path segments only, hide explanation message
-    ColorsOnly,
-    /// Show explanation message only, no path coloring
-    MessageOnly,
-    /// Hide all validation feedback (no colors, no message)
-    Hidden,
-}
+// Re-export ValidationDisplay from shared module
+pub use super::path_display::ValidationDisplay;
 
 /// Validate a directory path
 ///
@@ -128,65 +119,6 @@ pub fn validate_directory_path(path: &str) -> DirectoryPickerValidation {
     }
 }
 
-#[cfg(feature = "file-picker")]
-struct PathHighlight {
-    start: usize,
-    end: usize,
-    color: u32,
-}
-
-#[cfg(feature = "file-picker")]
-struct DirPathDisplayInfo {
-    full_text: String,
-    highlights: Vec<PathHighlight>,
-    explanation: Option<(String, u32)>,
-}
-
-#[cfg(feature = "file-picker")]
-impl DirPathDisplayInfo {
-    fn new() -> Self {
-        Self {
-            full_text: String::new(),
-            highlights: Vec::new(),
-            explanation: None,
-        }
-    }
-
-    fn add_segment(&mut self, text: &str, color: u32) {
-        if !text.is_empty() {
-            let start = self.full_text.len();
-            self.full_text.push_str(text);
-            let end = self.full_text.len();
-            self.highlights.push(PathHighlight { start, end, color });
-        }
-    }
-
-    fn add_path_prefix(&mut self, text: &str, color: u32) {
-        let start = self.full_text.len();
-        self.full_text.push('/');
-        self.full_text.push_str(text);
-        let end = self.full_text.len();
-        self.highlights.push(PathHighlight { start, end, color });
-    }
-
-    fn set_explanation(&mut self, msg: &str, color: u32) {
-        self.explanation = Some((msg.to_string(), color));
-    }
-
-    fn to_styled_text(&self) -> StyledText {
-        let highlights: Vec<(std::ops::Range<usize>, HighlightStyle)> = self
-            .highlights
-            .iter()
-            .map(|h| (h.start..h.end, HighlightStyle::color(rgb(h.color).into())))
-            .collect();
-
-        StyledText::new(self.full_text.clone()).with_highlights(highlights)
-    }
-
-    fn is_empty(&self) -> bool {
-        self.full_text.is_empty()
-    }
-}
 
 /// Directory picker widget
 #[cfg(feature = "file-picker")]
@@ -334,8 +266,8 @@ impl DirectoryPicker {
         self.validate() == DirectoryPickerValidation::Valid
     }
 
-    fn compute_path_display(&self, path_info: &PathInfo, theme: &Theme, validation_display: &ValidationDisplay) -> DirPathDisplayInfo {
-        let mut info = DirPathDisplayInfo::new();
+    fn compute_path_display(&self, path_info: &PathInfo, theme: &Theme, validation_display: &ValidationDisplay) -> PathDisplayInfo {
+        let mut info = PathDisplayInfo::new();
 
         if path_info.full_path.as_os_str().is_empty() {
             return info;

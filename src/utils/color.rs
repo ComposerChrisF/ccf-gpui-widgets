@@ -650,3 +650,91 @@ mod tests {
         assert!((hsl.l - 0.0).abs() < 0.01);
     }
 }
+
+#[cfg(test)]
+mod proptests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn rgb_hsl_roundtrip(r in 0u8..=255, g in 0u8..=255, b in 0u8..=255) {
+            let rgb = Rgb::new(r, g, b);
+            let hsl = rgb.to_hsl();
+            let rgb2 = hsl.to_rgb();
+            // Allow small rounding errors due to floating point conversions
+            prop_assert!((r as i16 - rgb2.r as i16).abs() <= 1,
+                "Red mismatch: {} vs {} (via HSL h={}, s={}, l={})",
+                r, rgb2.r, hsl.h, hsl.s, hsl.l);
+            prop_assert!((g as i16 - rgb2.g as i16).abs() <= 1,
+                "Green mismatch: {} vs {} (via HSL h={}, s={}, l={})",
+                g, rgb2.g, hsl.h, hsl.s, hsl.l);
+            prop_assert!((b as i16 - rgb2.b as i16).abs() <= 1,
+                "Blue mismatch: {} vs {} (via HSL h={}, s={}, l={})",
+                b, rgb2.b, hsl.h, hsl.s, hsl.l);
+        }
+
+        #[test]
+        fn rgb_hsv_roundtrip(r in 0u8..=255, g in 0u8..=255, b in 0u8..=255) {
+            let rgb = Rgb::new(r, g, b);
+            let hsv = rgb.to_hsv();
+            let rgb2 = hsv.to_rgb();
+            // Allow small rounding errors due to floating point conversions
+            prop_assert!((r as i16 - rgb2.r as i16).abs() <= 1,
+                "Red mismatch: {} vs {} (via HSV h={}, s={}, v={})",
+                r, rgb2.r, hsv.h, hsv.s, hsv.v);
+            prop_assert!((g as i16 - rgb2.g as i16).abs() <= 1,
+                "Green mismatch: {} vs {} (via HSV h={}, s={}, v={})",
+                g, rgb2.g, hsv.h, hsv.s, hsv.v);
+            prop_assert!((b as i16 - rgb2.b as i16).abs() <= 1,
+                "Blue mismatch: {} vs {} (via HSV h={}, s={}, v={})",
+                b, rgb2.b, hsv.h, hsv.s, hsv.v);
+        }
+
+        #[test]
+        fn hsl_rgb_roundtrip(h in 0.0f32..360.0, s in 0.0f32..=100.0, l in 0.0f32..=100.0) {
+            let hsl = Hsl::new(h, s, l);
+            let rgb = hsl.to_rgb();
+            let hsl2 = rgb.to_hsl();
+            // For achromatic or near-achromatic colors, hue and saturation are unreliable
+            // because the limited RGB space (256 values per channel) loses information.
+            // Near black (l<10), near white (l>90), or low saturation (s<25) causes this.
+            let is_near_achromatic = s < 25.0 || l < 10.0 || l > 90.0;
+            if !is_near_achromatic {
+                // Hue comparison needs to handle wrap-around (0 vs 360)
+                let h_diff = (hsl.h - hsl2.h).abs();
+                let h_diff_wrapped = 360.0 - h_diff;
+                prop_assert!(h_diff < 5.0 || h_diff_wrapped < 5.0,
+                    "Hue mismatch: {} vs {} (diff={}, wrapped={})",
+                    hsl.h, hsl2.h, h_diff, h_diff_wrapped);
+                prop_assert!((hsl.s - hsl2.s).abs() < 5.0,
+                    "Saturation mismatch: {} vs {}", hsl.s, hsl2.s);
+            }
+            prop_assert!((hsl.l - hsl2.l).abs() < 2.0,
+                "Lightness mismatch: {} vs {}", hsl.l, hsl2.l);
+        }
+
+        #[test]
+        fn hsv_rgb_roundtrip(h in 0.0f32..360.0, s in 0.0f32..=100.0, v in 0.0f32..=100.0) {
+            let hsv = Hsv::new(h, s, v);
+            let rgb = hsv.to_rgb();
+            let hsv2 = rgb.to_hsv();
+            // For achromatic or near-achromatic colors, hue and saturation are unreliable
+            // because the limited RGB space (256 values per channel) loses information.
+            // Near black (v<15) or low saturation (s<25) causes this.
+            let is_near_achromatic = s < 25.0 || v < 15.0;
+            if !is_near_achromatic {
+                // Hue comparison needs to handle wrap-around (0 vs 360)
+                let h_diff = (hsv.h - hsv2.h).abs();
+                let h_diff_wrapped = 360.0 - h_diff;
+                prop_assert!(h_diff < 5.0 || h_diff_wrapped < 5.0,
+                    "Hue mismatch: {} vs {} (diff={}, wrapped={})",
+                    hsv.h, hsv2.h, h_diff, h_diff_wrapped);
+                prop_assert!((hsv.s - hsv2.s).abs() < 5.0,
+                    "Saturation mismatch: {} vs {}", hsv.s, hsv2.s);
+            }
+            prop_assert!((hsv.v - hsv2.v).abs() < 2.0,
+                "Value mismatch: {} vs {}", hsv.v, hsv2.v);
+        }
+    }
+}

@@ -189,6 +189,17 @@ The library is functional and being used by clui.
 - [x] TabBar: Focus ring uses always-present 2px transparent border to prevent layout shift
 - [x] TabBar: Restructured to outer focus-ring container + inner content div
 
+### ✅ Code Review Fixes (2026-02-02)
+- [x] Fixed conditional doc links in lib.rs - FilePicker/DirectoryPicker docs only included when file-picker feature enabled
+- [x] Added `log` crate dependency for path resolution error logging
+- [x] path.rs: Added `log::warn!` for `current_dir()` and `canonicalize()` failures
+- [x] Extracted shared path display types to `widgets/path_display.rs` module
+- [x] Unified `ValidationDisplay`, `PathHighlight`, `PathDisplayInfo` types used by both pickers
+- [x] Removed ~60 lines of duplicated code from file_picker.rs and directory_picker.rs
+- [x] Added `proptest` dev-dependency for property-based testing
+- [x] Added RGB↔HSL and RGB↔HSV roundtrip property tests in color.rs
+- [x] Added `#[doc(hidden)]` to internal drag state types (NumberDragState, SliderDragState, SlDrag, HueDrag, AlphaDrag, ComponentDrag, EmptyDragView)
+
 ### ✅ Code Simplification (2026-02-01)
 - [x] Extracted duplicate `format_display_value()` utility function to `utils/mod.rs`
 - [x] NumberStepper and Slider now use shared `format_display_value()` function

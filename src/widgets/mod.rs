@@ -22,6 +22,9 @@ mod progress_bar;
 mod spinner;
 mod confirmation_dialog;
 
+#[cfg(feature = "file-picker")]
+mod path_display;
+
 #[cfg(feature = "secure-password")]
 mod sensitive_string;
 
