@@ -243,6 +243,16 @@ The library is functional and being used by clui.
 - [x] NumberStepper: Individual `.step_small()` and `.step_large()` builder methods
 - [x] NumberStepper: Default multipliers: Alt/Option = 0.1x, Shift = 10x, Normal = 1x
 
+### ✅ Widget Gallery Tab-Based Navigation & TabBar Folder Style (2026-02-03)
+- [x] Widget gallery: Reorganized from collapsible sections to TabBar-based category navigation
+- [x] Widget gallery: Categories: Text, Selection, Numbers, Files, Progress, Utility, Misc
+- [x] Widget gallery: Increased default window height by 25%
+- [x] TabBar: Added `tab_row_padding()` builder for horizontal content inset while border spans full width
+- [x] TabBar: Folder-tab styling - active tab seamlessly connects to content below (no bottom border)
+- [x] TabBar: Inactive tabs have right and bottom borders, active tab has none
+- [x] TabBar: Left and right filler areas draw bottom border for continuous line
+- [x] TabBar: Proper height matching between active/inactive tabs (pt padding vs border_t)
+
 ### ✅ New Widgets: Toggle, Slider, Progress, Spinner, Dialog (2026-01-30)
 - [x] ToggleSwitch: iOS-style toggle switch with pill-shaped track and circular thumb
 - [x] ToggleSwitch: Label support with configurable position (left or right)

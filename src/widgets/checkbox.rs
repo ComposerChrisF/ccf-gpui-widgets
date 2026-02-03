@@ -125,6 +125,18 @@ impl Checkbox {
         }
     }
 
+    /// Set label text programmatically
+    pub fn set_label(&mut self, label: impl Into<SharedString>, cx: &mut Context<Self>) {
+        self.label = Some(label.into());
+        cx.notify();
+    }
+
+    /// Clear the label
+    pub fn clear_label(&mut self, cx: &mut Context<Self>) {
+        self.label = None;
+        cx.notify();
+    }
+
     fn toggle(&mut self, cx: &mut Context<Self>) {
         self.checked = !self.checked;
         cx.emit(CheckboxEvent::Change(self.checked));
@@ -203,7 +215,7 @@ impl Render for Checkbox {
                             .border_color(rgb(theme.primary))
                             .child(
                                 div()
-                                    .text_color(rgb(theme.bg_white))
+                                    .text_color(rgb(theme.text_black))
                                     .text_sm()
                                     .child("✓")
                             )

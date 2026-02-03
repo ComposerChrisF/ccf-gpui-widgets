@@ -42,6 +42,44 @@ impl TabItem for GalleryTab {
     }
 }
 
+/// Category enum for main gallery navigation
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum GalleryCategory {
+    Text,
+    Selection,
+    Numbers,
+    Files,
+    Progress,
+    Utility,
+    Misc,
+}
+
+impl TabItem for GalleryCategory {
+    fn label(&self) -> SharedString {
+        match self {
+            GalleryCategory::Text => "Text".into(),
+            GalleryCategory::Selection => "Selection".into(),
+            GalleryCategory::Numbers => "Numbers".into(),
+            GalleryCategory::Files => "Files".into(),
+            GalleryCategory::Progress => "Progress".into(),
+            GalleryCategory::Utility => "Utility".into(),
+            GalleryCategory::Misc => "Misc".into(),
+        }
+    }
+
+    fn id(&self) -> ElementId {
+        match self {
+            GalleryCategory::Text => "category_text".into(),
+            GalleryCategory::Selection => "category_selection".into(),
+            GalleryCategory::Numbers => "category_numbers".into(),
+            GalleryCategory::Files => "category_files".into(),
+            GalleryCategory::Progress => "category_progress".into(),
+            GalleryCategory::Utility => "category_utility".into(),
+            GalleryCategory::Misc => "category_misc".into(),
+        }
+    }
+}
+
 /// Main application state
 struct WidgetGallery {
     // Theme
@@ -49,32 +87,9 @@ struct WidgetGallery {
     // Whether widgets are enabled (for disabled state demo)
     widgets_enabled: bool,
 
-    // Collapsible sections
-    section_text: Entity<Collapsible>,
-    section_checkbox: Entity<Collapsible>,
-    section_dropdown: Entity<Collapsible>,
-    section_number: Entity<Collapsible>,
-    section_radio: Entity<Collapsible>,
-    section_checkbox_group: Entity<Collapsible>,
-    section_color: Entity<Collapsible>,
-    section_tooltip: Entity<Collapsible>,
-    section_button: Entity<Collapsible>,
-    section_password: Entity<Collapsible>,
-    section_tab_bar: Entity<Collapsible>,
-    section_repeatable_text: Entity<Collapsible>,
-    section_toggle: Entity<Collapsible>,
-    section_slider: Entity<Collapsible>,
-    section_progress: Entity<Collapsible>,
-    section_spinner: Entity<Collapsible>,
-    section_dialog: Entity<Collapsible>,
-    section_segmented: Entity<Collapsible>,
-    section_scrollable: Entity<Collapsible>,
-    #[cfg(feature = "file-picker")]
-    section_file: Entity<Collapsible>,
-    #[cfg(feature = "file-picker")]
-    section_repeatable_file: Entity<Collapsible>,
-    #[cfg(feature = "file-picker")]
-    section_repeatable_dir: Entity<Collapsible>,
+    // Category navigation
+    category_tab_bar: Entity<TabBar<GalleryCategory>>,
+    active_category: GalleryCategory,
 
     // Widgets
     text_input: Entity<TextInput>,
@@ -186,32 +201,32 @@ fn dialog_result_label(
 
 impl WidgetGallery {
     fn new(cx: &mut Context<Self>) -> Self {
-        // Create collapsible sections
-        let section_text = cx.new(|cx| Collapsible::new("Text Input", cx));
-        let section_checkbox = cx.new(|cx| Collapsible::new("Checkbox", cx));
-        let section_dropdown = cx.new(|cx| Collapsible::new("Dropdown", cx));
-        let section_number = cx.new(|cx| Collapsible::new("Number Stepper", cx));
-        let section_radio = cx.new(|cx| Collapsible::new("Radio Group", cx));
-        let section_checkbox_group = cx.new(|cx| Collapsible::new("Checkbox Group", cx));
-        let section_color = cx.new(|cx| Collapsible::new("Color Swatch", cx));
-        let section_tooltip = cx.new(|cx| Collapsible::new("Tooltip", cx));
-        let section_button = cx.new(|cx| Collapsible::new("Button", cx));
-        let section_password = cx.new(|cx| Collapsible::new("Password Input", cx));
-        let section_tab_bar = cx.new(|cx| Collapsible::new("Tab Bar", cx));
-        let section_repeatable_text = cx.new(|cx| Collapsible::new("Repeatable Text Input", cx));
-        let section_toggle = cx.new(|cx| Collapsible::new("Toggle Switch", cx));
-        let section_slider = cx.new(|cx| Collapsible::new("Slider", cx));
-        let section_progress = cx.new(|cx| Collapsible::new("Progress Bar", cx));
-        let section_spinner = cx.new(|cx| Collapsible::new("Spinner", cx));
-        let section_dialog = cx.new(|cx| Collapsible::new("Confirmation Dialog", cx));
-        let section_segmented = cx.new(|cx| Collapsible::new("Segmented Control", cx));
-        let section_scrollable = cx.new(|cx| Collapsible::new("Scrollable", cx));
-        #[cfg(feature = "file-picker")]
-        let section_file = cx.new(|cx| Collapsible::new("File Pickers", cx));
-        #[cfg(feature = "file-picker")]
-        let section_repeatable_file = cx.new(|cx| Collapsible::new("Repeatable File Picker", cx));
-        #[cfg(feature = "file-picker")]
-        let section_repeatable_dir = cx.new(|cx| Collapsible::new("Repeatable Directory Picker", cx));
+        // Create category tab bar for navigation
+        let category_tab_bar = cx.new(|cx| {
+            TabBar::new(
+                vec![
+                    GalleryCategory::Text,
+                    GalleryCategory::Selection,
+                    GalleryCategory::Numbers,
+                    GalleryCategory::Files,
+                    GalleryCategory::Progress,
+                    GalleryCategory::Utility,
+                    GalleryCategory::Misc,
+                ],
+                GalleryCategory::Text,
+                cx,
+            )
+            .tab_row_padding(px(16.0))
+        });
+
+        // Subscribe to category tab changes
+        cx.subscribe(&category_tab_bar, |this, _entity, event: &TabBarEvent<GalleryCategory>, cx| {
+            if let TabBarEvent::TabSelected(category) = event {
+                this.active_category = *category;
+                this.log_event("CategoryTab", format!("Changed to {:?}", category), cx);
+            }
+        })
+        .detach();
 
         // Create widgets
         let text_input = cx.new(|cx| TextInput::new(cx).placeholder("Type something..."));
@@ -483,31 +498,8 @@ impl WidgetGallery {
         Self {
             current_theme: ThemeChoice::Dark,
             widgets_enabled: true,
-            section_text,
-            section_checkbox,
-            section_dropdown,
-            section_number,
-            section_radio,
-            section_checkbox_group,
-            section_color,
-            section_tooltip,
-            section_button,
-            section_password,
-            section_tab_bar,
-            section_repeatable_text,
-            section_toggle,
-            section_slider,
-            section_progress,
-            section_spinner,
-            section_dialog,
-            section_segmented,
-            section_scrollable,
-            #[cfg(feature = "file-picker")]
-            section_file,
-            #[cfg(feature = "file-picker")]
-            section_repeatable_file,
-            #[cfg(feature = "file-picker")]
-            section_repeatable_dir,
+            category_tab_bar,
+            active_category: GalleryCategory::Text,
             text_input,
             text_input_placeholder,
             checkbox,
@@ -557,7 +549,7 @@ impl WidgetGallery {
             secondary_click_count: 0,
             danger_click_count: 0,
             event_log: VecDeque::new(),
-            log_collapsed: false,
+            log_collapsed: true,
         }
     }
 
@@ -734,30 +726,7 @@ impl WidgetGallery {
             self.slider,
             self.slider_with_value,
             self.segmented_control,
-        );
-
-        // Collapsible sections
-        set_enabled_all!(
-            cx, enabled,
-            self.section_text,
-            self.section_checkbox,
-            self.section_dropdown,
-            self.section_number,
-            self.section_radio,
-            self.section_checkbox_group,
-            self.section_color,
-            self.section_tooltip,
-            self.section_button,
-            self.section_password,
-            self.section_tab_bar,
-            self.section_repeatable_text,
-            self.section_toggle,
-            self.section_slider,
-            self.section_progress,
-            self.section_spinner,
-            self.section_dialog,
-            self.section_segmented,
-            self.section_scrollable,
+            self.category_tab_bar,
         );
 
         // Feature-gated widgets
@@ -768,9 +737,6 @@ impl WidgetGallery {
             self.directory_picker,
             self.repeatable_file_picker,
             self.repeatable_directory_picker,
-            self.section_file,
-            self.section_repeatable_file,
-            self.section_repeatable_dir,
         );
 
         self.log_event(
@@ -864,54 +830,6 @@ impl WidgetGallery {
                             })),
                     ),
             )
-    }
-
-    fn render_section<V: IntoElement + 'static>(
-        &self,
-        section: &Entity<Collapsible>,
-        content: impl FnOnce() -> V,
-        cx: &Context<Self>,
-    ) -> impl IntoElement
-    {
-        let theme = get_theme(cx);
-        let is_collapsed = section.read(cx).is_collapsed();
-
-        div()
-            .w_full()
-            .mb_2()
-            .border_1()
-            .border_color(rgb(theme.border_default))
-            .rounded_md()
-            .overflow_hidden()
-            .child(section.clone())
-            .when(!is_collapsed, |d| {
-                d.child(
-                    div()
-                        .p_4()
-                        .bg(rgb(theme.bg_secondary))
-                        .child(content()),
-                )
-            })
-    }
-
-    /// Renders a collapsible section with optional content (for sections that need &mut self)
-    fn render_section_with_content(
-        &self,
-        section: &Entity<Collapsible>,
-        content: Option<Div>,
-        cx: &Context<Self>,
-    ) -> Div {
-        let theme = get_theme(cx);
-
-        div()
-            .w_full()
-            .mb_2()
-            .border_1()
-            .border_color(rgb(theme.border_default))
-            .rounded_md()
-            .overflow_hidden()
-            .child(section.clone())
-            .when_some(content, |d, c| d.child(c))
     }
 
     fn render_widget_row(
@@ -1211,12 +1129,6 @@ impl WidgetGallery {
             .bg(rgb(theme.bg_secondary))
     }
 
-    fn render_button_section_wrapper(&self, cx: &Context<Self>) -> Div {
-        let is_collapsed = self.section_button.read(cx).is_collapsed();
-        let content = if !is_collapsed { Some(self.render_button_section(cx)) } else { None };
-        self.render_section_with_content(&self.section_button.clone(), content, cx)
-    }
-
     fn render_password_section(&self, cx: &Context<Self>) -> impl IntoElement {
         #[cfg(feature = "secure-password")]
         let display = {
@@ -1412,102 +1324,6 @@ impl WidgetGallery {
             ))
     }
 
-    /// Renders the file pickers section, or a notice if the feature is disabled
-    #[cfg(feature = "file-picker")]
-    fn render_file_pickers_section(&self, cx: &Context<Self>) -> Div {
-        let theme = get_theme(cx);
-        let is_collapsed = self.section_file.read(cx).is_collapsed();
-
-        div()
-            .w_full()
-            .mb_2()
-            .border_1()
-            .border_color(rgb(theme.border_default))
-            .rounded_md()
-            .overflow_hidden()
-            .child(self.section_file.clone())
-            .when(!is_collapsed, |d| {
-                d.child(
-                    div()
-                        .p_4()
-                        .bg(rgb(theme.bg_secondary))
-                        .child(self.render_file_section(cx)),
-                )
-            })
-    }
-
-    #[cfg(not(feature = "file-picker"))]
-    fn render_file_pickers_section(&self, cx: &Context<Self>) -> Div {
-        let theme = get_theme(cx);
-        div()
-            .p_4()
-            .bg(rgb(theme.bg_secondary))
-            .border_1()
-            .border_color(rgb(theme.warning))
-            .rounded_md()
-            .text_sm()
-            .text_color(rgb(theme.warning))
-            .child(
-                "Note: File pickers not shown. Run with --features file-picker or --features full to enable.",
-            )
-    }
-
-    #[cfg(feature = "file-picker")]
-    fn render_repeatable_file_pickers_section(&self, cx: &Context<Self>) -> Div {
-        let theme = get_theme(cx);
-        let is_collapsed = self.section_repeatable_file.read(cx).is_collapsed();
-
-        div()
-            .w_full()
-            .mb_2()
-            .border_1()
-            .border_color(rgb(theme.border_default))
-            .rounded_md()
-            .overflow_hidden()
-            .child(self.section_repeatable_file.clone())
-            .when(!is_collapsed, |d| {
-                d.child(
-                    div()
-                        .p_4()
-                        .bg(rgb(theme.bg_secondary))
-                        .child(self.render_repeatable_file_section(cx)),
-                )
-            })
-    }
-
-    #[cfg(not(feature = "file-picker"))]
-    fn render_repeatable_file_pickers_section(&self, _cx: &Context<Self>) -> Div {
-        div() // Empty when feature disabled
-    }
-
-    #[cfg(feature = "file-picker")]
-    fn render_repeatable_dir_pickers_section(&self, cx: &Context<Self>) -> Div {
-        let theme = get_theme(cx);
-        let is_collapsed = self.section_repeatable_dir.read(cx).is_collapsed();
-
-        div()
-            .w_full()
-            .mb_2()
-            .border_1()
-            .border_color(rgb(theme.border_default))
-            .rounded_md()
-            .overflow_hidden()
-            .child(self.section_repeatable_dir.clone())
-            .when(!is_collapsed, |d| {
-                d.child(
-                    div()
-                        .p_4()
-                        .bg(rgb(theme.bg_secondary))
-                        .child(self.render_repeatable_dir_section(cx)),
-                )
-            })
-    }
-
-    #[cfg(not(feature = "file-picker"))]
-    fn render_repeatable_dir_pickers_section(&self, _cx: &Context<Self>) -> Div {
-        div() // Empty when feature disabled
-    }
-
     fn render_toggle_section(&self, cx: &Context<Self>) -> impl IntoElement {
         let toggle_value = self.toggle_switch.read(cx).is_on();
         let labeled_value = self.toggle_switch_labeled.read(cx).is_on();
@@ -1646,17 +1462,6 @@ impl WidgetGallery {
                 None,
                 cx,
             ))
-    }
-
-    fn render_spinner_section_wrapper(&self, cx: &Context<Self>) -> Div {
-        let theme = get_theme(cx);
-        let is_collapsed = self.section_spinner.read(cx).is_collapsed();
-        let content = if !is_collapsed {
-            Some(div().p_4().bg(rgb(theme.bg_secondary)).child(self.render_spinner_section(cx)))
-        } else {
-            None
-        };
-        self.render_section_with_content(&self.section_spinner.clone(), content, cx)
     }
 
     fn render_dialog_section(&self, cx: &Context<Self>) -> Div {
@@ -1800,12 +1605,6 @@ impl WidgetGallery {
                 None,
                 cx,
             ))
-    }
-
-    fn render_dialog_section_wrapper(&self, cx: &Context<Self>) -> Div {
-        let is_collapsed = self.section_dialog.read(cx).is_collapsed();
-        let content = if !is_collapsed { Some(self.render_dialog_section(cx)) } else { None };
-        self.render_section_with_content(&self.section_dialog.clone(), content, cx)
     }
 
     fn render_segmented_section(&self, cx: &Context<Self>) -> impl IntoElement {
@@ -1985,6 +1784,239 @@ impl WidgetGallery {
                 )
             })
     }
+
+    // Category navigation methods
+
+    fn render_category_tabs(&self, cx: &Context<Self>) -> impl IntoElement {
+        let theme = get_theme(cx);
+
+        div()
+            .w_full()
+            .pt_2()
+            .bg(rgb(theme.bg_secondary))
+            .child(self.category_tab_bar.clone())
+    }
+
+    fn render_active_category(&self, cx: &Context<Self>) -> impl IntoElement {
+        match self.active_category {
+            GalleryCategory::Text => self.render_text_category(cx).into_any_element(),
+            GalleryCategory::Selection => self.render_selection_category(cx).into_any_element(),
+            GalleryCategory::Numbers => self.render_numbers_category(cx).into_any_element(),
+            GalleryCategory::Files => self.render_files_category(cx).into_any_element(),
+            GalleryCategory::Progress => self.render_progress_category(cx).into_any_element(),
+            GalleryCategory::Utility => self.render_utility_category(cx).into_any_element(),
+            GalleryCategory::Misc => self.render_misc_category(cx).into_any_element(),
+        }
+    }
+
+    fn render_category_section(
+        title: &'static str,
+        content: impl IntoElement,
+        cx: &Context<Self>,
+    ) -> impl IntoElement {
+        let theme = get_theme(cx);
+
+        div()
+            .w_full()
+            .mb_4()
+            .border_1()
+            .border_color(rgb(theme.border_default))
+            .rounded_md()
+            .overflow_hidden()
+            .child(
+                div()
+                    .px_4()
+                    .py_2()
+                    .bg(rgb(theme.bg_section_header))
+                    .text_sm()
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .text_color(rgb(theme.text_primary))
+                    .child(title),
+            )
+            .child(
+                div()
+                    .p_4()
+                    .bg(rgb(theme.bg_secondary))
+                    .child(content),
+            )
+    }
+
+    fn render_text_category(&self, cx: &Context<Self>) -> impl IntoElement {
+        div()
+            .flex()
+            .flex_col()
+            .gap_2()
+            .child(Self::render_category_section(
+                "Text Input",
+                self.render_text_input_section(cx),
+                cx,
+            ))
+            .child(Self::render_category_section(
+                "Password Input",
+                self.render_password_section(cx),
+                cx,
+            ))
+            .child(Self::render_category_section(
+                "Repeatable Text Input",
+                self.render_repeatable_text_section(cx),
+                cx,
+            ))
+    }
+
+    fn render_selection_category(&self, cx: &Context<Self>) -> impl IntoElement {
+        div()
+            .flex()
+            .flex_col()
+            .gap_2()
+            .child(Self::render_category_section(
+                "Checkbox",
+                self.render_checkbox_section(cx),
+                cx,
+            ))
+            .child(Self::render_category_section(
+                "Toggle Switch",
+                self.render_toggle_section(cx),
+                cx,
+            ))
+            .child(Self::render_category_section(
+                "Dropdown",
+                self.render_dropdown_section(cx),
+                cx,
+            ))
+            .child(Self::render_category_section(
+                "Radio Group",
+                self.render_radio_section(cx),
+                cx,
+            ))
+            .child(Self::render_category_section(
+                "Checkbox Group",
+                self.render_checkbox_group_section(cx),
+                cx,
+            ))
+            .child(Self::render_category_section(
+                "Segmented Control",
+                self.render_segmented_section(cx),
+                cx,
+            ))
+            .child(Self::render_category_section(
+                "Tab Bar",
+                self.render_tab_bar_section(cx),
+                cx,
+            ))
+    }
+
+    fn render_numbers_category(&self, cx: &Context<Self>) -> impl IntoElement {
+        div()
+            .flex()
+            .flex_col()
+            .gap_2()
+            .child(Self::render_category_section(
+                "Number Stepper",
+                self.render_number_section(cx),
+                cx,
+            ))
+            .child(Self::render_category_section(
+                "Slider",
+                self.render_slider_section(cx),
+                cx,
+            ))
+            .child(Self::render_category_section(
+                "Color Swatch",
+                self.render_color_section(cx),
+                cx,
+            ))
+    }
+
+    #[cfg(feature = "file-picker")]
+    fn render_files_category(&self, cx: &Context<Self>) -> impl IntoElement {
+        div()
+            .flex()
+            .flex_col()
+            .gap_2()
+            .child(Self::render_category_section(
+                "File Pickers",
+                self.render_file_section(cx),
+                cx,
+            ))
+            .child(Self::render_category_section(
+                "Repeatable File Picker",
+                self.render_repeatable_file_section(cx),
+                cx,
+            ))
+            .child(Self::render_category_section(
+                "Repeatable Directory Picker",
+                self.render_repeatable_dir_section(cx),
+                cx,
+            ))
+    }
+
+    #[cfg(not(feature = "file-picker"))]
+    fn render_files_category(&self, cx: &Context<Self>) -> impl IntoElement {
+        let theme = get_theme(cx);
+
+        div()
+            .p_4()
+            .bg(rgb(theme.bg_secondary))
+            .border_1()
+            .border_color(rgb(theme.warning))
+            .rounded_md()
+            .text_sm()
+            .text_color(rgb(theme.warning))
+            .child(
+                "File picker widgets require the 'file-picker' feature. Run with --features file-picker or --features full to enable.",
+            )
+    }
+
+    fn render_progress_category(&self, cx: &Context<Self>) -> impl IntoElement {
+        div()
+            .flex()
+            .flex_col()
+            .gap_2()
+            .child(Self::render_category_section(
+                "Progress Bar",
+                self.render_progress_section(cx),
+                cx,
+            ))
+            .child(Self::render_category_section(
+                "Spinner",
+                self.render_spinner_section(cx),
+                cx,
+            ))
+    }
+
+    fn render_utility_category(&self, cx: &Context<Self>) -> impl IntoElement {
+        div()
+            .flex()
+            .flex_col()
+            .gap_2()
+            .child(Self::render_category_section(
+                "Tooltip",
+                self.render_tooltip_section(cx),
+                cx,
+            ))
+            .child(Self::render_category_section(
+                "Scrollable",
+                self.render_scrollable_section(cx),
+                cx,
+            ))
+    }
+
+    fn render_misc_category(&self, cx: &Context<Self>) -> impl IntoElement {
+        div()
+            .flex()
+            .flex_col()
+            .gap_2()
+            .child(Self::render_category_section(
+                "Buttons",
+                self.render_button_section(cx),
+                cx,
+            ))
+            .child(Self::render_category_section(
+                "Confirmation Dialogs",
+                self.render_dialog_section(cx),
+                cx,
+            ))
+    }
 }
 
 impl Render for WidgetGallery {
@@ -1999,6 +2031,8 @@ impl Render for WidgetGallery {
             .bg(rgb(theme.bg_primary))
             // Header
             .child(self.render_header(cx))
+            // Category tabs
+            .child(self.render_category_tabs(cx))
             // Main content area with scrolling
             .child(
                 div()
@@ -2007,6 +2041,7 @@ impl Render for WidgetGallery {
                     .min_w_0()
                     .flex_1()
                     .overflow_y_scroll()
+                    .bg(rgb(theme.bg_primary))
                     .p_4()
                     .child(
                         div()
@@ -2015,114 +2050,7 @@ impl Render for WidgetGallery {
                             .gap_2()
                             .max_w(px(900.0))
                             .mx_auto()
-                            // Text Input Section
-                            .child(self.render_section(
-                                &self.section_text,
-                                || self.render_text_input_section(cx),
-                                cx,
-                            ))
-                            // Checkbox Section
-                            .child(self.render_section(
-                                &self.section_checkbox,
-                                || self.render_checkbox_section(cx),
-                                cx,
-                            ))
-                            // Dropdown Section
-                            .child(self.render_section(
-                                &self.section_dropdown,
-                                || self.render_dropdown_section(cx),
-                                cx,
-                            ))
-                            // Number Stepper Section
-                            .child(self.render_section(
-                                &self.section_number,
-                                || self.render_number_section(cx),
-                                cx,
-                            ))
-                            // Radio Group Section
-                            .child(self.render_section(
-                                &self.section_radio,
-                                || self.render_radio_section(cx),
-                                cx,
-                            ))
-                            // Checkbox Group Section
-                            .child(self.render_section(
-                                &self.section_checkbox_group,
-                                || self.render_checkbox_group_section(cx),
-                                cx,
-                            ))
-                            // Color Swatch Section
-                            .child(self.render_section(
-                                &self.section_color,
-                                || self.render_color_section(cx),
-                                cx,
-                            ))
-                            // Tooltip Section
-                            .child(self.render_section(
-                                &self.section_tooltip,
-                                || self.render_tooltip_section(cx),
-                                cx,
-                            ))
-                            // Button Section
-                            .child(self.render_button_section_wrapper(cx))
-                            // Password Section
-                            .child(self.render_section(
-                                &self.section_password,
-                                || self.render_password_section(cx),
-                                cx,
-                            ))
-                            // Tab Bar Section
-                            .child(self.render_section(
-                                &self.section_tab_bar,
-                                || self.render_tab_bar_section(cx),
-                                cx,
-                            ))
-                            // Repeatable Text Input Section
-                            .child(self.render_section(
-                                &self.section_repeatable_text,
-                                || self.render_repeatable_text_section(cx),
-                                cx,
-                            ))
-                            // Toggle Switch Section
-                            .child(self.render_section(
-                                &self.section_toggle,
-                                || self.render_toggle_section(cx),
-                                cx,
-                            ))
-                            // Slider Section
-                            .child(self.render_section(
-                                &self.section_slider,
-                                || self.render_slider_section(cx),
-                                cx,
-                            ))
-                            // Progress Bar Section
-                            .child(self.render_section(
-                                &self.section_progress,
-                                || self.render_progress_section(cx),
-                                cx,
-                            ))
-                            // Spinner Section
-                            .child(self.render_spinner_section_wrapper(cx))
-                            // Confirmation Dialog Section
-                            .child(self.render_dialog_section_wrapper(cx))
-                            // Segmented Control Section
-                            .child(self.render_section(
-                                &self.section_segmented,
-                                || self.render_segmented_section(cx),
-                                cx,
-                            ))
-                            // Scrollable Section
-                            .child(self.render_section(
-                                &self.section_scrollable,
-                                || self.render_scrollable_section(cx),
-                                cx,
-                            ))
-                            // File Pickers Section (conditional)
-                            .child(self.render_file_pickers_section(cx))
-                            // Repeatable File Picker Section (conditional)
-                            .child(self.render_repeatable_file_pickers_section(cx))
-                            // Repeatable Directory Picker Section (conditional)
-                            .child(self.render_repeatable_dir_pickers_section(cx)),
+                            .child(self.render_active_category(cx)),
                     ),
             )
             // Event log at bottom
@@ -2179,7 +2107,7 @@ fn main() {
         let window_options = WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(Bounds::centered(
                 None,
-                size(px(1000.0), px(800.0)),
+                size(px(1000.0), px(1000.0)),
                 cx,
             ))),
             titlebar: Some(TitlebarOptions {

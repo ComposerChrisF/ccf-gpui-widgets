@@ -112,6 +112,8 @@ pub struct TabBar<T: TabItem> {
     /// Stores the previously focused element when mouse down occurs,
     /// so we can restore focus after a tab click (preventing focus stealing)
     previous_focus: Option<FocusHandle>,
+    /// Horizontal padding for tabs (border extends full width)
+    tab_row_padding: Pixels,
 }
 
 impl<T: TabItem> TabBar<T> {
@@ -130,6 +132,7 @@ impl<T: TabItem> TabBar<T> {
             custom_theme: None,
             enabled: true,
             previous_focus: None,
+            tab_row_padding: px(0.0),
         }
     }
 
@@ -144,6 +147,13 @@ impl<T: TabItem> TabBar<T> {
     #[must_use]
     pub fn with_enabled(mut self, enabled: bool) -> Self {
         self.enabled = enabled;
+        self
+    }
+
+    /// Set horizontal padding for tabs (border spans full width)
+    #[must_use]
+    pub fn tab_row_padding(mut self, padding: Pixels) -> Self {
+        self.tab_row_padding = padding;
         self
     }
 
@@ -251,23 +261,37 @@ impl<T: TabItem> Render for TabBar<T> {
                     this.select_next(cx);
                 }
             }))
-            .children(self.tabs.iter().map(|tab| {
+            // Left filler area (draws bottom border for left padding area)
+            .when(self.tab_row_padding > px(0.0), |d| {
+                d.child(
+                    div()
+                        .w(self.tab_row_padding)
+                        .when(enabled, |d| {
+                            d.bg(rgb(theme.bg_secondary))
+                                .border_b_1()
+                                .border_color(rgb(theme.border_default))
+                        })
+                        .when(!enabled, |d| {
+                            d.bg(rgb(theme.disabled_bg))
+                                .border_b_1()
+                                .border_color(rgb(theme.disabled_bg))
+                        })
+                )
+            })
+            .children(self.tabs.iter().enumerate().map(|(index, tab)| {
                 let tab = tab.clone();
                 let is_active = tab == active_tab;
-                // Show focus ring only on the active tab when the tab bar is focused and enabled
-                let show_focus_ring = is_active && is_focused && enabled;
+                let _is_first = index == 0;
+                let show_focus = is_active && is_focused && enabled;
 
-                // Outer div: focus ring container (always 2px border, transparent when not focused)
+                // Tab container - handles clicks and identification
                 div()
                     .id(tab.id())
-                    .border_2()
-                    .border_color(if show_focus_ring { rgb(theme.border_focus) } else { rgba(0x00000000) })
                     .cursor_for_enabled(enabled)
                     .when(enabled, |d| {
                         let tab_clone = tab.clone();
                         d.on_mouse_down(MouseButton::Left, {
                             cx.listener(move |this, _event: &MouseDownEvent, window, cx| {
-                                // Capture currently focused element BEFORE focus transfers to tab bar
                                 this.previous_focus = window.focused(cx);
                                 cx.notify();
                             })
@@ -277,15 +301,11 @@ impl<T: TabItem> Render for TabBar<T> {
                             cx.listener(move |this, _event: &ClickEvent, window, cx| {
                                 this.active = tab.clone();
                                 cx.emit(TabBarEvent::TabSelected(tab.clone()));
-
-                                // Restore focus to previously focused element, or blur if nothing was focused.
-                                // This prevents mouse clicks from stealing/acquiring focus.
                                 if let Some(focus_handle) = this.previous_focus.take() {
                                     focus_handle.focus(window);
                                 } else {
                                     window.blur();
                                 }
-
                                 cx.notify();
                             })
                         })
@@ -298,31 +318,41 @@ impl<T: TabItem> Render for TabBar<T> {
                             })
                         })
                     })
-                    // Inner div: tab content with decorative borders
+                    // Tab content
                     .child(
                         div()
                             .px_4()
-                            .py_2()
-                            .size_full()
-                            .border_r_1()
-                            .when(enabled, |d| d.border_color(rgb(theme.border_default)))
-                            .when(!enabled, |d| d.border_color(rgb(theme.disabled_bg)))
+                            .pb_2()
+                            // Active tab: py_2 top + border_t_2, no other borders
+                            .when(is_active, |d| {
+                                d.pt_2() // Standard top padding
+                                    .border_t_2()
+                            })
+                            // Inactive tabs: pt = py_2 + 2px to match active height
+                            .when(!is_active, |d| {
+                                d.pt(px(10.0)) // 8px (py_2) + 2px (border_t_2)
+                                    .border_r_1()
+                                    .border_b_1()
+                            })
+                            // Colors based on active/enabled state
                             .when(is_active && enabled, |d| {
                                 d.bg(rgb(theme.bg_primary))
                                     .text_color(rgb(theme.text_primary))
-                                    .border_t_2()
-                                    .border_color(rgb(theme.border_tab_active))
+                                    .when(show_focus, |d| {
+                                        d.border_color(rgb(theme.border_focus))
+                                    })
+                                    .when(!show_focus, |d| {
+                                        d.border_color(rgb(theme.bg_secondary))
+                                    })
                             })
                             .when(is_active && !enabled, |d| {
                                 d.bg(rgb(theme.disabled_bg))
                                     .text_color(rgb(theme.disabled_text))
-                                    .border_t_2()
-                                    .border_color(rgb(theme.disabled_text))
+                                    .border_color(rgb(theme.disabled_bg))
                             })
                             .when(!is_active && enabled, |d| {
                                 d.bg(rgb(theme.bg_input))
                                     .text_color(rgb(theme.text_dimmed))
-                                    .border_b_1()
                                     .border_color(rgb(theme.border_default))
                                     .hover(|d| {
                                         d.bg(rgb(theme.bg_tab_hover))
@@ -332,21 +362,42 @@ impl<T: TabItem> Render for TabBar<T> {
                             .when(!is_active && !enabled, |d| {
                                 d.bg(rgb(theme.disabled_bg))
                                     .text_color(rgb(theme.disabled_text))
-                                    .border_b_1()
                                     .border_color(rgb(theme.disabled_bg))
                             })
                             .child(tab.label())
                     )
             }))
-            // Filler area to the right of tabs with bottom border
+            // Filler area to the right of tabs (draws its own bottom border)
             .child(
                 div()
                     .flex_1()
-                    .when(enabled, |d| d.bg(rgb(theme.bg_secondary)))
-                    .when(!enabled, |d| d.bg(rgb(theme.disabled_bg)))
-                    .border_b_1()
-                    .when(enabled, |d| d.border_color(rgb(theme.border_default)))
-                    .when(!enabled, |d| d.border_color(rgb(theme.disabled_bg)))
+                    .when(enabled, |d| {
+                        d.bg(rgb(theme.bg_secondary))
+                            .border_b_1()
+                            .border_color(rgb(theme.border_default))
+                    })
+                    .when(!enabled, |d| {
+                        d.bg(rgb(theme.disabled_bg))
+                            .border_b_1()
+                            .border_color(rgb(theme.disabled_bg))
+                    })
             )
+            // Right filler area (draws bottom border for right padding area)
+            .when(self.tab_row_padding > px(0.0), |d| {
+                d.child(
+                    div()
+                        .w(self.tab_row_padding)
+                        .when(enabled, |d| {
+                            d.bg(rgb(theme.bg_secondary))
+                                .border_b_1()
+                                .border_color(rgb(theme.border_default))
+                        })
+                        .when(!enabled, |d| {
+                            d.bg(rgb(theme.disabled_bg))
+                                .border_b_1()
+                                .border_color(rgb(theme.disabled_bg))
+                        })
+                )
+            })
     }
 }
