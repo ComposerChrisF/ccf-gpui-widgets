@@ -26,7 +26,7 @@ use gpui::prelude::*;
 use gpui::*;
 
 use crate::theme::{get_theme_or, Theme};
-use super::focus_navigation::{FocusNext, FocusPrev, handle_tab_navigation};
+use super::focus_navigation::{handle_tab_navigation, with_focus_actions, EnabledCursorExt};
 
 /// Position of the label relative to the toggle switch
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -201,8 +201,7 @@ impl Render for ToggleSwitch {
                 .rounded(px(track_height / 2.0)) // Pill shape
                 .relative()
                 .bg(rgb(track_bg))
-                .when(enabled, |d| d.cursor_pointer())
-                .when(!enabled, |d| d.cursor_default())
+                .cursor_for_enabled(enabled)
                 .child(
                     // Thumb
                     div()
@@ -217,39 +216,34 @@ impl Render for ToggleSwitch {
                 )
         };
 
-        let mut container = div()
-            .id("ccf_toggle_switch")
-            .track_focus(&focus_handle)
-            .tab_stop(enabled)
-            // Focus navigation (Tab / Shift+Tab)
-            .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
-                window.focus_next();
-            }))
-            .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
-                window.focus_prev();
-            }))
-            .on_key_down(cx.listener(move |toggle, event: &KeyDownEvent, window, cx| {
-                if !toggle.enabled {
-                    return;
-                }
-                if handle_tab_navigation(event, window) {
-                    return;
-                }
-                if matches!(event.keystroke.key.as_str(), "space" | "enter") {
-                    toggle.toggle(cx);
-                }
-            }))
-            .flex()
-            .flex_row()
-            .gap_2()
-            .items_center()
-            .py_1()
-            .px_1()
-            .rounded_sm()
-            .when(enabled, |d| d.cursor_pointer())
-            .when(!enabled, |d| d.cursor_default())
-            .border_2()
-            .border_color(if is_focused && enabled { rgb(theme.border_focus) } else { rgba(0x00000000) });
+        let mut container = with_focus_actions(
+            div()
+                .id("ccf_toggle_switch")
+                .track_focus(&focus_handle)
+                .tab_stop(enabled),
+            cx,
+        )
+        .on_key_down(cx.listener(move |toggle, event: &KeyDownEvent, window, cx| {
+            if !toggle.enabled {
+                return;
+            }
+            if handle_tab_navigation(event, window) {
+                return;
+            }
+            if matches!(event.keystroke.key.as_str(), "space" | "enter") {
+                toggle.toggle(cx);
+            }
+        }))
+        .flex()
+        .flex_row()
+        .gap_2()
+        .items_center()
+        .py_1()
+        .px_1()
+        .rounded_sm()
+        .cursor_for_enabled(enabled)
+        .border_2()
+        .border_color(if is_focused && enabled { rgb(theme.border_focus) } else { rgba(0x00000000) });
 
         if enabled {
             container = container.on_mouse_down(MouseButton::Left, cx.listener(|toggle, _event, window, cx| {

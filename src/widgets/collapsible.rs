@@ -25,7 +25,7 @@ use gpui::prelude::*;
 use gpui::*;
 
 use crate::theme::{get_theme_or, Theme};
-use super::focus_navigation::{FocusNext, FocusPrev, handle_tab_navigation};
+use super::focus_navigation::{handle_tab_navigation, with_focus_actions, EnabledCursorExt};
 
 /// Events emitted by Collapsible
 #[derive(Clone, Debug)]
@@ -141,44 +141,39 @@ impl Render for Collapsible {
             .w_full()
             .child(
                 // Header row - clickable to toggle
-                div()
-                    .id("ccf_collapsible_header")
-                    .track_focus(&focus_handle)
-                    .tab_stop(enabled)
-                    // Focus navigation (Tab / Shift+Tab)
-                    .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
-                        window.focus_next();
-                    }))
-                    .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
-                        window.focus_prev();
-                    }))
-                    .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| {
-                        if !this.enabled {
-                            return;
-                        }
-                        if handle_tab_navigation(event, window) {
-                            return;
-                        }
-                        // Arrow keys for expand/collapse
-                        // Space/enter are handled by on_click via synthetic click events
-                        match event.keystroke.key.as_str() {
-                            "down" => this.set_collapsed(false, cx),
-                            "up" => this.set_collapsed(true, cx),
-                            _ => {}
-                        }
-                    }))
-                    .flex()
-                    .flex_row()
-                    .items_center()
-                    .gap_2()
-                    .py_2()
-                    .px_2()
-                    .when(enabled, |d| d.bg(rgb(theme.bg_section_header)))
-                    .when(!enabled, |d| d.bg(rgb(theme.disabled_bg)))
-                    .rounded_md()
-                    .when(enabled, |d| d.cursor_pointer())
-                    .when(!enabled, |d| d.cursor_default())
-                    .border_2()
+                with_focus_actions(
+                    div()
+                        .id("ccf_collapsible_header")
+                        .track_focus(&focus_handle)
+                        .tab_stop(enabled),
+                    cx,
+                )
+                .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| {
+                    if !this.enabled {
+                        return;
+                    }
+                    if handle_tab_navigation(event, window) {
+                        return;
+                    }
+                    // Arrow keys for expand/collapse
+                    // Space/enter are handled by on_click via synthetic click events
+                    match event.keystroke.key.as_str() {
+                        "down" => this.set_collapsed(false, cx),
+                        "up" => this.set_collapsed(true, cx),
+                        _ => {}
+                    }
+                }))
+                .flex()
+                .flex_row()
+                .items_center()
+                .gap_2()
+                .py_2()
+                .px_2()
+                .when(enabled, |d| d.bg(rgb(theme.bg_section_header)))
+                .when(!enabled, |d| d.bg(rgb(theme.disabled_bg)))
+                .rounded_md()
+                .cursor_for_enabled(enabled)
+                .border_2()
                     .border_color(if is_focused && enabled { rgb(theme.border_focus) } else { rgba(0x00000000) })
                     .when(enabled, |d| {
                         d.hover(|d| d.bg(rgb(theme.bg_section_header_hover)))

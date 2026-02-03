@@ -26,7 +26,7 @@ use gpui::prelude::*;
 use gpui::*;
 
 use crate::theme::{get_theme_or, Theme};
-use super::focus_navigation::{FocusNext, FocusPrev, handle_tab_navigation};
+use super::focus_navigation::{handle_tab_navigation, with_focus_actions, EnabledCursorExt};
 
 /// Events emitted by Checkbox
 #[derive(Clone, Debug)]
@@ -141,37 +141,32 @@ impl Render for Checkbox {
         let is_focused = self.focus_handle.is_focused(window);
         let enabled = self.enabled;
 
-        div()
-            .id("ccf_checkbox")
-            .track_focus(&focus_handle)
-            .tab_stop(enabled)
-            // Focus navigation (Tab / Shift+Tab)
-            .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
-                window.focus_next();
-            }))
-            .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
-                window.focus_prev();
-            }))
-            .on_key_down(cx.listener(move |checkbox, event: &KeyDownEvent, window, cx| {
-                if !checkbox.enabled {
-                    return;
-                }
-                if handle_tab_navigation(event, window) {
-                    return;
-                }
-                if matches!(event.keystroke.key.as_str(), "space" | "enter") {
-                    checkbox.toggle(cx);
-                }
-            }))
-            .flex()
-            .flex_row()
-            .gap_2()
-            .items_center()
-            .py_1()
-            .px_1()
-            .rounded_sm()
-            .when(enabled, |d| d.cursor_pointer())
-            .when(!enabled, |d| d.cursor_default())
+        with_focus_actions(
+            div()
+                .id("ccf_checkbox")
+                .track_focus(&focus_handle)
+                .tab_stop(enabled),
+            cx,
+        )
+        .on_key_down(cx.listener(move |checkbox, event: &KeyDownEvent, window, cx| {
+            if !checkbox.enabled {
+                return;
+            }
+            if handle_tab_navigation(event, window) {
+                return;
+            }
+            if matches!(event.keystroke.key.as_str(), "space" | "enter") {
+                checkbox.toggle(cx);
+            }
+        }))
+        .flex()
+        .flex_row()
+        .gap_2()
+        .items_center()
+        .py_1()
+        .px_1()
+        .rounded_sm()
+        .cursor_for_enabled(enabled)
             .border_2()
             .border_color(if is_focused && enabled { rgb(theme.border_focus) } else { rgba(0x00000000) })
             .when(enabled, |d| {

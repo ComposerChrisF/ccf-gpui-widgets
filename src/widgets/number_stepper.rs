@@ -46,7 +46,7 @@ use gpui::*;
 
 use crate::theme::{get_theme_or, Theme};
 use crate::utils::format_display_value;
-use super::focus_navigation::{FocusNext, FocusPrev, handle_tab_navigation};
+use super::focus_navigation::{handle_tab_navigation, with_focus_actions, EnabledCursorExt};
 use super::text_input::{TextInput, TextInputEvent};
 
 /// Events emitted by NumberStepper
@@ -636,8 +636,7 @@ impl Render for NumberStepper {
             .px_2()
             .py_1()
             .text_color(rgb(button_text_color))
-            .when(enabled, |d| d.cursor_pointer())
-            .when(!enabled, |d| d.cursor_default())
+            .cursor_for_enabled(enabled)
             .when(enabled, |d| d.hover(|h| h.bg(rgb(theme.bg_hover))))
             .child("\u{2212}");  // Using proper minus sign
 
@@ -665,8 +664,7 @@ impl Render for NumberStepper {
             .px_2()
             .py_1()
             .text_color(rgb(button_text_color))
-            .when(enabled, |d| d.cursor_pointer())
-            .when(!enabled, |d| d.cursor_default())
+            .cursor_for_enabled(enabled)
             .when(enabled, |d| d.hover(|h| h.bg(rgb(theme.bg_hover))))
             .child("+");
 
@@ -686,18 +684,14 @@ impl Render for NumberStepper {
         }
 
         // Unified container with all three parts
-        div()
-            .id("ccf_number_stepper")
-            .track_focus(&focus_handle)
-            .tab_stop(enabled)
-            // Focus navigation (Tab / Shift+Tab)
-            .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
-                window.focus_next();
-            }))
-            .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
-                window.focus_prev();
-            }))
-            .on_key_down(cx.listener(|stepper, event: &KeyDownEvent, window, cx| {
+        with_focus_actions(
+            div()
+                .id("ccf_number_stepper")
+                .track_focus(&focus_handle)
+                .tab_stop(enabled),
+            cx,
+        )
+        .on_key_down(cx.listener(|stepper, event: &KeyDownEvent, window, cx| {
                 // Don't handle keys when disabled or editing (TextInput handles them)
                 if !stepper.enabled || stepper.editing {
                     return;

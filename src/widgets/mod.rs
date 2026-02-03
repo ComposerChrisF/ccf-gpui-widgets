@@ -47,7 +47,7 @@ pub use radio_group::{RadioGroup, RadioGroupEvent};
 pub use checkbox_group::{CheckboxGroup, CheckboxGroupEvent};
 pub use color_swatch::{ColorSwatch, ColorSwatchEvent, PickerMode, register_keybindings as register_color_swatch_keybindings};
 pub use collapsible::{Collapsible, CollapsibleEvent};
-pub use focus_navigation::{FocusNext, FocusPrev, register_keybindings as register_focus_navigation_keybindings};
+pub use focus_navigation::{FocusNext, FocusPrev, register_keybindings as register_focus_navigation_keybindings, with_focus_actions, EnabledCursorExt};
 pub use button::{primary_button, secondary_button, danger_button, register_keybindings as register_button_keybindings};
 pub use toggle_switch::{ToggleSwitch, ToggleSwitchEvent, LabelPosition};
 pub use slider::{Slider, SliderEvent};

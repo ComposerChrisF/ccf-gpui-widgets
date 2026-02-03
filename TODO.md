@@ -217,6 +217,13 @@ The library is functional and being used by clui.
 - [x] Widget gallery: Changed render methods to use `&Context` instead of `&mut Context` where possible
 - [x] Fixed clippy `approx_constant` errors in format_display_value tests
 
+### ✅ Focus Navigation & Cursor Helpers (2026-02-02)
+- [x] Added `with_focus_actions()` generic helper function to focus_navigation module
+- [x] Added `EnabledCursorExt` trait with `.cursor_for_enabled(bool)` method
+- [x] Simplified FocusNext/FocusPrev action handlers across 13 widgets
+- [x] Simplified cursor_pointer/cursor_default patterns across 16 widgets
+- [x] Exported `with_focus_actions` and `EnabledCursorExt` from widgets module
+
 ### ✅ New Widgets: Toggle, Slider, Progress, Spinner, Dialog (2026-01-30)
 - [x] ToggleSwitch: iOS-style toggle switch with pill-shaped track and circular thumb
 - [x] ToggleSwitch: Label support with configurable position (left or right)

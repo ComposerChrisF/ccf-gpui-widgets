@@ -28,7 +28,7 @@ use gpui::prelude::*;
 use gpui::*;
 
 use crate::theme::{get_theme_or, Theme};
-use super::focus_navigation::{FocusNext, FocusPrev, handle_tab_navigation};
+use super::focus_navigation::{handle_tab_navigation, with_focus_actions, EnabledCursorExt};
 
 /// Events emitted by CheckboxGroup
 #[derive(Clone, Debug)]
@@ -153,18 +153,14 @@ impl Render for CheckboxGroup {
         let num_choices = self.choices.len();
         let enabled = self.enabled;
 
-        div()
-            .id("ccf_checkbox_group")
-            .track_focus(&focus_handle)
-            .tab_stop(enabled)
-            // Focus navigation (Tab / Shift+Tab)
-            .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
-                window.focus_next();
-            }))
-            .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
-                window.focus_prev();
-            }))
-            .on_key_down(cx.listener(move |group, event: &KeyDownEvent, window, cx| {
+        with_focus_actions(
+            div()
+                .id("ccf_checkbox_group")
+                .track_focus(&focus_handle)
+                .tab_stop(enabled),
+            cx,
+        )
+        .on_key_down(cx.listener(move |group, event: &KeyDownEvent, window, cx| {
                 if !group.enabled {
                     return;
                 }
@@ -222,8 +218,7 @@ impl Render for CheckboxGroup {
                     .items_center()
                     .py_1()
                     .px_1()
-                    .when(enabled, |d| d.cursor_pointer())
-                    .when(!enabled, |d| d.cursor_default())
+                    .cursor_for_enabled(enabled)
                     .rounded_sm()
                     .when(is_highlighted, |d| d.bg(rgb(theme.bg_input_hover)))
                     .when(!is_highlighted && enabled, |d| d.hover(|d| d.bg(rgb(theme.bg_input_hover))))

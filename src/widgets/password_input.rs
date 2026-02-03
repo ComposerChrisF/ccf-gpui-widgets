@@ -39,7 +39,7 @@ use secrecy::SecretString;
 use crate::theme::{get_theme_or, Theme};
 use super::cursor_blink::CursorBlink;
 use super::editing_core::EditingCore;
-use super::focus_navigation::{FocusNext, FocusPrev, handle_tab_navigation};
+use super::focus_navigation::{FocusNext, FocusPrev, handle_tab_navigation, EnabledCursorExt};
 use super::text_input::{
     MoveLeft, MoveRight, MoveWordLeft, MoveWordRight, MoveToStart, MoveToEnd,
     SelectLeft, SelectRight, SelectWordLeft, SelectWordRight, SelectToStart, SelectToEnd, SelectAll,
@@ -1059,8 +1059,7 @@ impl Render for PasswordInput {
                     .justify_center()
                     .w(px(28.0))
                     .h_full()
-                    .when(enabled, |d| d.cursor_pointer())
-                    .when(!enabled, |d| d.cursor_default())
+                    .cursor_for_enabled(enabled)
                     .text_color(rgb(button_text_color))
                     .when(toggle_is_focused && enabled, |d| d.bg(rgb(theme.bg_hover)))
                     .when(enabled, |d| d.hover(|d| d.bg(rgb(theme.bg_hover))))

@@ -68,7 +68,7 @@ use gpui::*;
 
 use crate::theme::{get_theme_or, Theme};
 use super::button::{primary_button, secondary_button, danger_button};
-use super::focus_navigation::{FocusNext, FocusPrev};
+use super::focus_navigation::with_focus_actions;
 
 /// Dialog style/severity (controls primary button color)
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -297,19 +297,16 @@ impl Render for ConfirmationDialog {
         buttons = buttons.child(primary_button_element);
 
         // Dialog box
-        let dialog_box = div()
-            .id("ccf_confirmation_dialog_box")
-            .track_focus(&focus_handle)
-            .tab_stop(true)
-            .occlude()
-            .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
-                window.focus_next();
-            }))
-            .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
-                window.focus_prev();
-            }))
-            // Tab navigation responds on keydown for immediate feedback
-            .on_key_down(cx.listener(|_dialog, event: &KeyDownEvent, window, _cx| {
+        let dialog_box = with_focus_actions(
+            div()
+                .id("ccf_confirmation_dialog_box")
+                .track_focus(&focus_handle)
+                .tab_stop(true)
+                .occlude(),
+            cx,
+        )
+        // Tab navigation responds on keydown for immediate feedback
+        .on_key_down(cx.listener(|_dialog, event: &KeyDownEvent, window, _cx| {
                 if event.keystroke.key.as_str() == "tab" {
                     if event.keystroke.modifiers.shift {
                         window.focus_prev();

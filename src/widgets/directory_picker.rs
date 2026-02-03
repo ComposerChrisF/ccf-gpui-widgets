@@ -30,7 +30,7 @@ use gpui::*;
 
 #[cfg(feature = "file-picker")]
 use crate::theme::{get_theme_or, Theme};
-use super::focus_navigation::{FocusNext, FocusPrev};
+use super::focus_navigation::{FocusNext, FocusPrev, EnabledCursorExt};
 #[cfg(feature = "file-picker")]
 use crate::utils::path::{parse_path, PathInfo};
 #[cfg(feature = "file-picker")]
@@ -662,8 +662,7 @@ impl Render for DirectoryPicker {
                                 }))
                             })
                             .when(!enabled, |d| d.border_color(rgb(theme.disabled_bg)))
-                            .when(enabled, |d| d.cursor_pointer())
-                            .when(!enabled, |d| d.cursor_default())
+                            .cursor_for_enabled(enabled)
                             .when(enabled, |d| d.hover(|d| d.bg(rgb(theme.bg_hover))))
                             .when(enabled, |d| {
                                 d.on_click(cx.listener(|picker, _event, window, cx| {
@@ -730,8 +729,7 @@ impl Render for DirectoryPicker {
                                 }))
                             })
                             .when(!enabled, |d| d.border_color(rgb(theme.disabled_bg)))
-                            .when(enabled, |d| d.cursor_pointer())
-                            .when(!enabled, |d| d.cursor_default())
+                            .cursor_for_enabled(enabled)
                             .when(enabled, |d| d.hover(|d| d.bg(rgb(theme.bg_hover))))
                             .when(enabled, |d| {
                                 d.on_click(cx.listener(|picker, _event, window, cx| {

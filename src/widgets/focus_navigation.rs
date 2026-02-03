@@ -4,6 +4,7 @@
 //! Call `register_focus_navigation_keybindings` at application startup
 //! to enable Tab/Shift+Tab navigation between widgets.
 
+use gpui::prelude::*;
 use gpui::*;
 
 // Define actions for focus navigation
@@ -42,3 +43,53 @@ pub fn handle_tab_navigation(event: &KeyDownEvent, window: &mut Window) -> bool 
         false
     }
 }
+
+/// Apply standard focus navigation actions (Tab / Shift+Tab) to an element.
+///
+/// This helper reduces boilerplate in widget render methods by adding
+/// the common FocusNext and FocusPrev action handlers.
+///
+/// # Example
+///
+/// ```ignore
+/// use ccf_gpui_widgets::widgets::focus_navigation::with_focus_actions;
+///
+/// with_focus_actions(
+///     div()
+///         .id("my_widget")
+///         .track_focus(&focus_handle),
+///     cx,
+/// )
+/// ```
+pub fn with_focus_actions<V: 'static, E: InteractiveElement>(element: E, cx: &mut Context<V>) -> E {
+    element
+        .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
+            window.focus_next();
+        }))
+        .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
+            window.focus_prev();
+        }))
+}
+
+/// Extension trait for applying cursor styling based on enabled state.
+///
+/// This reduces the common pattern of:
+/// ```ignore
+/// .when(enabled, |d| d.cursor_pointer())
+/// .when(!enabled, |d| d.cursor_default())
+/// ```
+///
+/// To simply:
+/// ```ignore
+/// .cursor_for_enabled(enabled)
+/// ```
+pub trait EnabledCursorExt: Styled + Sized + FluentBuilder {
+    /// Apply cursor styling based on enabled state.
+    /// When enabled, uses pointer cursor; otherwise uses default cursor.
+    fn cursor_for_enabled(self, enabled: bool) -> Self {
+        self.when(enabled, |d| d.cursor_pointer())
+            .when(!enabled, |d| d.cursor_default())
+    }
+}
+
+impl<E: Styled + Sized + FluentBuilder> EnabledCursorExt for E {}

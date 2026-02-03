@@ -34,7 +34,7 @@ use gpui::prelude::*;
 use gpui::*;
 use crate::theme::{get_theme, Theme};
 use super::text_input::{TextInput, TextInputEvent};
-use super::focus_navigation::{FocusNext, FocusPrev};
+use super::focus_navigation::{with_focus_actions, EnabledCursorExt};
 
 // Actions for button activation
 actions!(ccf_repeatable_text_input, [ActivateButton]);
@@ -281,35 +281,31 @@ impl Render for RepeatableTextInput {
                     .flex_col()
                     .gap_2()
                     .children(entry_data.into_iter().map(|(index, entry, focus_handle, is_focused)| {
-                        let mut remove_button = div()
-                            .id(SharedString::from(format!("repeatable_remove_{}", index)))
-                            .key_context("CcfRepeatableButton")
-                            .track_focus(&focus_handle)
-                            .tab_stop(enabled)
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .h(px(28.))
-                            .w(px(28.))
-                            .rounded_md()
-                            .border_2()
-                            .when(enabled, |d| {
-                                d.bg(rgb(theme.delete_bg))
-                                    .cursor_pointer()
-                                    .hover(|d| d.bg(rgb(theme.delete_bg_hover)))
-                                    .border_color(if is_focused { rgb(theme.border_focus) } else { rgba(0x00000000) })
-                            })
-                            .when(!enabled, |d| {
-                                d.bg(rgb(theme.disabled_bg))
-                                    .cursor_default()
-                                    .border_color(rgba(0x00000000))
-                            })
-                            .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
-                                window.focus_next();
-                            }))
-                            .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
-                                window.focus_prev();
-                            }))
+                        let mut remove_button = with_focus_actions(
+                            div()
+                                .id(SharedString::from(format!("repeatable_remove_{}", index)))
+                                .key_context("CcfRepeatableButton")
+                                .track_focus(&focus_handle)
+                                .tab_stop(enabled),
+                            cx,
+                        )
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .h(px(28.))
+                        .w(px(28.))
+                        .rounded_md()
+                        .border_2()
+                        .cursor_for_enabled(enabled)
+                        .when(enabled, |d| {
+                            d.bg(rgb(theme.delete_bg))
+                                .hover(|d| d.bg(rgb(theme.delete_bg_hover)))
+                                .border_color(if is_focused { rgb(theme.border_focus) } else { rgba(0x00000000) })
+                        })
+                        .when(!enabled, |d| {
+                            d.bg(rgb(theme.disabled_bg))
+                                .border_color(rgba(0x00000000))
+                        })
                             .child(
                                 div()
                                     .text_sm()
@@ -349,35 +345,31 @@ impl Render for RepeatableTextInput {
                     .flex_row()
                     .child({
                         // Add button - height matches text input (28px)
-                        let mut add_button = div()
-                            .id("repeatable_add_button")
-                            .key_context("CcfRepeatableButton")
-                            .track_focus(&self.add_focus_handle)
-                            .tab_stop(enabled)
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .h(px(28.))
-                            .w(px(28.))
-                            .rounded_md()
-                            .border_2()
-                            .when(enabled, |d| {
-                                d.bg(rgb(theme.bg_input_hover))
-                                    .cursor_pointer()
-                                    .hover(|d| d.bg(rgb(theme.bg_hover)))
-                                    .border_color(if add_focused { rgb(theme.border_focus) } else { rgba(0x00000000) })
-                            })
-                            .when(!enabled, |d| {
-                                d.bg(rgb(theme.disabled_bg))
-                                    .cursor_default()
-                                    .border_color(rgba(0x00000000))
-                            })
-                            .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
-                                window.focus_next();
-                            }))
-                            .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
-                                window.focus_prev();
-                            }))
+                        let mut add_button = with_focus_actions(
+                            div()
+                                .id("repeatable_add_button")
+                                .key_context("CcfRepeatableButton")
+                                .track_focus(&self.add_focus_handle)
+                                .tab_stop(enabled),
+                            cx,
+                        )
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .h(px(28.))
+                        .w(px(28.))
+                        .rounded_md()
+                        .border_2()
+                        .cursor_for_enabled(enabled)
+                        .when(enabled, |d| {
+                            d.bg(rgb(theme.bg_input_hover))
+                                .hover(|d| d.bg(rgb(theme.bg_hover)))
+                                .border_color(if add_focused { rgb(theme.border_focus) } else { rgba(0x00000000) })
+                        })
+                        .when(!enabled, |d| {
+                            d.bg(rgb(theme.disabled_bg))
+                                .border_color(rgba(0x00000000))
+                        })
                             .child(
                                 div()
                                     .text_sm()

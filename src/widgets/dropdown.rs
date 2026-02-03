@@ -29,7 +29,7 @@ use gpui::prelude::*;
 use gpui::*;
 
 use crate::theme::{get_theme_or, Theme};
-use super::focus_navigation::{FocusNext, FocusPrev, handle_tab_navigation};
+use super::focus_navigation::{handle_tab_navigation, with_focus_actions};
 
 // Actions for keyboard navigation
 actions!(ccf_dropdown, [CloseDropdown, SelectPrevious, SelectNext, ConfirmSelection, ToggleDropdown]);
@@ -259,20 +259,16 @@ impl Render for Dropdown {
         let disabled_bg = theme.disabled_bg;
         let disabled_text = theme.disabled_text;
 
-        div()
-            .id("ccf_dropdown")
-            .relative()
-            .key_context("CcfDropdown")
-            .track_focus(&focus_handle)
-            .tab_stop(enabled)
-            // Focus navigation (Tab / Shift+Tab)
-            .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
-                window.focus_next();
-            }))
-            .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
-                window.focus_prev();
-            }))
-            .on_action(cx.listener(|dropdown, _: &CloseDropdown, _window, cx| {
+        with_focus_actions(
+            div()
+                .id("ccf_dropdown")
+                .relative()
+                .key_context("CcfDropdown")
+                .track_focus(&focus_handle)
+                .tab_stop(enabled),
+            cx,
+        )
+        .on_action(cx.listener(|dropdown, _: &CloseDropdown, _window, cx| {
                 if dropdown.enabled {
                     dropdown.close(cx);
                 }

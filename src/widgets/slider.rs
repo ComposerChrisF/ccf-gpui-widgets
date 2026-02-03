@@ -43,7 +43,7 @@ use gpui::*;
 
 use crate::theme::{get_theme_or, Theme};
 use crate::utils::format_display_value;
-use super::focus_navigation::{FocusNext, FocusPrev, handle_tab_navigation};
+use super::focus_navigation::{handle_tab_navigation, with_focus_actions, EnabledCursorExt};
 
 /// Events emitted by Slider
 #[derive(Clone, Debug)]
@@ -346,8 +346,7 @@ impl Render for Slider {
             .relative()
             .flex_1()
             .h(px(thumb_size)) // Height includes thumb space
-            .when(enabled, |d| d.cursor_pointer())
-            .when(!enabled, |d| d.cursor_default())
+            .cursor_for_enabled(enabled)
             // Canvas to measure track position and dimensions
             .child(
                 canvas(
@@ -440,18 +439,14 @@ impl Render for Slider {
                 }));
         }
 
-        div()
-            .id("ccf_slider")
-            .track_focus(&focus_handle)
-            .tab_stop(enabled)
-            // Focus navigation
-            .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
-                window.focus_next();
-            }))
-            .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
-                window.focus_prev();
-            }))
-            .on_key_down(cx.listener(|slider, event: &KeyDownEvent, window, cx| {
+        with_focus_actions(
+            div()
+                .id("ccf_slider")
+                .track_focus(&focus_handle)
+                .tab_stop(enabled),
+            cx,
+        )
+        .on_key_down(cx.listener(|slider, event: &KeyDownEvent, window, cx| {
                 if !slider.enabled {
                     return;
                 }

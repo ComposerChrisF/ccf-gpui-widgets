@@ -59,7 +59,7 @@
 use gpui::prelude::*;
 use gpui::*;
 use crate::theme::{get_theme, Theme};
-use super::focus_navigation::{FocusNext, FocusPrev};
+use super::focus_navigation::{with_focus_actions, EnabledCursorExt};
 
 // Actions for keyboard navigation
 actions!(ccf_tab_bar, [SelectPreviousTab, SelectNextTab]);
@@ -228,24 +228,20 @@ impl<T: TabItem> Render for TabBar<T> {
         let is_focused = self.focus_handle.is_focused(window);
         let enabled = self.enabled;
 
-        div()
-            .id("ccf_tab_bar")
-            .key_context("CcfTabBar")
-            .track_focus(&self.focus_handle)
-            .tab_stop(enabled)
-            .flex()
-            .flex_row()
-            .when(enabled, |d| d.bg(rgb(theme.bg_secondary)))
-            .when(!enabled, |d| d.bg(rgb(theme.disabled_bg)))
-            // Focus navigation (Tab / Shift+Tab)
-            .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
-                window.focus_next();
-            }))
-            .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
-                window.focus_prev();
-            }))
-            // Tab navigation (Left / Right arrows)
-            .on_action(cx.listener(|this, _: &SelectPreviousTab, _window, cx| {
+        with_focus_actions(
+            div()
+                .id("ccf_tab_bar")
+                .key_context("CcfTabBar")
+                .track_focus(&self.focus_handle)
+                .tab_stop(enabled),
+            cx,
+        )
+        .flex()
+        .flex_row()
+        .when(enabled, |d| d.bg(rgb(theme.bg_secondary)))
+        .when(!enabled, |d| d.bg(rgb(theme.disabled_bg)))
+        // Tab navigation (Left / Right arrows)
+        .on_action(cx.listener(|this, _: &SelectPreviousTab, _window, cx| {
                 if this.enabled {
                     this.select_previous(cx);
                 }
@@ -266,8 +262,7 @@ impl<T: TabItem> Render for TabBar<T> {
                     .id(tab.id())
                     .border_2()
                     .border_color(if show_focus_ring { rgb(theme.border_focus) } else { rgba(0x00000000) })
-                    .when(enabled, |d| d.cursor_pointer())
-                    .when(!enabled, |d| d.cursor_default())
+                    .cursor_for_enabled(enabled)
                     .when(enabled, |d| {
                         let tab_clone = tab.clone();
                         d.on_mouse_down(MouseButton::Left, {
