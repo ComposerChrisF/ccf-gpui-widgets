@@ -323,7 +323,7 @@ impl<T: TabItem> Render for TabBar<T> {
                         div()
                             .px_4()
                             .pb_2()
-                            // Active tab: py_2 top + border_t_2, no other borders
+                            // Active tab: py_2 top + border_t_2 (always accent), no other borders
                             .when(is_active, |d| {
                                 d.pt_2() // Standard top padding
                                     .border_t_2()
@@ -338,12 +338,7 @@ impl<T: TabItem> Render for TabBar<T> {
                             .when(is_active && enabled, |d| {
                                 d.bg(rgb(theme.bg_primary))
                                     .text_color(rgb(theme.text_primary))
-                                    .when(show_focus, |d| {
-                                        d.border_color(rgb(theme.border_focus))
-                                    })
-                                    .when(!show_focus, |d| {
-                                        d.border_color(rgb(theme.bg_secondary))
-                                    })
+                                    .border_color(rgb(theme.border_focus)) // Always accent for active tab
                             })
                             .when(is_active && !enabled, |d| {
                                 d.bg(rgb(theme.disabled_bg))
@@ -364,7 +359,16 @@ impl<T: TabItem> Render for TabBar<T> {
                                     .text_color(rgb(theme.disabled_text))
                                     .border_color(rgb(theme.disabled_bg))
                             })
-                            .child(tab.label())
+                            // Text with focus ring (border always present to prevent layout shift)
+                            .child(
+                                div()
+                                    .px_1()
+                                    .border_1()
+                                    .rounded_sm()
+                                    .when(show_focus, |d| d.border_color(rgb(theme.border_focus)))
+                                    .when(!show_focus, |d| d.border_color(rgba(0x00000000)))
+                                    .child(tab.label())
+                            )
                     )
             }))
             // Filler area to the right of tabs (draws its own bottom border)
