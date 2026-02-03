@@ -132,6 +132,11 @@ struct WidgetGallery {
     // Segmented control
     segmented_control: Entity<SegmentedControl>,
 
+    // Collapsible sections
+    collapsible: Entity<Collapsible>,
+    collapsible_expanded: Entity<Collapsible>,
+    collapsible_static: Entity<Collapsible>,
+
     // Dialog state
     show_info_dialog: bool,
     info_dialog: Entity<ConfirmationDialog>,
@@ -396,6 +401,24 @@ impl WidgetGallery {
                 .with_selected("100")
         });
 
+        // Collapsible sections
+        let collapsible = cx.new(|cx| {
+            Collapsible::new("Advanced Options", cx)
+                .with_collapsed(true)
+        });
+        let collapsible_expanded = cx.new(|cx| {
+            Collapsible::new("Details Section", cx)
+                .with_collapsed(false)
+        });
+        let collapsible_static = cx.new(|cx| {
+            Collapsible::new("Static Section Header", cx)
+                .collapsible(false)
+        });
+
+        // Subscribe to collapsible events
+        subscribe_widget!(cx, &collapsible, "Collapsible", CollapsibleEvent);
+        subscribe_widget!(cx, &collapsible_expanded, "Collapsible (expanded)", CollapsibleEvent);
+
         // Info dialog: single button, easy to dismiss
         let info_dialog = cx.new(|cx| {
             ConfirmationDialog::new(
@@ -533,6 +556,9 @@ impl WidgetGallery {
             spinner_medium,
             spinner_large,
             segmented_control,
+            collapsible,
+            collapsible_expanded,
+            collapsible_static,
             show_info_dialog: false,
             info_dialog,
             info_result: None,
@@ -1619,6 +1645,114 @@ impl WidgetGallery {
         ))
     }
 
+    fn render_collapsible_section(&self, cx: &Context<Self>) -> impl IntoElement {
+        let theme = get_theme(cx);
+        let collapsed_state = self.collapsible.read(cx).is_collapsed();
+        let expanded_state = self.collapsible_expanded.read(cx).is_collapsed();
+
+        div()
+            .flex()
+            .flex_col()
+            .gap_4()
+            .child(Self::render_widget_row(
+                "Collapsible (collapsed)",
+                "Click or Enter/Space to toggle, ↑/↓ keys",
+                div()
+                    .w(px(300.0))
+                    .flex()
+                    .flex_col()
+                    .child(self.collapsible.clone())
+                    .when(!collapsed_state, |d| {
+                        d.child(
+                            div()
+                                .p_3()
+                                .bg(rgb(theme.bg_input))
+                                .border_1()
+                                .border_color(rgb(theme.border_default))
+                                .border_t_0()
+                                .rounded_b_md()
+                                .text_sm()
+                                .text_color(rgb(theme.text_primary))
+                                .child("This is the hidden content that appears when expanded. You can put any content here."),
+                        )
+                    }),
+                Some(if collapsed_state { "collapsed" } else { "expanded" }.to_string()),
+                cx,
+            ))
+            .child(Self::render_widget_row(
+                "Collapsible (expanded)",
+                "Starts expanded",
+                div()
+                    .w(px(300.0))
+                    .flex()
+                    .flex_col()
+                    .child(self.collapsible_expanded.clone())
+                    .when(!expanded_state, |d| {
+                        d.child(
+                            div()
+                                .p_3()
+                                .bg(rgb(theme.bg_input))
+                                .border_1()
+                                .border_color(rgb(theme.border_default))
+                                .border_t_0()
+                                .rounded_b_md()
+                                .flex()
+                                .flex_col()
+                                .gap_2()
+                                .child(
+                                    div()
+                                        .text_sm()
+                                        .text_color(rgb(theme.text_primary))
+                                        .child("Details can include multiple elements:"),
+                                )
+                                .child(
+                                    div()
+                                        .text_xs()
+                                        .text_color(rgb(theme.text_muted))
+                                        .child("• First item"),
+                                )
+                                .child(
+                                    div()
+                                        .text_xs()
+                                        .text_color(rgb(theme.text_muted))
+                                        .child("• Second item"),
+                                )
+                                .child(
+                                    div()
+                                        .text_xs()
+                                        .text_color(rgb(theme.text_muted))
+                                        .child("• Third item"),
+                                ),
+                        )
+                    }),
+                Some(if expanded_state { "collapsed" } else { "expanded" }.to_string()),
+                cx,
+            ))
+            .child(Self::render_widget_row(
+                "Static Section Header",
+                "Non-collapsible mode via .collapsible(false)",
+                div()
+                    .w(px(300.0))
+                    .flex()
+                    .flex_col()
+                    .overflow_hidden()
+                    .rounded_md()
+                    .border_1()
+                    .border_color(rgb(theme.border_default))
+                    .child(self.collapsible_static.clone())
+                    .child(
+                        div()
+                            .p_3()
+                            .bg(rgb(theme.bg_input))
+                            .text_sm()
+                            .text_color(rgb(theme.text_primary))
+                            .child("Content is always visible. No chevron, not focusable."),
+                    ),
+                Some("static".to_string()),
+                cx,
+            ))
+    }
+
     fn render_scrollable_section(&self, cx: &Context<Self>) -> impl IntoElement {
         let theme = get_theme(cx);
 
@@ -1989,6 +2123,11 @@ impl WidgetGallery {
             .flex()
             .flex_col()
             .gap_2()
+            .child(Self::render_category_section(
+                "Collapsible",
+                self.render_collapsible_section(cx),
+                cx,
+            ))
             .child(Self::render_category_section(
                 "Tooltip",
                 self.render_tooltip_section(cx),

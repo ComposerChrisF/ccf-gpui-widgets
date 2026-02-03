@@ -264,6 +264,16 @@ The library is functional and being used by clui.
 - [x] TextInput: Made `cx.notify()` conditional in delete handlers (only when content changed)
 - [x] CheckboxEvent/ToggleSwitchEvent: Added detailed doc comments explaining boolean semantics
 
+### ✅ Collapsible Widget Improvements (2026-02-03)
+- [x] Collapsible: Fixed click and focus not working (changed `on_click` to `on_mouse_down`)
+- [x] Collapsible: Added `.collapsible(false)` builder for static section headers (no chevron, not interactive)
+- [x] Collapsible: Added `is_collapsible()` getter and `set_collapsible()` setter
+- [x] Collapsible: Header corners now only round on top when expanded (flat bottom to meet content)
+- [x] Collapsible: Reduced header vertical padding by 2px
+- [x] Collapsible: Updated documentation with recommended container wrapping pattern
+- [x] Widget gallery: Added Collapsible demos (collapsed, expanded, static) to Utility category
+- [x] Theme: Adjusted warning color for better visibility
+
 ### ✅ New Widgets: Toggle, Slider, Progress, Spinner, Dialog (2026-01-30)
 - [x] ToggleSwitch: iOS-style toggle switch with pill-shaped track and circular thumb
 - [x] ToggleSwitch: Label support with configurable position (left or right)

@@ -206,7 +206,7 @@ impl Theme {
             // Status colors
             success: 0x4CAF50,
             error: 0xF44336,
-            warning: 0xFFA726,
+            warning: 0xF57C00,
             error_text: 0xFF6B6B,
 
             // Tooltip colors
@@ -284,7 +284,7 @@ impl Theme {
             // Status colors
             success: 0x4CAF50,
             error: 0xF44336,
-            warning: 0xFFA726,
+            warning: 0xF57C00,
             error_text: 0xdc3545,
 
             // Tooltip colors
