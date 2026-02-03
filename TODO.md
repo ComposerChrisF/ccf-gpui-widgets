@@ -235,6 +235,7 @@ The library is functional and being used by clui.
 - [x] SegmentedControl: Keyboard navigation with arrow keys
 - [x] SegmentedControl: Theme support with custom_theme field
 - [x] All three widgets follow library patterns: builder methods, theme support, events
+- [x] Widget gallery: Added demos for SegmentedControl, Scrollable (vertical and horizontal)
 
 ### ✅ NumberStepper Step Multiplier Enhancements (2026-02-02)
 - [x] NumberStepper: Added Alt/Option modifier for small step (0.1x default)

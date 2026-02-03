@@ -67,6 +67,8 @@ struct WidgetGallery {
     section_progress: Entity<Collapsible>,
     section_spinner: Entity<Collapsible>,
     section_dialog: Entity<Collapsible>,
+    section_segmented: Entity<Collapsible>,
+    section_scrollable: Entity<Collapsible>,
     #[cfg(feature = "file-picker")]
     section_file: Entity<Collapsible>,
     #[cfg(feature = "file-picker")]
@@ -112,6 +114,9 @@ struct WidgetGallery {
     spinner_small: Entity<Spinner>,
     spinner_medium: Entity<Spinner>,
     spinner_large: Entity<Spinner>,
+    // Segmented control
+    segmented_control: Entity<SegmentedControl>,
+
     // Dialog state
     show_info_dialog: bool,
     info_dialog: Entity<ConfirmationDialog>,
@@ -199,6 +204,8 @@ impl WidgetGallery {
         let section_progress = cx.new(|cx| Collapsible::new("Progress Bar", cx));
         let section_spinner = cx.new(|cx| Collapsible::new("Spinner", cx));
         let section_dialog = cx.new(|cx| Collapsible::new("Confirmation Dialog", cx));
+        let section_segmented = cx.new(|cx| Collapsible::new("Segmented Control", cx));
+        let section_scrollable = cx.new(|cx| Collapsible::new("Scrollable", cx));
         #[cfg(feature = "file-picker")]
         let section_file = cx.new(|cx| Collapsible::new("File Pickers", cx));
         #[cfg(feature = "file-picker")]
@@ -362,6 +369,18 @@ impl WidgetGallery {
         let spinner_medium = cx.new(|_cx| Spinner::new().size(SpinnerSize::Medium));
         let spinner_large = cx.new(|_cx| Spinner::new().size(SpinnerSize::Large));
 
+        // Segmented control
+        let segmented_control = cx.new(|cx| {
+            SegmentedControl::new(cx)
+                .options(vec![
+                    ("fit", "Fit"),
+                    ("100", "100%"),
+                    ("200", "200%"),
+                    ("custom", "Custom"),
+                ])
+                .with_selected("100")
+        });
+
         // Info dialog: single button, easy to dismiss
         let info_dialog = cx.new(|cx| {
             ConfirmationDialog::new(
@@ -458,6 +477,9 @@ impl WidgetGallery {
             &danger_dialog,
         );
 
+        // Subscribe to segmented control events
+        subscribe_widget!(cx, &segmented_control, "SegmentedControl", SegmentedControlEvent);
+
         Self {
             current_theme: ThemeChoice::Dark,
             widgets_enabled: true,
@@ -478,6 +500,8 @@ impl WidgetGallery {
             section_progress,
             section_spinner,
             section_dialog,
+            section_segmented,
+            section_scrollable,
             #[cfg(feature = "file-picker")]
             section_file,
             #[cfg(feature = "file-picker")]
@@ -516,6 +540,7 @@ impl WidgetGallery {
             spinner_small,
             spinner_medium,
             spinner_large,
+            segmented_control,
             show_info_dialog: false,
             info_dialog,
             info_result: None,
@@ -708,6 +733,7 @@ impl WidgetGallery {
             self.toggle_switch_labeled,
             self.slider,
             self.slider_with_value,
+            self.segmented_control,
         );
 
         // Collapsible sections
@@ -730,6 +756,8 @@ impl WidgetGallery {
             self.section_progress,
             self.section_spinner,
             self.section_dialog,
+            self.section_segmented,
+            self.section_scrollable,
         );
 
         // Feature-gated widgets
@@ -1780,6 +1808,90 @@ impl WidgetGallery {
         self.render_section_with_content(&self.section_dialog.clone(), content, cx)
     }
 
+    fn render_segmented_section(&self, cx: &Context<Self>) -> impl IntoElement {
+        let selected = self.segmented_control.read(cx).selected().to_string();
+
+        div().child(Self::render_widget_row(
+            "Segmented Control",
+            "Use arrow keys or click to select",
+            self.segmented_control.clone(),
+            Some(format!("\"{}\"", selected)),
+            cx,
+        ))
+    }
+
+    fn render_scrollable_section(&self, cx: &Context<Self>) -> impl IntoElement {
+        let theme = get_theme(cx);
+
+        div()
+            .flex()
+            .flex_col()
+            .gap_4()
+            .child(Self::render_widget_row(
+                "Vertical Scrollable",
+                "Visible scrollbar with auto-fade",
+                div()
+                    .w(px(300.0))
+                    .h(px(120.0))
+                    .border_1()
+                    .border_color(rgb(theme.border_default))
+                    .rounded_md()
+                    .overflow_hidden()
+                    .child(
+                        scrollable_vertical(
+                            div()
+                                .p_2()
+                                .flex()
+                                .flex_col()
+                                .gap_1()
+                                .children((1..=20).map(|i| {
+                                    div()
+                                        .text_sm()
+                                        .text_color(rgb(theme.text_primary))
+                                        .child(format!("Item {} - Scroll to see more", i))
+                                })),
+                        )
+                        .always_show_scrollbars(),
+                    ),
+                None,
+                cx,
+            ))
+            .child(Self::render_widget_row(
+                "Horizontal Scrollable",
+                "Scrollbar at bottom",
+                div()
+                    .w(px(300.0))
+                    .h(px(60.0))
+                    .border_1()
+                    .border_color(rgb(theme.border_default))
+                    .rounded_md()
+                    .overflow_hidden()
+                    .child(
+                        scrollable_horizontal(
+                            div()
+                                .p_2()
+                                .flex()
+                                .flex_row()
+                                .gap_2()
+                                .children((1..=15).map(|i| {
+                                    div()
+                                        .px_3()
+                                        .py_1()
+                                        .bg(rgb(theme.bg_input))
+                                        .rounded_md()
+                                        .text_sm()
+                                        .text_color(rgb(theme.text_primary))
+                                        .whitespace_nowrap()
+                                        .child(format!("Tag {}", i))
+                                })),
+                        )
+                        .always_show_scrollbars(),
+                    ),
+                None,
+                cx,
+            ))
+    }
+
     fn render_event_log(&self, cx: &Context<Self>) -> impl IntoElement {
         let theme = get_theme(cx);
 
@@ -1993,6 +2105,18 @@ impl Render for WidgetGallery {
                             .child(self.render_spinner_section_wrapper(cx))
                             // Confirmation Dialog Section
                             .child(self.render_dialog_section_wrapper(cx))
+                            // Segmented Control Section
+                            .child(self.render_section(
+                                &self.section_segmented,
+                                || self.render_segmented_section(cx),
+                                cx,
+                            ))
+                            // Scrollable Section
+                            .child(self.render_section(
+                                &self.section_scrollable,
+                                || self.render_scrollable_section(cx),
+                                cx,
+                            ))
                             // File Pickers Section (conditional)
                             .child(self.render_file_pickers_section(cx))
                             // Repeatable File Picker Section (conditional)
