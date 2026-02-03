@@ -395,18 +395,10 @@ impl ColorSwatch {
         self.sync_value(cx);
     }
 
-    /// Update from HSL values (preserves hue for H slider)
-    #[allow(dead_code)]
-    fn update_from_hsl(&mut self, h: f32, s: f32, l: f32, cx: &mut Context<Self>) {
-        self.current_hsl = Hsl::new(h, s, l);
-        self.current_rgb = self.current_hsl.to_rgb();
-        self.current_hsv = self.current_rgb.to_hsv();
-        // Preserve hue in HSV to match HSL hue
-        self.current_hsv = Hsv::new(h, self.current_hsv.s, self.current_hsv.v);
-        self.sync_value(cx);
-    }
-
     /// Update from HSV values (used by the S/V canvas)
+    ///
+    /// Updates all internal color representations (HSV, RGB, HSL) while preserving
+    /// the hue value in HSL to keep the hue slider consistent.
     fn update_from_hsv(&mut self, h: f32, s: f32, v: f32, cx: &mut Context<Self>) {
         self.current_hsv = Hsv::new(h, s, v);
         self.current_rgb = self.current_hsv.to_rgb();
@@ -462,8 +454,10 @@ impl ColorSwatch {
     }
 
     /// Handle S/V canvas interaction at position (HSV model)
-    /// X axis = Saturation (0% left to 100% right)
-    /// Y axis = Value/Brightness (0% bottom to 100% top)
+    ///
+    /// Converts mouse position to saturation/value coordinates:
+    /// - X axis = Saturation (0% left to 100% right)
+    /// - Y axis = Value/Brightness (100% top to 0% bottom)
     fn handle_sl_at_position(&mut self, x: f32, y: f32, origin: Point<Pixels>, canvas_width: f32, canvas_height: f32, cx: &mut Context<Self>) {
         let origin_x: f32 = origin.x.into();
         let origin_y: f32 = origin.y.into();
@@ -476,12 +470,18 @@ impl ColorSwatch {
     }
 
     /// Handle hue slider interaction at position
-    /// Note: Hue is clamped to 0-359 to prevent wrap-around (360° = 0° = red)
+    ///
+    /// Converts mouse position to hue value (0-359°). Hue is clamped to prevent
+    /// wrap-around (360° = 0° = red).
     fn handle_hue_at_position(&mut self, x: f32, origin_x: f32, slider_width: f32, cx: &mut Context<Self>) {
         // Must match the display calculation
         // Note: border doesn't affect layout width in GPUI, only content width matters
         let handle_width = 4.0f32;
         let usable_width = slider_width - handle_width;
+        // Guard against division by zero (can happen if slider hasn't been measured yet)
+        if usable_width <= 0.0 {
+            return;
+        }
         // Map click position to handle left edge position, then to value
         // Clicking anywhere on the slider should work, with clamping at edges
         let rel_x = (x - origin_x - handle_width / 2.0).clamp(0.0, usable_width);
@@ -492,11 +492,17 @@ impl ColorSwatch {
     }
 
     /// Handle alpha slider interaction at position
+    ///
+    /// Converts mouse position to alpha value (0-255).
     fn handle_alpha_at_position(&mut self, x: f32, origin_x: f32, slider_width: f32, cx: &mut Context<Self>) {
         // Must match the display calculation
         // Note: border doesn't affect layout width in GPUI, only content width matters
         let handle_width = 4.0f32;
         let usable_width = slider_width - handle_width;
+        // Guard against division by zero (can happen if slider hasn't been measured yet)
+        if usable_width <= 0.0 {
+            return;
+        }
         // Map click position to handle left edge position, then to value
         let rel_x = (x - origin_x - handle_width / 2.0).clamp(0.0, usable_width);
         self.current_alpha = ((rel_x / usable_width) * 255.0) as u8;
@@ -715,7 +721,7 @@ impl Render for ColorSwatch {
                                                     .h(px(12.))
                                                     .rounded_full()
                                                     .border_2()
-                                                    .border_color(rgb(0xFFFFFF))
+                                                    .border_color(rgb(theme.bg_white))
                                                     .shadow_sm()
                                             })
                                             .on_drag(
@@ -811,9 +817,9 @@ impl Render for ColorSwatch {
                                                             .bottom_0()
                                                             .left(px(handle_x))
                                                             .w(px(handle_width))
-                                                            .bg(rgb(0xFFFFFF))
+                                                            .bg(rgb(theme.bg_white))
                                                             .border_1()
-                                                            .border_color(rgb(0x333333))
+                                                            .border_color(rgb(theme.text_dark))
                                                             .rounded_sm()
                                                     })
                                                     .on_drag(
@@ -889,9 +895,9 @@ impl Render for ColorSwatch {
                                                                 .bottom_0()
                                                                 .left(px(handle_x))
                                                                 .w(px(handle_width))
-                                                                .bg(rgb(0xFFFFFF))
+                                                                .bg(rgb(theme.bg_white))
                                                                 .border_1()
-                                                                .border_color(rgb(0x333333))
+                                                                .border_color(rgb(theme.text_dark))
                                                                 .rounded_sm()
                                                         })
                                                         .on_drag(
@@ -1028,7 +1034,10 @@ impl Render for ColorSwatch {
 }
 
 impl ColorSwatch {
-    /// Render a checkerboard pattern canvas (for alpha transparency visualization)
+    /// Render a checkerboard pattern canvas for alpha transparency visualization
+    ///
+    /// Creates an 8x8 pixel alternating light/dark grid that shows through
+    /// transparent colors, helping users visualize alpha values.
     fn render_checkerboard() -> impl IntoElement {
         canvas(
             |bounds, _window, _cx| bounds,
@@ -1038,8 +1047,9 @@ impl ColorSwatch {
                 let dark = rgb(0xCCCCCC);
                 let width: f32 = bounds.size.width.into();
                 let height: f32 = bounds.size.height.into();
-                let cols = (width / cell_size).ceil() as i32;
-                let rows = (height / cell_size).ceil() as i32;
+                // Use saturating conversion to prevent overflow on extremely large bounds
+                let cols = ((width / cell_size).ceil() as i32).max(0);
+                let rows = ((height / cell_size).ceil() as i32).max(0);
 
                 for row in 0..rows {
                     for col in 0..cols {
@@ -1062,7 +1072,10 @@ impl ColorSwatch {
         .absolute()
     }
 
-    /// Render a component slider (R, G, B, S, L)
+    /// Render a component slider for RGB values
+    ///
+    /// Creates a horizontal gradient slider with a draggable handle.
+    /// Used for R, G, and B channel adjustment in the color picker.
     fn render_component_slider(
         label: &str,
         value: f32,
@@ -1080,6 +1093,8 @@ impl ColorSwatch {
         let value_display = value.round() as i32;
         let text_color = theme.text_primary;
         let border_input = theme.border_input;
+        let handle_bg = theme.bg_white;
+        let handle_border = theme.text_dark;
         let (start_color, end_color) = gradient_colors;
 
         let slider_origin = Rc::new(Cell::new(0.0f32));
@@ -1134,9 +1149,9 @@ impl ColorSwatch {
                             .bottom_0()
                             .left(px(handle_pos))
                             .w(px(handle_content_width))
-                            .bg(rgb(0xFFFFFF))
+                            .bg(rgb(handle_bg))
                             .border_1()
-                            .border_color(rgb(0x333333))
+                            .border_color(rgb(handle_border))
                             .rounded_sm()
                     )
                     .on_drag(
@@ -1154,6 +1169,10 @@ impl ColorSwatch {
                         let drag = event.drag(cx);
                         let origin = drag.origin.get();
                         let usable_width = drag.slider_width - drag.handle_visual_width;
+                        // Guard against division by zero
+                        if usable_width <= 0.0 {
+                            return;
+                        }
                         // Map click position to handle left edge position, then to value
                         let rel_x = (x - origin - drag.handle_visual_width / 2.0).clamp(0.0, usable_width);
                         let new_value = (rel_x / usable_width) * drag.max_value;

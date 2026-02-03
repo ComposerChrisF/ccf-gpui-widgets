@@ -28,6 +28,7 @@
 //! }).detach();
 //! ```
 
+use std::borrow::Cow;
 use std::time::Duration;
 
 use gpui::prelude::*;
@@ -342,12 +343,13 @@ impl TextInput {
         }
     }
 
-    /// Get the display content (masked or real)
-    fn display_content(&self) -> String {
+    /// Get the display content (masked or real).
+    /// Uses `Cow<str>` to avoid allocation when not masked.
+    fn display_content(&self) -> Cow<'_, str> {
         if self.core.is_masked() {
-            MASK_CHAR.repeat(self.core.content().chars().count())
+            Cow::Owned(MASK_CHAR.repeat(self.core.content().chars().count()))
         } else {
-            self.core.content().to_string()
+            Cow::Borrowed(self.core.content())
         }
     }
 
@@ -400,8 +402,8 @@ impl TextInput {
     }
 
     /// Get the focus handle
-    pub fn focus_handle(&self, _cx: &App) -> FocusHandle {
-        self.focus_handle.clone()
+    pub fn focus_handle(&self) -> &FocusHandle {
+        &self.focus_handle
     }
 
     /// Copy selected text to clipboard (disabled when masked)
@@ -474,7 +476,7 @@ impl TextInput {
 
     /// Shape the display content for measurement
     fn shape_line(&self, window: &Window) -> Option<ShapedLine> {
-        let display = self.display_content();
+        let display = self.display_content().into_owned();
         if display.is_empty() {
             return None;
         }
@@ -747,32 +749,32 @@ impl TextInput {
         if self.core.delete_backward() {
             self.reset_cursor_blink();
             cx.emit(TextInputEvent::Change);
+            cx.notify();
         }
-        cx.notify();
     }
 
     fn handle_delete_forward(&mut self, cx: &mut Context<Self>) {
         if self.core.delete_forward() {
             self.reset_cursor_blink();
             cx.emit(TextInputEvent::Change);
+            cx.notify();
         }
-        cx.notify();
     }
 
     fn handle_delete_word_backward(&mut self, cx: &mut Context<Self>) {
         if self.core.delete_word_backward() {
             self.reset_cursor_blink();
             cx.emit(TextInputEvent::Change);
+            cx.notify();
         }
-        cx.notify();
     }
 
     fn handle_delete_word_forward(&mut self, cx: &mut Context<Self>) {
         if self.core.delete_word_forward() {
             self.reset_cursor_blink();
             cx.emit(TextInputEvent::Change);
+            cx.notify();
         }
-        cx.notify();
     }
 
     fn handle_insert_text(&mut self, text: &str, cx: &mut Context<Self>) {
@@ -799,7 +801,8 @@ impl Render for TextInput {
         let theme = get_theme_or(cx, self.custom_theme.as_ref());
         let focus_handle = self.focus_handle.clone();
         let is_focused = self.focus_handle.is_focused(window);
-        let display_content = self.display_content();
+        // Convert to owned String early to avoid borrowing issues
+        let display_content = self.display_content().into_owned();
         let placeholder = self.placeholder.clone();
         let has_content = !self.core.content().is_empty();
 

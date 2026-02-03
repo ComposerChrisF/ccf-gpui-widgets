@@ -442,7 +442,7 @@ impl NumberStepper {
         });
 
         // Focus the TextInput
-        self.edit_input.read(cx).focus_handle(cx).focus(window);
+        self.edit_input.read(cx).focus_handle().focus(window);
         cx.notify();
     }
 

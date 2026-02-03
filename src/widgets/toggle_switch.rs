@@ -41,7 +41,8 @@ pub enum LabelPosition {
 /// Events emitted by ToggleSwitch
 #[derive(Clone, Debug)]
 pub enum ToggleSwitchEvent {
-    /// Toggle state changed
+    /// Toggle state changed.
+    /// The boolean indicates the new on/off state: `true` = on, `false` = off.
     Toggle(bool),
 }
 

@@ -58,7 +58,7 @@
 
 use gpui::prelude::*;
 use gpui::*;
-use crate::theme::{get_theme, Theme};
+use crate::theme::{get_theme_or, Theme};
 use super::focus_navigation::{with_focus_actions, EnabledCursorExt};
 
 // Actions for keyboard navigation
@@ -169,12 +169,8 @@ impl<T: TabItem> TabBar<T> {
     }
 
     /// Get the focus handle
-    pub fn focus_handle(&self, _cx: &Context<Self>) -> FocusHandle {
-        self.focus_handle.clone()
-    }
-
-    fn get_theme(&self, cx: &App) -> Theme {
-        self.custom_theme.unwrap_or_else(|| get_theme(cx))
+    pub fn focus_handle(&self) -> &FocusHandle {
+        &self.focus_handle
     }
 
     /// Check if the tab bar is enabled
@@ -201,9 +197,11 @@ impl<T: TabItem> TabBar<T> {
         } else {
             current_index - 1
         };
-        self.active = self.tabs[new_index].clone();
-        cx.emit(TabBarEvent::TabSelected(self.active.clone()));
-        cx.notify();
+        if let Some(tab) = self.tabs.get(new_index) {
+            self.active = tab.clone();
+            cx.emit(TabBarEvent::TabSelected(self.active.clone()));
+            cx.notify();
+        }
     }
 
     /// Select the next tab (wraps around)
@@ -217,9 +215,11 @@ impl<T: TabItem> TabBar<T> {
         } else {
             current_index + 1
         };
-        self.active = self.tabs[new_index].clone();
-        cx.emit(TabBarEvent::TabSelected(self.active.clone()));
-        cx.notify();
+        if let Some(tab) = self.tabs.get(new_index) {
+            self.active = tab.clone();
+            cx.emit(TabBarEvent::TabSelected(self.active.clone()));
+            cx.notify();
+        }
     }
 }
 
@@ -233,7 +233,7 @@ impl<T: TabItem> Focusable for TabBar<T> {
 
 impl<T: TabItem> Render for TabBar<T> {
     fn render(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) -> impl IntoElement {
-        let theme = self.get_theme(cx);
+        let theme = get_theme_or(cx, self.custom_theme.as_ref());
         let active_tab = self.active.clone();
         let is_focused = self.focus_handle.is_focused(window);
         let enabled = self.enabled;
@@ -278,10 +278,9 @@ impl<T: TabItem> Render for TabBar<T> {
                         })
                 )
             })
-            .children(self.tabs.iter().enumerate().map(|(index, tab)| {
+            .children(self.tabs.iter().map(|tab| {
                 let tab = tab.clone();
                 let is_active = tab == active_tab;
-                let _is_first = index == 0;
                 let show_focus = is_active && is_focused && enabled;
 
                 // Tab container - handles clicks and identification

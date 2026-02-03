@@ -31,7 +31,8 @@ use super::focus_navigation::{handle_tab_navigation, with_focus_actions, Enabled
 /// Events emitted by Checkbox
 #[derive(Clone, Debug)]
 pub enum CheckboxEvent {
-    /// Checkbox state changed
+    /// Checkbox state changed.
+    /// The boolean indicates the new checked state: `true` = checked, `false` = unchecked.
     Change(bool),
 }
 

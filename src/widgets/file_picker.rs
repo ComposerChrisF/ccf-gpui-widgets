@@ -546,7 +546,7 @@ impl FilePicker {
         self.edit_state = Some(edit_state.clone());
 
         // Focus the input
-        edit_state.read(cx).focus_handle(cx).focus(window);
+        edit_state.read(cx).focus_handle().focus(window);
     }
 
     fn open_file_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -616,7 +616,7 @@ impl Render for FilePicker {
         // Handle focus lost during editing
         if self.is_editing {
             if let Some(edit_state) = &self.edit_state {
-                if !edit_state.read(cx).focus_handle(cx).is_focused(window) {
+                if !edit_state.read(cx).focus_handle().is_focused(window) {
                     self.is_editing = false;
                     let text = edit_state.read(cx).content().to_string();
                     let path_info = parse_path(&text);

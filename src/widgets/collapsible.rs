@@ -30,8 +30,9 @@ use super::focus_navigation::{handle_tab_navigation, with_focus_actions, Enabled
 /// Events emitted by Collapsible
 #[derive(Clone, Debug)]
 pub enum CollapsibleEvent {
-    /// Collapsed state changed
-    Toggle(bool),
+    /// Collapsed state changed.
+    /// The boolean indicates the new collapsed state: `true` = collapsed, `false` = expanded.
+    Change(bool),
 }
 
 /// Collapsible section widget
@@ -99,7 +100,7 @@ impl Collapsible {
     pub fn set_collapsed(&mut self, collapsed: bool, cx: &mut Context<Self>) {
         if self.collapsed != collapsed {
             self.collapsed = collapsed;
-            cx.emit(CollapsibleEvent::Toggle(collapsed));
+            cx.emit(CollapsibleEvent::Change(collapsed));
             cx.notify();
         }
     }
@@ -107,7 +108,7 @@ impl Collapsible {
     /// Toggle collapsed state
     pub fn toggle(&mut self, cx: &mut Context<Self>) {
         self.collapsed = !self.collapsed;
-        cx.emit(CollapsibleEvent::Toggle(self.collapsed));
+        cx.emit(CollapsibleEvent::Change(self.collapsed));
         cx.notify();
     }
 

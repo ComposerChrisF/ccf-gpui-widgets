@@ -253,6 +253,17 @@ The library is functional and being used by clui.
 - [x] TabBar: Left and right filler areas draw bottom border for continuous line
 - [x] TabBar: Proper height matching between active/inactive tabs (pt padding vs border_t)
 
+### ✅ Low Priority Code Review Fixes (2026-02-03)
+- [x] TabBar: Removed unused `_is_first` variable, switched to `get_theme_or()` pattern
+- [x] TabBar: Changed `focus_handle()` to return `&FocusHandle` (no parameters)
+- [x] CollapsibleEvent: **Breaking change** - renamed `Toggle(bool)` to `Change(bool)` for consistency
+- [x] ColorSwatch: Added division by zero guards to hue, alpha, and component slider handlers
+- [x] ColorSwatch: Removed unused `update_from_hsl()` method
+- [x] ColorSwatch: Added doc comments to internal helper methods
+- [x] TextInput: Changed `focus_handle()` to return `&FocusHandle` (no parameters)
+- [x] TextInput: Made `cx.notify()` conditional in delete handlers (only when content changed)
+- [x] CheckboxEvent/ToggleSwitchEvent: Added detailed doc comments explaining boolean semantics
+
 ### ✅ New Widgets: Toggle, Slider, Progress, Spinner, Dialog (2026-01-30)
 - [x] ToggleSwitch: iOS-style toggle switch with pill-shaped track and circular thumb
 - [x] ToggleSwitch: Label support with configurable position (left or right)
