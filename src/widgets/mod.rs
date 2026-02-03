@@ -21,6 +21,9 @@ mod slider;
 mod progress_bar;
 mod spinner;
 mod confirmation_dialog;
+mod scrollbar;
+mod scrollable;
+mod segmented_control;
 
 #[cfg(feature = "file-picker")]
 mod path_display;
@@ -55,6 +58,9 @@ pub use progress_bar::{ProgressBar, ProgressBarEvent};
 pub use spinner::{Spinner, SpinnerSize};
 pub use confirmation_dialog::{ConfirmationDialog, ConfirmationDialogEvent, DialogStyle, DialogButton};
 pub use password_input::{PasswordInput, PasswordInputEvent};
+pub use scrollable::{Scrollable, scrollable_vertical, scrollable_horizontal, scrollable_both};
+pub use scrollbar::ScrollbarAxis;
+pub use segmented_control::{SegmentedControl, SegmentedControlEvent, SegmentOption};
 #[cfg(feature = "secure-password")]
 pub use secrecy::SecretString;
 pub use tab_bar::{TabBar, TabBarEvent, TabItem, register_keybindings as register_tab_bar_keybindings};

@@ -224,6 +224,24 @@ The library is functional and being used by clui.
 - [x] Simplified cursor_pointer/cursor_default patterns across 16 widgets
 - [x] Exported `with_focus_actions` and `EnabledCursorExt` from widgets module
 
+### ✅ New Widgets: Scrollable, Scrollbar, SegmentedControl (2026-02-02)
+- [x] Scrollable: Wrapper component that adds visible, interactive scrollbars to any content
+- [x] Scrollable: Auto-fade after inactivity, `.always_show_scrollbars()` option
+- [x] Scrollable: Interactive thumb (drag to scroll) and click-on-track to jump
+- [x] Scrollable: Vertical, horizontal, and both-axes modes via factory functions
+- [x] Scrollable: ScrollHandle integration for programmatic control
+- [x] Scrollbar: Internal scrollbar element with configurable axis and theming
+- [x] SegmentedControl: Multi-segment button group for single selection (iOS-style)
+- [x] SegmentedControl: Keyboard navigation with arrow keys
+- [x] SegmentedControl: Theme support with custom_theme field
+- [x] All three widgets follow library patterns: builder methods, theme support, events
+
+### ✅ NumberStepper Step Multiplier Enhancements (2026-02-02)
+- [x] NumberStepper: Added Alt/Option modifier for small step (0.1x default)
+- [x] NumberStepper: Configurable step multipliers via `.step_multipliers(small, large)`
+- [x] NumberStepper: Individual `.step_small()` and `.step_large()` builder methods
+- [x] NumberStepper: Default multipliers: Alt/Option = 0.1x, Shift = 10x, Normal = 1x
+
 ### ✅ New Widgets: Toggle, Slider, Progress, Spinner, Dialog (2026-01-30)
 - [x] ToggleSwitch: iOS-style toggle switch with pill-shaped track and circular thumb
 - [x] ToggleSwitch: Label support with configurable position (left or right)

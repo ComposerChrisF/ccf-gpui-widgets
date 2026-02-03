@@ -115,6 +115,12 @@ pub struct NumberStepper {
     drag_start_x: f32,
     /// Value when drag started
     drag_start_value: f64,
+
+    // Step multipliers for button clicks
+    /// Multiplier for small step (Alt/Option + click), default 0.1
+    step_small_multiplier: f64,
+    /// Multiplier for large step (Shift + click), default 10.0
+    step_large_multiplier: f64,
 }
 
 impl EventEmitter<NumberStepperEvent> for NumberStepper {}
@@ -177,6 +183,8 @@ impl NumberStepper {
             dragging: false,
             drag_start_x: 0.0,
             drag_start_value: 0.0,
+            step_small_multiplier: 0.1,  // Alt/Option = 0.1x step
+            step_large_multiplier: 10.0, // Shift = 10x step
         }
     }
 
@@ -283,6 +291,36 @@ impl NumberStepper {
     #[must_use]
     pub fn manual_drag_sensitivity(mut self) -> Self {
         self.auto_scale_drag = false;
+        self
+    }
+
+    /// Set step multipliers for button clicks (builder pattern)
+    ///
+    /// - `small`: Multiplier when Alt/Option is held (default 0.1)
+    /// - `large`: Multiplier when Shift is held (default 10.0)
+    ///
+    /// Example: For a step of 100, with multipliers (0.01, 10.0):
+    /// - Normal click: step by 100
+    /// - Alt+click: step by 1 (100 * 0.01)
+    /// - Shift+click: step by 1000 (100 * 10.0)
+    #[must_use]
+    pub fn step_multipliers(mut self, small: f64, large: f64) -> Self {
+        self.step_small_multiplier = small;
+        self.step_large_multiplier = large;
+        self
+    }
+
+    /// Set small step multiplier for Alt/Option + click (builder pattern)
+    #[must_use]
+    pub fn step_small(mut self, multiplier: f64) -> Self {
+        self.step_small_multiplier = multiplier;
+        self
+    }
+
+    /// Set large step multiplier for Shift + click (builder pattern)
+    #[must_use]
+    pub fn step_large(mut self, multiplier: f64) -> Self {
+        self.step_large_multiplier = multiplier;
         self
     }
 
@@ -650,7 +688,14 @@ impl Render for NumberStepper {
                     // Set editing to false before anything that could trigger blur
                     stepper.editing = false;
                 }
-                let multiplier = if event.modifiers().shift { 10.0 } else { 1.0 };
+                // Shift = large step, Alt/Option = small step, Normal = 1x
+                let multiplier = if event.modifiers().shift {
+                    stepper.step_large_multiplier
+                } else if event.modifiers().alt {
+                    stepper.step_small_multiplier
+                } else {
+                    1.0
+                };
                 stepper.decrement(multiplier, cx);
             }));
         }
@@ -678,7 +723,14 @@ impl Render for NumberStepper {
                     // Set editing to false before anything that could trigger blur
                     stepper.editing = false;
                 }
-                let multiplier = if event.modifiers().shift { 10.0 } else { 1.0 };
+                // Shift = large step, Alt/Option = small step, Normal = 1x
+                let multiplier = if event.modifiers().shift {
+                    stepper.step_large_multiplier
+                } else if event.modifiers().alt {
+                    stepper.step_small_multiplier
+                } else {
+                    1.0
+                };
                 stepper.increment(multiplier, cx);
             }));
         }

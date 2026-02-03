@@ -145,6 +145,9 @@ pub mod prelude {
         ProgressBar, ProgressBarEvent,
         Spinner, SpinnerSize,
         ConfirmationDialog, ConfirmationDialogEvent, DialogStyle, DialogButton,
+        Scrollable, scrollable_vertical, scrollable_horizontal, scrollable_both,
+        ScrollbarAxis,
+        SegmentedControl, SegmentedControlEvent, SegmentOption,
     };
 
     #[cfg(feature = "file-picker")]
