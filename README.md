@@ -44,26 +44,65 @@ Application::new().run(|cx: &mut App| {
 
 ## Available Widgets
 
-### Core Widgets
+### Input Widgets
 
 | Widget | Description |
 |--------|-------------|
 | `TextInput` | Full-featured text input with cursor, selection, clipboard |
-| `Checkbox` | Simple checkbox with optional label |
-| `Dropdown` | Select/dropdown with keyboard navigation |
+| `PasswordInput` | Text input with visibility toggle |
 | `NumberStepper` | Numeric input with +/- buttons |
+| `Slider` | Horizontal slider for numeric ranges |
+
+### Selection Widgets
+
+| Widget | Description |
+|--------|-------------|
+| `Checkbox` | Simple checkbox with optional label |
+| `ToggleSwitch` | On/off toggle with configurable label position |
+| `Dropdown` | Select/dropdown with keyboard navigation |
 | `RadioGroup` | Single-selection from multiple choices |
 | `CheckboxGroup` | Multi-selection from multiple choices |
-| `ColorSwatch` | Color picker with hex input, HSV canvas, sliders, alpha support |
-| `Collapsible` | Expandable/collapsible section header |
-| `Tooltip` | Simple tooltip for hover text |
+| `ColorSwatch` | Color picker with hex input, HSV canvas |
+
+### Display Widgets
+
+| Widget | Description |
+|--------|-------------|
+| `Tooltip` | Hover tooltip |
+| `ProgressBar` | Progress indicator (determinate/indeterminate) |
+| `Spinner` | Loading spinner in multiple sizes |
+
+### Layout & Navigation
+
+| Widget | Description |
+|--------|-------------|
+| `Collapsible` | Expandable/collapsible section |
+| `TabBar` | Tab navigation with keyboard support |
+| `ConfirmationDialog` | Modal dialogs (Info/Default/Warning/Danger styles) |
+
+### Repeatable Widgets
+
+| Widget | Description |
+|--------|-------------|
+| `RepeatableTextInput` | Text input with add/remove for lists |
 
 ### File Widgets (requires `file-picker` feature)
 
 | Widget | Description |
 |--------|-------------|
-| `FilePicker` | File selection with native dialog, drag-drop |
+| `FilePicker` | File selection with native dialog |
 | `DirectoryPicker` | Directory selection with native dialog |
+| `RepeatableFilePicker` | File picker with add/remove for lists |
+| `RepeatableDirectoryPicker` | Directory picker with add/remove for lists |
+
+### Utilities
+
+| Function | Description |
+|----------|-------------|
+| `primary_button()` | Blue/accent styled button |
+| `secondary_button()` | Gray styled button |
+| `danger_button()` | Red styled button |
+| `with_focus_actions()` | Add Tab/Shift-Tab focus navigation to elements |
 
 ## Theming
 
@@ -175,6 +214,84 @@ The color picker popup includes:
 - Hex value display
 
 Supports hex input (#RGB, #RRGGBB, #RRGGBBAA) and all 140 CSS named colors.
+
+### Slider
+
+```rust
+let slider = cx.new(|cx| {
+    Slider::new(cx)
+        .with_value(50.0)
+        .min(0.0)
+        .max(100.0)
+        .step(1.0)
+        .show_value(true)
+});
+
+cx.subscribe(&slider, |this, _slider, event: &SliderEvent, cx| {
+    match event {
+        SliderEvent::Change(value) => { /* value changing */ }
+        SliderEvent::ChangeComplete(value) => { /* drag ended */ }
+    }
+}).detach();
+```
+
+### ToggleSwitch
+
+```rust
+let toggle = cx.new(|cx| {
+    ToggleSwitch::new(cx)
+        .with_on(true)
+        .label("Dark mode")
+        .label_position(LabelPosition::Left)
+});
+
+cx.subscribe(&toggle, |this, _toggle, event: &ToggleSwitchEvent, cx| {
+    if let ToggleSwitchEvent::Change(is_on) = event {
+        println!("Toggle is now: {}", is_on);
+    }
+}).detach();
+```
+
+### TabBar
+
+```rust
+let tabs = cx.new(|cx| {
+    TabBar::new(cx)
+        .tabs(vec![
+            TabItem::new("general", "General"),
+            TabItem::new("advanced", "Advanced"),
+            TabItem::new("about", "About"),
+        ])
+        .with_selected_index(0)
+});
+
+cx.subscribe(&tabs, |this, _tabs, event: &TabBarEvent, cx| {
+    if let TabBarEvent::Change(index) = event {
+        println!("Selected tab: {}", index);
+    }
+}).detach();
+```
+
+### ConfirmationDialog
+
+```rust
+let dialog = cx.new(|cx| {
+    ConfirmationDialog::new(cx)
+        .style(DialogStyle::Warning)
+        .title("Delete Item")
+        .message("Are you sure you want to delete this item? This action cannot be undone.")
+        .primary_label("Delete")
+        .secondary_label("Cancel")
+});
+
+cx.subscribe(&dialog, |this, _dialog, event: &ConfirmationDialogEvent, cx| {
+    match event {
+        ConfirmationDialogEvent::Primary => { /* confirmed */ }
+        ConfirmationDialogEvent::Secondary => { /* cancelled */ }
+        ConfirmationDialogEvent::Tertiary => { /* third option */ }
+    }
+}).detach();
+```
 
 ### FilePicker (requires `file-picker` feature)
 

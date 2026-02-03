@@ -38,22 +38,51 @@
 //!
 //! # Available Widgets
 //!
-//! ## Core Widgets
+//! ## Input Widgets
 //!
 //! - [`TextInput`](widgets::TextInput) - Full-featured text input with cursor, selection, clipboard
-//! - [`Checkbox`](widgets::Checkbox) - Simple checkbox with optional label
-//! - [`Dropdown`](widgets::Dropdown) - Select/dropdown with keyboard navigation
+//! - [`PasswordInput`](widgets::PasswordInput) - Text input with visibility toggle
 //! - [`NumberStepper`](widgets::NumberStepper) - Numeric input with +/- buttons
+//! - [`Slider`](widgets::Slider) - Horizontal slider for numeric ranges
+//!
+//! ## Selection Widgets
+//!
+//! - [`Checkbox`](widgets::Checkbox) - Simple checkbox with optional label
+//! - [`ToggleSwitch`](widgets::ToggleSwitch) - On/off toggle with configurable label position
+//! - [`Dropdown`](widgets::Dropdown) - Select/dropdown with keyboard navigation
 //! - [`RadioGroup`](widgets::RadioGroup) - Single-selection from multiple choices
 //! - [`CheckboxGroup`](widgets::CheckboxGroup) - Multi-selection from multiple choices
-//! - [`ColorSwatch`](widgets::ColorSwatch) - Color preview with hex input
-//! - [`Collapsible`](widgets::Collapsible) - Expandable/collapsible section header
-//! - [`Tooltip`](widgets::Tooltip) - Simple tooltip for hover text
+//! - [`ColorSwatch`](widgets::ColorSwatch) - Color picker with hex input, HSV canvas
+//!
+//! ## Display Widgets
+//!
+//! - [`Tooltip`](widgets::Tooltip) - Hover tooltip
+//! - [`ProgressBar`](widgets::ProgressBar) - Progress indicator (determinate/indeterminate)
+//! - [`Spinner`](widgets::Spinner) - Loading spinner in multiple sizes
+//!
+//! ## Layout & Navigation
+//!
+//! - [`Collapsible`](widgets::Collapsible) - Expandable/collapsible section
+//! - [`TabBar`](widgets::TabBar) - Tab navigation with keyboard support
+//! - [`ConfirmationDialog`](widgets::ConfirmationDialog) - Modal dialogs (Info/Default/Warning/Danger styles)
+//!
+//! ## Repeatable Widgets
+//!
+//! - [`RepeatableTextInput`](widgets::RepeatableTextInput) - Text input with add/remove for lists
 //!
 #![cfg_attr(feature = "file-picker", doc = "## File Widgets (requires `file-picker` feature)")]
 #![cfg_attr(feature = "file-picker", doc = "")]
-#![cfg_attr(feature = "file-picker", doc = "- [`FilePicker`](widgets::FilePicker) - File selection with native dialog, drag-drop")]
+#![cfg_attr(feature = "file-picker", doc = "- [`FilePicker`](widgets::FilePicker) - File selection with native dialog")]
 #![cfg_attr(feature = "file-picker", doc = "- [`DirectoryPicker`](widgets::DirectoryPicker) - Directory selection with native dialog")]
+#![cfg_attr(feature = "file-picker", doc = "- [`RepeatableFilePicker`](widgets::RepeatableFilePicker) - File picker with add/remove for lists")]
+#![cfg_attr(feature = "file-picker", doc = "- [`RepeatableDirectoryPicker`](widgets::RepeatableDirectoryPicker) - Directory picker with add/remove for lists")]
+//!
+//! ## Utilities
+//!
+//! - [`primary_button`](widgets::primary_button) - Blue/accent styled button
+//! - [`secondary_button`](widgets::secondary_button) - Gray styled button
+//! - [`danger_button`](widgets::danger_button) - Red styled button
+//! - [`with_focus_actions`](widgets::with_focus_actions) - Add Tab/Shift-Tab focus navigation to elements
 //!
 //! # Feature Flags
 //!

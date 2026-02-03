@@ -58,16 +58,28 @@ src/
 └── widgets/
     ├── mod.rs                # Widget re-exports, register_all_keybindings()
     ├── text_input.rs         # Full-featured text input
-    ├── tooltip.rs            # Simple tooltip
-    ├── checkbox.rs           # Checkbox with optional label
-    ├── dropdown.rs           # Dropdown with keyboard navigation
+    ├── password_input.rs     # Text input with visibility toggle
     ├── number_stepper.rs     # Numeric input with +/- buttons
+    ├── slider.rs             # Horizontal slider for numeric ranges
+    ├── checkbox.rs           # Checkbox with optional label
+    ├── toggle_switch.rs      # On/off toggle switch
+    ├── dropdown.rs           # Dropdown with keyboard navigation
     ├── radio_group.rs        # Single-selection radio buttons
     ├── checkbox_group.rs     # Multi-selection checkboxes
-    ├── color_swatch.rs       # Color preview with hex input
+    ├── color_swatch.rs       # Color picker with hex input, HSV canvas
+    ├── tooltip.rs            # Simple tooltip
+    ├── progress_bar.rs       # Determinate/indeterminate progress
+    ├── spinner.rs            # Loading spinner
     ├── collapsible.rs        # Expandable/collapsible section
+    ├── tab_bar.rs            # Tab navigation
+    ├── confirmation_dialog.rs # Modal confirmation dialogs
+    ├── repeatable_text_input.rs # Text input with add/remove
+    ├── button.rs             # Button factory functions
+    ├── focus_navigation.rs   # Tab/Shift-Tab focus helpers
     ├── file_picker.rs        # File selection (requires file-picker feature)
-    └── directory_picker.rs   # Directory selection (requires file-picker feature)
+    ├── directory_picker.rs   # Directory selection (requires file-picker feature)
+    ├── repeatable_file_picker.rs      # (requires file-picker feature)
+    └── repeatable_directory_picker.rs # (requires file-picker feature)
 ```
 
 ### Feature Flags
@@ -187,6 +199,41 @@ impl MyWidget {
 - Builder methods for configuration: direct name (e.g., `placeholder`, `theme`, `min`, `max`)
 - Getters: direct name (e.g., `value()`, `is_checked()`)
 - Setters: `set_*` (e.g., `set_value()`, `set_checked()`)
+
+## Widget Quick Reference
+
+All widgets follow the pattern: `cx.new(|cx| Widget::new(cx).builder_methods())`
+
+| Widget | Event Type | Key Builder Methods |
+|--------|-----------|---------------------|
+| TextInput | Change, Enter, Escape, Blur, Focus | placeholder(), select_on_focus(), with_value() |
+| PasswordInput | Change, Enter, Escape, Blur, Focus | placeholder(), select_on_focus() |
+| NumberStepper | Change(f64) | with_value(), min(), max(), step() |
+| Slider | Change(f64), ChangeComplete | with_value(), min(), max(), step(), show_value() |
+| Checkbox | Change(bool) | checked(), label() |
+| ToggleSwitch | Change(bool) | with_on(), label(), label_position() |
+| Dropdown | Change(String), Open, Close | choices(), with_selected_index(), placeholder() |
+| RadioGroup | Change(usize) | choices(), with_selected_index() |
+| CheckboxGroup | Change(Vec<usize>) | choices(), with_selected_indices() |
+| ColorSwatch | Change(String) | with_value(), with_alpha() |
+| ProgressBar | Change(f64) | with_value(), indeterminate() |
+| Spinner | (no events) | size() |
+| Collapsible | Change(bool) | with_expanded(), title() |
+| TabBar | Change(usize) | tabs(), with_selected_index() |
+| ConfirmationDialog | Primary, Secondary, Tertiary | style(), primary_label(), secondary_label() |
+| FilePicker | Change(PathBuf), Validated | mode(), extensions(), placeholder() |
+| DirectoryPicker | Change(PathBuf), Validated | placeholder() |
+| RepeatableTextInput | Change(Vec<String>), Add, Remove | with_values(), placeholder() |
+
+### Subscription Pattern
+```rust
+cx.subscribe(&widget, |this, _widget, event: &WidgetEvent, cx| {
+    match event {
+        WidgetEvent::Change(value) => { /* handle */ }
+        _ => {}
+    }
+}).detach();
+```
 
 ## Theming System
 
