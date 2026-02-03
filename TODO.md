@@ -182,6 +182,13 @@ The library is functional and being used by clui.
 - [x] Added missing getters: NumberStepper (`get_min/max/step/resolution/display_precision`), Slider (`get_min/max/step/display_precision`), Dropdown (`is_open`)
 - [x] Widget gallery: Added "Enable/Disable Widgets" toggle button to demonstrate disabled state
 
+### ✅ TabBar Focus Behavior Improvements (2026-02-02)
+- [x] TabBar: Mouse clicks no longer steal focus from other widgets
+- [x] TabBar: Captures previous focus on mouse_down, restores it after tab selection
+- [x] TabBar: Blurs if nothing was previously focused (prevents unwanted focus acquisition)
+- [x] TabBar: Focus ring uses always-present 2px transparent border to prevent layout shift
+- [x] TabBar: Restructured to outer focus-ring container + inner content div
+
 ### ✅ Code Simplification (2026-02-01)
 - [x] Extracted duplicate `format_display_value()` utility function to `utils/mod.rs`
 - [x] NumberStepper and Slider now use shared `format_display_value()` function

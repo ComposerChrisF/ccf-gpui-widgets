@@ -109,6 +109,9 @@ pub struct TabBar<T: TabItem> {
     custom_theme: Option<Theme>,
     /// Whether the widget is enabled (interactive)
     enabled: bool,
+    /// Stores the previously focused element when mouse down occurs,
+    /// so we can restore focus after a tab click (preventing focus stealing)
+    previous_focus: Option<FocusHandle>,
 }
 
 impl<T: TabItem> TabBar<T> {
@@ -126,6 +129,7 @@ impl<T: TabItem> TabBar<T> {
             focus_handle: cx.focus_handle().tab_stop(true),
             custom_theme: None,
             enabled: true,
+            previous_focus: None,
         }
     }
 
@@ -257,55 +261,36 @@ impl<T: TabItem> Render for TabBar<T> {
                 // Show focus ring only on the active tab when the tab bar is focused and enabled
                 let show_focus_ring = is_active && is_focused && enabled;
 
+                // Outer div: focus ring container (always 2px border, transparent when not focused)
                 div()
                     .id(tab.id())
-                    .px_4()
-                    .py_2()
+                    .border_2()
+                    .border_color(if show_focus_ring { rgb(theme.border_focus) } else { rgba(0x00000000) })
                     .when(enabled, |d| d.cursor_pointer())
                     .when(!enabled, |d| d.cursor_default())
-                    .border_r_1()
-                    .when(enabled, |d| d.border_color(rgb(theme.border_default)))
-                    .when(!enabled, |d| d.border_color(rgb(theme.disabled_bg)))
-                    .when(is_active && enabled, |d| {
-                        d.bg(rgb(theme.bg_primary))
-                            .text_color(rgb(theme.text_primary))
-                            .border_t_2()
-                            .border_color(rgb(theme.border_tab_active))
-                    })
-                    .when(is_active && !enabled, |d| {
-                        d.bg(rgb(theme.disabled_bg))
-                            .text_color(rgb(theme.disabled_text))
-                            .border_t_2()
-                            .border_color(rgb(theme.disabled_text))
-                    })
-                    .when(!is_active && enabled, |d| {
-                        d.bg(rgb(theme.bg_input))
-                            .text_color(rgb(theme.text_dimmed))
-                            .border_b_1()
-                            .border_color(rgb(theme.border_default))
-                            .hover(|d| {
-                                d.bg(rgb(theme.bg_tab_hover))
-                                    .text_color(rgb(theme.text_muted))
-                            })
-                    })
-                    .when(!is_active && !enabled, |d| {
-                        d.bg(rgb(theme.disabled_bg))
-                            .text_color(rgb(theme.disabled_text))
-                            .border_b_1()
-                            .border_color(rgb(theme.disabled_bg))
-                    })
-                    // Focus ring on active tab only
-                    .when(show_focus_ring, |d| {
-                        d.border_2()
-                            .border_color(rgb(theme.border_focus))
-                    })
                     .when(enabled, |d| {
                         let tab_clone = tab.clone();
-                        d.on_click({
+                        d.on_mouse_down(MouseButton::Left, {
+                            cx.listener(move |this, _event: &MouseDownEvent, window, cx| {
+                                // Capture currently focused element BEFORE focus transfers to tab bar
+                                this.previous_focus = window.focused(cx);
+                                cx.notify();
+                            })
+                        })
+                        .on_click({
                             let tab = tab.clone();
-                            cx.listener(move |this, _event: &ClickEvent, _window, cx| {
+                            cx.listener(move |this, _event: &ClickEvent, window, cx| {
                                 this.active = tab.clone();
                                 cx.emit(TabBarEvent::TabSelected(tab.clone()));
+
+                                // Restore focus to previously focused element, or blur if nothing was focused.
+                                // This prevents mouse clicks from stealing/acquiring focus.
+                                if let Some(focus_handle) = this.previous_focus.take() {
+                                    focus_handle.focus(window);
+                                } else {
+                                    window.blur();
+                                }
+
                                 cx.notify();
                             })
                         })
@@ -318,7 +303,45 @@ impl<T: TabItem> Render for TabBar<T> {
                             })
                         })
                     })
-                    .child(tab.label())
+                    // Inner div: tab content with decorative borders
+                    .child(
+                        div()
+                            .px_4()
+                            .py_2()
+                            .size_full()
+                            .border_r_1()
+                            .when(enabled, |d| d.border_color(rgb(theme.border_default)))
+                            .when(!enabled, |d| d.border_color(rgb(theme.disabled_bg)))
+                            .when(is_active && enabled, |d| {
+                                d.bg(rgb(theme.bg_primary))
+                                    .text_color(rgb(theme.text_primary))
+                                    .border_t_2()
+                                    .border_color(rgb(theme.border_tab_active))
+                            })
+                            .when(is_active && !enabled, |d| {
+                                d.bg(rgb(theme.disabled_bg))
+                                    .text_color(rgb(theme.disabled_text))
+                                    .border_t_2()
+                                    .border_color(rgb(theme.disabled_text))
+                            })
+                            .when(!is_active && enabled, |d| {
+                                d.bg(rgb(theme.bg_input))
+                                    .text_color(rgb(theme.text_dimmed))
+                                    .border_b_1()
+                                    .border_color(rgb(theme.border_default))
+                                    .hover(|d| {
+                                        d.bg(rgb(theme.bg_tab_hover))
+                                            .text_color(rgb(theme.text_muted))
+                                    })
+                            })
+                            .when(!is_active && !enabled, |d| {
+                                d.bg(rgb(theme.disabled_bg))
+                                    .text_color(rgb(theme.disabled_text))
+                                    .border_b_1()
+                                    .border_color(rgb(theme.disabled_bg))
+                            })
+                            .child(tab.label())
+                    )
             }))
             // Filler area to the right of tabs with bottom border
             .child(
