@@ -79,6 +79,8 @@ pub struct RepeatableDirectoryPicker {
     custom_theme: Option<Theme>,
     /// Whether the widget is enabled (interactive)
     enabled: bool,
+    /// Whether an action was just handled (to prevent double-trigger from keyboard)
+    action_just_handled: bool,
 }
 
 impl RepeatableDirectoryPicker {
@@ -96,6 +98,7 @@ impl RepeatableDirectoryPicker {
             min_entries: 1,
             custom_theme: None,
             enabled: true,
+            action_just_handled: false,
         }
     }
 
@@ -277,10 +280,28 @@ impl RepeatableDirectoryPicker {
         cx.notify();
     }
 
-    fn remove_entry(&mut self, index: usize, cx: &mut Context<Self>) {
+    fn remove_entry(&mut self, index: usize, window: &mut Window, cx: &mut Context<Self>) {
         if self.entries.len() > self.min_entries && index < self.entries.len() {
+            // Check if the remove button being pressed has focus
+            let had_focus = self.remove_focus_handles[index].is_focused(window);
+
             self.entries.remove(index);
             self.remove_focus_handles.remove(index);
+
+            // Move focus if the removed button had focus
+            if had_focus {
+                if self.entries.len() <= self.min_entries {
+                    // No more "-" buttons visible, focus the first entry's picker
+                    self.entries[0].update(cx, |picker, cx| picker.focus(cx));
+                } else if index > 0 {
+                    // Focus the previous entry's "-" button
+                    self.remove_focus_handles[index - 1].focus(window);
+                } else {
+                    // Removed first entry, focus the new first entry's "-" button
+                    self.remove_focus_handles[0].focus(window);
+                }
+            }
+
             cx.emit(RepeatableDirectoryPickerEvent::EntryRemoved(index));
             cx.emit(RepeatableDirectoryPickerEvent::Change(self.values(cx)));
             cx.notify();
@@ -337,7 +358,7 @@ impl Render for RepeatableDirectoryPicker {
                         .flex()
                         .items_center()
                         .justify_center()
-                        .h(px(52.)) // Match DirectoryPicker height
+                        .h(px(28.))
                         .w(px(28.))
                         .rounded_md()
                         .border_2()
@@ -351,28 +372,36 @@ impl Render for RepeatableDirectoryPicker {
                             d.bg(rgb(theme.disabled_bg))
                                 .border_color(rgba(0x00000000))
                         })
-                            .child(
+                            // Draw minus sign with a horizontal line
+                            .child({
+                                let line_color = if enabled { theme.text_label } else { theme.disabled_text };
                                 div()
-                                    .text_sm()
-                                    .when(enabled, |d| d.text_color(rgb(theme.text_label)))
-                                    .when(!enabled, |d| d.text_color(rgb(theme.disabled_text)))
-                                    .child("\u{2212}") // Minus sign
-                            );
+                                    .w(px(10.))
+                                    .h(px(2.))
+                                    .rounded_sm()
+                                    .bg(rgb(line_color))
+                            });
 
                         if enabled {
                             remove_button = remove_button
-                                .on_action(cx.listener(move |this, _: &RepeatableActivateButton, _window, cx| {
-                                    this.remove_entry(index, cx);
+                                .on_action(cx.listener(move |this, _: &RepeatableActivateButton, window, cx| {
+                                    this.action_just_handled = true;
+                                    this.remove_entry(index, window, cx);
                                 }))
-                                .on_click(cx.listener(move |this, _event, _window, cx| {
-                                    this.remove_entry(index, cx);
+                                .on_click(cx.listener(move |this, _event, window, cx| {
+                                    // Skip if this click is from keyboard (action already handled)
+                                    if this.action_just_handled {
+                                        this.action_just_handled = false;
+                                        return;
+                                    }
+                                    this.remove_entry(index, window, cx);
                                 }));
                         }
 
                         div()
                             .flex()
                             .flex_row()
-                            .items_start()
+                            .items_center()
                             .gap_2()
                             .child(
                                 // DirectoryPicker widget
@@ -414,20 +443,49 @@ impl Render for RepeatableDirectoryPicker {
                             d.bg(rgb(theme.disabled_bg))
                                 .border_color(rgba(0x00000000))
                         })
-                            .child(
+                            // Draw plus sign with crossed lines
+                            .child({
+                                let line_color = if enabled { theme.text_label } else { theme.disabled_text };
                                 div()
-                                    .text_sm()
-                                    .when(enabled, |d| d.text_color(rgb(theme.text_label)))
-                                    .when(!enabled, |d| d.text_color(rgb(theme.disabled_text)))
-                                    .child("+")
-                            );
+                                    .relative()
+                                    .w(px(10.))
+                                    .h(px(10.))
+                                    // Horizontal line
+                                    .child(
+                                        div()
+                                            .absolute()
+                                            .top(px(4.))
+                                            .left(px(0.))
+                                            .w(px(10.))
+                                            .h(px(2.))
+                                            .rounded_sm()
+                                            .bg(rgb(line_color))
+                                    )
+                                    // Vertical line
+                                    .child(
+                                        div()
+                                            .absolute()
+                                            .top(px(0.))
+                                            .left(px(4.))
+                                            .w(px(2.))
+                                            .h(px(10.))
+                                            .rounded_sm()
+                                            .bg(rgb(line_color))
+                                    )
+                            });
 
                         if enabled {
                             add_button = add_button
                                 .on_action(cx.listener(|this, _: &RepeatableActivateButton, _window, cx| {
+                                    this.action_just_handled = true;
                                     this.add_entry(cx);
                                 }))
                                 .on_click(cx.listener(|this, _event, _window, cx| {
+                                    // Skip if this click is from keyboard (action already handled)
+                                    if this.action_just_handled {
+                                        this.action_just_handled = false;
+                                        return;
+                                    }
                                     this.add_entry(cx);
                                 }));
                         }

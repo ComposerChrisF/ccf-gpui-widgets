@@ -133,6 +133,10 @@ pub struct DirectoryPicker {
     custom_theme: Option<Theme>,
     /// Whether to refocus self on next render (after ESC from TextInput)
     pending_refocus: bool,
+    /// Whether to focus the edit button on next render (for programmatic focus)
+    pending_focus: bool,
+    /// Whether to ignore the next activation (to prevent keyup from triggering edit after focus)
+    ignore_next_activation: bool,
     /// Whether Cmd+O / Ctrl+O shortcut is enabled
     browse_shortcut_enabled: bool,
     /// How validation feedback is displayed
@@ -165,6 +169,8 @@ impl DirectoryPicker {
             edit_state: None,
             custom_theme: None,
             pending_refocus: false,
+            pending_focus: false,
+            ignore_next_activation: false,
             browse_shortcut_enabled: true,
             validation_display: ValidationDisplay::default(),
             enabled: true,
@@ -239,6 +245,15 @@ impl DirectoryPicker {
     /// Get the focus handle
     pub fn focus_handle(&self) -> &FocusHandle {
         &self.focus_handle
+    }
+
+    /// Focus the edit button (the primary interactive element)
+    ///
+    /// Note: This is deferred to the next render to avoid triggering
+    /// a synthetic click from keyup events.
+    pub fn focus(&mut self, cx: &mut Context<Self>) {
+        self.pending_focus = true;
+        cx.notify();
     }
 
     /// Validate the current path and return the validation state
@@ -390,6 +405,13 @@ impl Render for DirectoryPicker {
         // Handle pending refocus (after ESC from TextInput)
         if self.pending_refocus {
             self.pending_refocus = false;
+            self.edit_button_focus_handle.focus(window);
+        }
+
+        // Handle pending focus (programmatic focus request)
+        if self.pending_focus {
+            self.pending_focus = false;
+            self.ignore_next_activation = true;
             self.edit_button_focus_handle.focus(window);
         }
 
@@ -666,10 +688,20 @@ impl Render for DirectoryPicker {
                             .when(enabled, |d| d.hover(|d| d.bg(rgb(theme.bg_hover))))
                             .when(enabled, |d| {
                                 d.on_click(cx.listener(|picker, _event, window, cx| {
+                                    // Skip if we just received programmatic focus
+                                    if picker.ignore_next_activation {
+                                        picker.ignore_next_activation = false;
+                                        return;
+                                    }
                                     picker.start_editing(window, cx);
                                     cx.notify();
                                 }))
                                 .on_action(cx.listener(|picker, _: &ActivateButton, window, cx| {
+                                    // Skip if we just received programmatic focus
+                                    if picker.ignore_next_activation {
+                                        picker.ignore_next_activation = false;
+                                        return;
+                                    }
                                     picker.start_editing(window, cx);
                                     cx.notify();
                                 }))
