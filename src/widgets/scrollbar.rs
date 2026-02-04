@@ -323,10 +323,12 @@ impl Element for Scrollbar {
         window: &mut Window,
         cx: &mut App,
     ) -> (LayoutId, Self::RequestLayoutState) {
-        let mut style = Style::default();
-        style.position = Position::Absolute;
-        style.flex_grow = 1.0;
-        style.flex_shrink = 1.0;
+        let mut style = Style {
+            position: Position::Absolute,
+            flex_grow: 1.0,
+            flex_shrink: 1.0,
+            ..Default::default()
+        };
         style.size.width = relative(1.).into();
         style.size.height = relative(1.).into();
 
@@ -549,15 +551,14 @@ impl Element for Scrollbar {
                         let scroll_handle = self.scroll_handle.clone();
 
                         move |event: &ScrollWheelEvent, phase, _hitbox, cx| {
-                            if phase.bubble() && hitbox_bounds.contains(&event.position) {
-                                if scroll_handle.offset() != state.0.get().last_scroll_offset {
+                            if phase.bubble() && hitbox_bounds.contains(&event.position)
+                                && scroll_handle.offset() != state.0.get().last_scroll_offset {
                                     state.0.set(state.0.get().with_last_scroll(
                                         scroll_handle.offset(),
                                         Some(Instant::now()),
                                     ));
                                     cx.notify(view_id);
                                 }
-                            }
                         }
                     });
 

@@ -218,9 +218,11 @@ where
         window: &mut Window,
         cx: &mut App,
     ) -> (LayoutId, Self::RequestLayoutState) {
-        let mut style = Style::default();
-        style.flex_grow = 1.0;
-        style.position = Position::Relative;
+        let mut style = Style {
+            flex_grow: 1.0,
+            position: Position::Relative,
+            ..Default::default()
+        };
         style.size.width = relative(1.0).into();
         style.size.height = relative(1.0).into();
 
