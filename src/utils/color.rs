@@ -16,6 +16,15 @@ impl Rgb {
         Self { r, g, b }
     }
 
+    /// Create from u32 (0xRRGGBB)
+    pub fn from_u32(color: u32) -> Self {
+        Self {
+            r: ((color >> 16) & 0xFF) as u8,
+            g: ((color >> 8) & 0xFF) as u8,
+            b: (color & 0xFF) as u8,
+        }
+    }
+
     /// Parse from hex string (supports #RGB, #RRGGBB, RGB, RRGGBB)
     pub fn from_hex(hex: &str) -> Option<Self> {
         let hex = hex.trim().trim_start_matches('#');
@@ -553,6 +562,65 @@ pub fn parse_color_alpha(s: &str) -> Option<Rgba> {
     Rgba::from_hex(s).or_else(|| named_color_to_rgb(s).map(|rgb| Rgba::new(rgb.r, rgb.g, rgb.b, 255)))
 }
 
+/// Calculate perceived luminance (0.0-1.0) using sRGB coefficients
+///
+/// Uses the ITU-R BT.709 formula for relative luminance:
+/// L = 0.2126 * R + 0.7152 * G + 0.0722 * B
+pub fn luminance(color: u32) -> f32 {
+    let r = ((color >> 16) & 0xFF) as f32 / 255.0;
+    let g = ((color >> 8) & 0xFF) as f32 / 255.0;
+    let b = (color & 0xFF) as f32 / 255.0;
+    0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+/// Check if a color is dark (luminance < 0.5)
+pub fn is_dark(color: u32) -> bool {
+    luminance(color) < 0.5
+}
+
+/// Lighten a color by blending toward white
+///
+/// # Arguments
+/// * `color` - The color as 0xRRGGBB
+/// * `amount` - How much to lighten (0.0 = unchanged, 1.0 = white)
+pub fn lighten(color: u32, amount: f32) -> u32 {
+    mix(color, 0xFFFFFF, amount)
+}
+
+/// Darken a color by blending toward black
+///
+/// # Arguments
+/// * `color` - The color as 0xRRGGBB
+/// * `amount` - How much to darken (0.0 = unchanged, 1.0 = black)
+pub fn darken(color: u32, amount: f32) -> u32 {
+    mix(color, 0x000000, amount)
+}
+
+/// Mix two colors together
+///
+/// # Arguments
+/// * `a` - First color as 0xRRGGBB
+/// * `b` - Second color as 0xRRGGBB
+/// * `ratio` - Blend ratio (0.0 = color a, 1.0 = color b)
+pub fn mix(a: u32, b: u32, ratio: f32) -> u32 {
+    let ratio = ratio.clamp(0.0, 1.0);
+    let inv = 1.0 - ratio;
+
+    let r_a = ((a >> 16) & 0xFF) as f32;
+    let g_a = ((a >> 8) & 0xFF) as f32;
+    let b_a = (a & 0xFF) as f32;
+
+    let r_b = ((b >> 16) & 0xFF) as f32;
+    let g_b = ((b >> 8) & 0xFF) as f32;
+    let b_b = (b & 0xFF) as f32;
+
+    let r = (r_a * inv + r_b * ratio).round() as u32;
+    let g = (g_a * inv + g_b * ratio).round() as u32;
+    let b = (b_a * inv + b_b * ratio).round() as u32;
+
+    (r << 16) | (g << 8) | b
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -648,6 +716,78 @@ mod tests {
         assert!((hsl.h - 40.0).abs() < 0.01);
         assert!((hsl.s - 100.0).abs() < 0.01);
         assert!((hsl.l - 0.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_rgb_from_u32() {
+        assert_eq!(Rgb::from_u32(0xFF0000), Rgb::new(255, 0, 0));
+        assert_eq!(Rgb::from_u32(0x00FF00), Rgb::new(0, 255, 0));
+        assert_eq!(Rgb::from_u32(0x0000FF), Rgb::new(0, 0, 255));
+        assert_eq!(Rgb::from_u32(0x3b82f6), Rgb::new(59, 130, 246));
+    }
+
+    #[test]
+    fn test_luminance() {
+        // Black has luminance 0
+        assert!((luminance(0x000000) - 0.0).abs() < 0.001);
+        // White has luminance 1
+        assert!((luminance(0xFFFFFF) - 1.0).abs() < 0.001);
+        // Pure red (using BT.709 coefficient 0.2126)
+        assert!((luminance(0xFF0000) - 0.2126).abs() < 0.001);
+        // Pure green (using BT.709 coefficient 0.7152)
+        assert!((luminance(0x00FF00) - 0.7152).abs() < 0.001);
+        // Pure blue (using BT.709 coefficient 0.0722)
+        assert!((luminance(0x0000FF) - 0.0722).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_is_dark() {
+        assert!(is_dark(0x000000)); // Black is dark
+        assert!(!is_dark(0xFFFFFF)); // White is not dark
+        assert!(is_dark(0x1e1e1e)); // Dark theme background is dark
+        assert!(!is_dark(0xf5f5f5)); // Light theme background is not dark
+    }
+
+    #[test]
+    fn test_lighten() {
+        // Lighten black by 50% should give mid-gray
+        let result = lighten(0x000000, 0.5);
+        assert_eq!(result, 0x808080);
+
+        // Lighten by 0% should be unchanged
+        assert_eq!(lighten(0xFF0000, 0.0), 0xFF0000);
+
+        // Lighten by 100% should be white
+        assert_eq!(lighten(0x000000, 1.0), 0xFFFFFF);
+    }
+
+    #[test]
+    fn test_darken() {
+        // Darken white by 50% should give mid-gray
+        let result = darken(0xFFFFFF, 0.5);
+        assert_eq!(result, 0x808080);
+
+        // Darken by 0% should be unchanged
+        assert_eq!(darken(0xFF0000, 0.0), 0xFF0000);
+
+        // Darken by 100% should be black
+        assert_eq!(darken(0xFFFFFF, 1.0), 0x000000);
+    }
+
+    #[test]
+    fn test_mix() {
+        // Mix black and white at 0.5 should give mid-gray
+        assert_eq!(mix(0x000000, 0xFFFFFF, 0.5), 0x808080);
+
+        // Mix at 0.0 should return first color
+        assert_eq!(mix(0xFF0000, 0x00FF00, 0.0), 0xFF0000);
+
+        // Mix at 1.0 should return second color
+        assert_eq!(mix(0xFF0000, 0x00FF00, 1.0), 0x00FF00);
+
+        // Mix red and blue at 0.5 should give purple
+        let result = mix(0xFF0000, 0x0000FF, 0.5);
+        assert_eq!(result, 0x800080);
     }
 }
 

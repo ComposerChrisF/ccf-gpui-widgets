@@ -23,6 +23,7 @@
 use gpui::prelude::*;
 use gpui::*;
 use crate::theme::get_theme;
+use crate::utils::darken;
 use super::focus_navigation::{FocusNext, FocusPrev};
 
 // Actions for button activation
@@ -192,9 +193,9 @@ pub fn danger_button(
 ) -> Stateful<Div> {
     let theme = get_theme(cx);
 
-    // Darker/lighter variants of error color for hover/active states
-    let danger_hover = darken_color(theme.error, 0.15);
-    let danger_active = darken_color(theme.error, 0.25);
+    // Darker variants of error color for hover/active states
+    let danger_hover = darken(theme.error, 0.15);
+    let danger_active = darken(theme.error, 0.25);
 
     div()
         .id(id)
@@ -233,18 +234,4 @@ pub fn danger_button(
         // Use contrasting color for focus on danger button
         .focus(|d| d.border_color(rgb(theme.border_focus_on_color)))
         .child(label.to_string())
-}
-
-/// Darken a color by a percentage (0.0 = no change, 1.0 = black)
-fn darken_color(color: u32, amount: f32) -> u32 {
-    let r = ((color >> 16) & 0xFF) as f32;
-    let g = ((color >> 8) & 0xFF) as f32;
-    let b = (color & 0xFF) as f32;
-
-    let factor = 1.0 - amount;
-    let r = (r * factor) as u32;
-    let g = (g * factor) as u32;
-    let b = (b * factor) as u32;
-
-    (r << 16) | (g << 8) | b
 }

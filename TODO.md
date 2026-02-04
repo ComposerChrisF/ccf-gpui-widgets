@@ -282,6 +282,17 @@ The library is functional and being used by clui.
 - [x] Widget gallery: Added Collapsible demos (collapsed, expanded, static) to Utility category
 - [x] Theme: Adjusted warning color for better visibility
 
+### ✅ Palette-Based Theme Generation (2026-02-04)
+- [x] Added color math utilities: `luminance()`, `is_dark()`, `lighten()`, `darken()`, `mix()`
+- [x] Added `Rgb::from_u32()` constructor for color type
+- [x] Created `Palette` struct with 7 seed colors: bg, text, primary, accent, success, error, warning
+- [x] `Palette::dark()` and `Palette::light()` preset constructors
+- [x] Builder methods: `with_bg()`, `with_text()`, `with_primary()`, `with_accent()`, etc.
+- [x] `Theme::from_palette(palette)` derives all 52 theme colors from 7 seeds
+- [x] Exported `Palette` from crate root and prelude
+- [x] Refactored `button.rs` to use shared `darken()` utility (removed local duplicate)
+- [x] Added unit tests for all color math functions
+
 ### ✅ Unified Selection API (2026-02-03)
 - [x] Created `SelectionItem` trait for unified selection widget interface
 - [x] Created `StringItem` type for simple string-based selections

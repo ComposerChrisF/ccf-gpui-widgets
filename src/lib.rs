@@ -119,12 +119,12 @@ pub mod utils;
 pub mod widgets;
 
 // Convenient re-exports
-pub use theme::Theme;
+pub use theme::{Theme, Palette};
 pub use widgets::register_all_keybindings;
 
 /// Prelude for convenient imports
 pub mod prelude {
-    pub use crate::theme::{get_theme, get_theme_or, Theme};
+    pub use crate::theme::{get_theme, get_theme_or, Theme, Palette};
     pub use crate::widgets::{
         register_all_keybindings,
         TextInput, TextInputEvent,
