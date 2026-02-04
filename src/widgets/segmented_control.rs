@@ -232,6 +232,7 @@ impl Render for SegmentedControl {
                     }
                     control.select_by_index(cx);
                     cx.notify();
+                    cx.stop_propagation();
                 }
                 "right" => {
                     if control.highlight_index < num_options.saturating_sub(1) {
@@ -241,10 +242,12 @@ impl Render for SegmentedControl {
                     }
                     control.select_by_index(cx);
                     cx.notify();
+                    cx.stop_propagation();
                 }
                 "space" | "enter" => {
                     control.select_by_index(cx);
                     cx.notify();
+                    cx.stop_propagation();
                 }
                 _ => {}
             }
