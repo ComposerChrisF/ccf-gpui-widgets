@@ -293,6 +293,15 @@ The library is functional and being used by clui.
 - [x] Refactored `button.rs` to use shared `darken()` utility (removed local duplicate)
 - [x] Added unit tests for all color math functions
 
+### ✅ ColorPicker Popover UX Improvements (2026-02-04)
+- [x] Added Cancel/Apply workflow: ESC reverts to original, Enter applies and closes
+- [x] Clicking outside the picker now applies the current color (instead of just closing)
+- [x] "Old" color swatch is now clickable to reset to original color
+- [x] Added Cancel and Apply buttons at bottom of picker
+- [x] R/G/B sliders now use flex layout (matching H slider) with proper alignment
+- [x] R/G/B slider values are right-justified for visual consistency
+- [x] Added `ApplyPicker` action with Enter keybinding
+
 ### ✅ Unified Selection API (2026-02-03)
 - [x] Created `SelectionItem` trait for unified selection widget interface
 - [x] Created `StringItem` type for simple string-based selections

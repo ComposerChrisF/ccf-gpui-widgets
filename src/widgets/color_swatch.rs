@@ -43,9 +43,10 @@ use crate::theme::{get_theme_or, Theme};
 use crate::utils::color::{Rgb, Hsl, Hsv, parse_color, parse_color_alpha};
 use super::text_input::{TextInput, TextInputEvent};
 use super::focus_navigation::{FocusNext, FocusPrev};
+use super::button::{primary_button, secondary_button};
 
 // Actions for keyboard navigation
-actions!(ccf_color_swatch, [ClosePicker]);
+actions!(ccf_color_swatch, [ClosePicker, ApplyPicker]);
 
 /// Register key bindings for color swatch components
 ///
@@ -56,6 +57,7 @@ actions!(ccf_color_swatch, [ClosePicker]);
 pub fn register_keybindings(cx: &mut App) {
     cx.bind_keys([
         KeyBinding::new("escape", ClosePicker, Some("CcfColorPicker")),
+        KeyBinding::new("enter", ApplyPicker, Some("CcfColorPicker")),
     ]);
 }
 
@@ -89,7 +91,7 @@ struct AlphaDrag {
 #[derive(Clone)]
 struct ComponentDrag {
     origin: Rc<Cell<f32>>,
-    slider_width: f32,
+    width: Rc<Cell<f32>>,
     handle_visual_width: f32,
     max_value: f32,
     update_fn: fn(&mut ColorSwatch, f32, &mut Context<ColorSwatch>),
@@ -437,6 +439,21 @@ impl ColorSwatch {
         cx.notify();
     }
 
+    /// Cancel and revert to original color
+    fn cancel_picker(&mut self, cx: &mut Context<Self>) {
+        // Revert to original value
+        self.set_value_internal(&self.original_value.clone(), cx);
+        self.is_picker_open = false;
+        cx.notify();
+    }
+
+    /// Apply current color and close
+    fn apply_picker(&mut self, cx: &mut Context<Self>) {
+        // Value is already set, just close
+        self.is_picker_open = false;
+        cx.notify();
+    }
+
     /// Parse the current value to get a GPUI Rgba for display
     fn parse_display_color(&self) -> Rgba {
         let rgb = self.current_rgb;
@@ -651,7 +668,10 @@ impl Render for ColorSwatch {
                                     .key_context("CcfColorPicker")
                                     .track_focus(&picker_focus_handle)
                                     .on_action(cx.listener(|this, _: &ClosePicker, _window, cx| {
-                                        this.close_picker(cx);
+                                        this.cancel_picker(cx);
+                                    }))
+                                    .on_action(cx.listener(|this, _: &ApplyPicker, _window, cx| {
+                                        this.apply_picker(cx);
                                     }))
                                     .occlude()
                                     .absolute()
@@ -723,6 +743,14 @@ impl Render for ColorSwatch {
                                                     .border_2()
                                                     .border_color(rgb(theme.bg_white))
                                                     .shadow_sm()
+                                            })
+                                            .on_mouse_down(MouseButton::Left, {
+                                                let canvas_origin = canvas_origin_for_drag.clone();
+                                                cx.listener(move |this, event: &MouseDownEvent, _window, cx| {
+                                                    let x: f32 = event.position.x.into();
+                                                    let y: f32 = event.position.y.into();
+                                                    this.handle_sl_at_position(x, y, canvas_origin.get(), canvas_width, canvas_height, cx);
+                                                })
                                             })
                                             .on_drag(
                                                 SlDrag {
@@ -822,6 +850,14 @@ impl Render for ColorSwatch {
                                                             .border_color(rgb(theme.text_dark))
                                                             .rounded_sm()
                                                     })
+                                                    .on_mouse_down(MouseButton::Left, {
+                                                        let hue_origin = hue_origin_for_drag.clone();
+                                                        let hue_width = hue_width_for_drag.clone();
+                                                        cx.listener(move |this, event: &MouseDownEvent, _window, cx| {
+                                                            let x: f32 = event.position.x.into();
+                                                            this.handle_hue_at_position(x, hue_origin.get(), hue_width.get(), cx);
+                                                        })
+                                                    })
                                                     .on_drag(
                                                         HueDrag {
                                                             origin: hue_origin_for_drag.clone(),
@@ -900,6 +936,14 @@ impl Render for ColorSwatch {
                                                                 .border_color(rgb(theme.text_dark))
                                                                 .rounded_sm()
                                                         })
+                                                        .on_mouse_down(MouseButton::Left, {
+                                                            let alpha_origin = alpha_origin_for_drag.clone();
+                                                            let alpha_width = alpha_width_for_drag.clone();
+                                                            cx.listener(move |this, event: &MouseDownEvent, _window, cx| {
+                                                                let x: f32 = event.position.x.into();
+                                                                this.handle_alpha_at_position(x, alpha_origin.get(), alpha_width.get(), cx);
+                                                            })
+                                                        })
                                                         .on_drag(
                                                             AlphaDrag {
                                                                 origin: alpha_origin_for_drag.clone(),
@@ -961,6 +1005,7 @@ impl Render for ColorSwatch {
                                                     )
                                                     .child(
                                                         div()
+                                                            .id("old_color_swatch")
                                                             .relative()
                                                             .w(px(60.))
                                                             .h(px(30.))
@@ -968,6 +1013,7 @@ impl Render for ColorSwatch {
                                                             .border_color(rgb(border_input))
                                                             .rounded_md()
                                                             .overflow_hidden()
+                                                            .cursor_pointer()
                                                             // Checkerboard for alpha
                                                             .when(with_alpha, |d| d.child(Self::render_checkerboard()))
                                                             .child(
@@ -976,6 +1022,9 @@ impl Render for ColorSwatch {
                                                                     .absolute()
                                                                     .bg(original_color)
                                                             )
+                                                            .on_click(cx.listener(|this, _event, _window, cx| {
+                                                                this.set_value_internal(&this.original_value.clone(), cx);
+                                                            }))
                                                     )
                                                     .child(
                                                         div()
@@ -1022,9 +1071,30 @@ impl Render for ColorSwatch {
                                                     )
                                             )
                                     )
-                                    // Close on click outside
+                                    // Cancel / Apply buttons
+                                    .child(
+                                        div()
+                                            .flex()
+                                            .flex_row()
+                                            .justify_end()
+                                            .gap_2()
+                                            .mt_2()
+                                            .child(
+                                                secondary_button("picker_cancel", "Cancel", cx)
+                                                    .on_click(cx.listener(|this, _event, _window, cx| {
+                                                        this.cancel_picker(cx);
+                                                    }))
+                                            )
+                                            .child(
+                                                primary_button("picker_apply", "Apply", true, cx)
+                                                    .on_click(cx.listener(|this, _event, _window, cx| {
+                                                        this.apply_picker(cx);
+                                                    }))
+                                            )
+                                    )
+                                    // Apply on click outside
                                     .on_mouse_down_out(cx.listener(|this, _event, _window, cx| {
-                                        this.close_picker(cx);
+                                        this.apply_picker(cx);
                                     }))
                             )
                     )
@@ -1085,11 +1155,8 @@ impl ColorSwatch {
         theme: &Theme,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let slider_width = 180.0f32;
         let handle_content_width = 4.0f32;
         let handle_visual_width = 6.0f32; // 4px content + 2px border
-        // Handle moves within (0, track_width - visual_width)
-        let handle_pos = (value / max) * (slider_width - handle_visual_width);
         let value_display = value.round() as i32;
         let text_color = theme.text_primary;
         let border_input = theme.border_input;
@@ -1097,9 +1164,15 @@ impl ColorSwatch {
         let handle_border = theme.text_dark;
         let (start_color, end_color) = gradient_colors;
 
+        // Use Rc<Cell<f32>> for slider dimensions (like H slider)
         let slider_origin = Rc::new(Cell::new(0.0f32));
+        let slider_width = Rc::new(Cell::new(200.0f32)); // Initial estimate
         let slider_origin_for_paint = slider_origin.clone();
+        let slider_width_for_paint = slider_width.clone();
         let slider_origin_for_drag = slider_origin.clone();
+        let slider_width_for_drag = slider_width.clone();
+        let slider_width_for_handle = slider_width.clone();
+        let slider_width_for_mouse = slider_width.clone();
 
         div()
             .flex()
@@ -1117,8 +1190,8 @@ impl ColorSwatch {
                 div()
                     .id(SharedString::from(format!("comp_slider_{}", label)))
                     .relative()
-                    .w(px(slider_width))
-                    .h(px(16.))
+                    .flex_1()
+                    .h(px(20.))
                     .rounded_sm()
                     .border_1()
                     .border_color(rgb(border_input))
@@ -1128,6 +1201,7 @@ impl ColorSwatch {
                         canvas(
                             move |bounds, _window, _cx| {
                                 slider_origin_for_paint.set(bounds.origin.x.into());
+                                slider_width_for_paint.set(bounds.size.width.into());
                                 bounds
                             },
                             move |bounds, _prepaint_result, window, _cx| {
@@ -1141,23 +1215,43 @@ impl ColorSwatch {
                         .size_full()
                         .absolute()
                     )
-                    // Handle
-                    .child(
+                    // Handle - use measured width, accounting for handle width
+                    .child({
+                        let measured_width = slider_width_for_handle.get();
+                        let handle_width = 4.0f32;
+                        // Handle moves within (0, measured_width - handle_width)
+                        let handle_x = (value / max) * (measured_width - handle_width);
                         div()
                             .absolute()
                             .top_0()
                             .bottom_0()
-                            .left(px(handle_pos))
+                            .left(px(handle_x))
                             .w(px(handle_content_width))
                             .bg(rgb(handle_bg))
                             .border_1()
                             .border_color(rgb(handle_border))
                             .rounded_sm()
-                    )
+                    })
+                    .on_mouse_down(MouseButton::Left, {
+                        let comp_origin = slider_origin_for_drag.clone();
+                        let comp_width = slider_width_for_mouse.clone();
+                        cx.listener(move |this, event: &MouseDownEvent, _window, cx| {
+                            let x: f32 = event.position.x.into();
+                            let origin = comp_origin.get();
+                            let slider_w = comp_width.get();
+                            let usable_width = slider_w - handle_visual_width;
+                            if usable_width <= 0.0 {
+                                return;
+                            }
+                            let rel_x = (x - origin - handle_visual_width / 2.0).clamp(0.0, usable_width);
+                            let new_value = (rel_x / usable_width) * max;
+                            update_fn(this, new_value, cx);
+                        })
+                    })
                     .on_drag(
                         ComponentDrag {
                             origin: slider_origin_for_drag.clone(),
-                            slider_width,
+                            width: slider_width_for_drag.clone(),
                             handle_visual_width,
                             max_value: max,
                             update_fn,
@@ -1168,7 +1262,8 @@ impl ColorSwatch {
                         let x: f32 = event.event.position.x.into();
                         let drag = event.drag(cx);
                         let origin = drag.origin.get();
-                        let usable_width = drag.slider_width - drag.handle_visual_width;
+                        let slider_w = drag.width.get();
+                        let usable_width = slider_w - drag.handle_visual_width;
                         // Guard against division by zero
                         if usable_width <= 0.0 {
                             return;
@@ -1182,8 +1277,10 @@ impl ColorSwatch {
             .child(
                 div()
                     .w(px(28.))
+                    .flex_shrink_0()
                     .text_xs()
                     .text_color(rgb(text_color))
+                    .text_right()
                     .child(format!("{}", value_display))
             )
     }
