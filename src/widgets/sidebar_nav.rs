@@ -145,7 +145,7 @@ impl<T: SidebarItem> SidebarNav<T> {
     }
 
     /// Get the currently selected item
-    pub fn selected_item(&self) -> &T {
+    pub fn selected(&self) -> &T {
         &self.selected
     }
 

@@ -72,6 +72,10 @@ src/
     ├── spinner.rs            # Loading spinner
     ├── collapsible.rs        # Expandable/collapsible section
     ├── tab_bar.rs            # Tab navigation
+    ├── sidebar_nav.rs        # Vertical sidebar navigation
+    ├── segmented_control.rs  # Horizontal button-style options
+    ├── scrollable.rs         # Scrollable container with scrollbars
+    ├── scrollbar.rs          # Scrollbar component
     ├── confirmation_dialog.rs # Modal confirmation dialogs
     ├── repeatable_text_input.rs # Text input with add/remove
     ├── button.rs             # Button factory functions
@@ -200,6 +204,10 @@ impl MyWidget {
 - Getters: direct name (e.g., `value()`, `is_checked()`)
 - Setters: `set_*` (e.g., `set_value()`, `set_checked()`)
 
+**Event Emission from Setters:**
+- **Form widgets** (RadioGroup, SegmentedControl, Checkbox, etc.): `set_*` methods emit events. These widgets represent data-bound form fields where programmatic changes should trigger the same event flow as user interaction.
+- **Navigation widgets** (TabBar, SidebarNav): `set_*` methods do NOT emit events. These widgets represent UI navigation state where the consumer typically controls transitions and doesn't need redundant event notifications from their own calls.
+
 ## Widget Quick Reference
 
 All widgets follow the pattern: `cx.new(|cx| Widget::new(cx).builder_methods())`
@@ -213,13 +221,16 @@ All widgets follow the pattern: `cx.new(|cx| Widget::new(cx).builder_methods())`
 | Checkbox | Change(bool) | checked(), label() |
 | ToggleSwitch | Change(bool) | with_on(), label(), label_position() |
 | Dropdown | Change(String), Open, Close | choices(), with_selected_index(), placeholder() |
-| RadioGroup | Change(usize) | choices(), with_selected_index() |
+| RadioGroup | Change(String) | choices(), with_selected_value() |
 | CheckboxGroup | Change(Vec<usize>) | choices(), with_selected_indices() |
+| SegmentedControl | Change(String) | options(), with_selected(), with_button_gap() |
 | ColorSwatch | Change(String) | with_value(), with_alpha() |
 | ProgressBar | Change(f64) | with_value(), indeterminate() |
 | Spinner | (no events) | size() |
 | Collapsible | Change(bool) | with_expanded(), title() |
-| TabBar | Change(usize) | tabs(), with_selected_index() |
+| TabBar | TabSelected(T) | new(tabs, active, cx), tab_row_padding() |
+| SidebarNav | Select(T) | new(items, selected, cx), with_width() |
+| Scrollable | (no events) | scrollable_vertical(), scrollable_horizontal(), scrollable_both() |
 | ConfirmationDialog | Primary, Secondary, Tertiary | style(), primary_label(), secondary_label() |
 | FilePicker | Change(PathBuf), Validated | mode(), extensions(), placeholder() |
 | DirectoryPicker | Change(PathBuf), Validated | placeholder() |
