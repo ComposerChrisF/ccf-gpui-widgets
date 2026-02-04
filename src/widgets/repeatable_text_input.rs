@@ -34,7 +34,7 @@ use gpui::prelude::*;
 use gpui::*;
 use crate::theme::{get_theme, Theme};
 use super::text_input::{TextInput, TextInputEvent};
-use super::focus_navigation::{with_focus_actions, EnabledCursorExt};
+use super::focus_navigation::{repeatable_add_button, repeatable_remove_button};
 
 // Actions for button activation
 actions!(ccf_repeatable_text_input, [ActivateButton]);
@@ -83,7 +83,8 @@ pub struct RepeatableTextInput {
     custom_theme: Option<Theme>,
     /// Whether the widget is enabled (interactive)
     enabled: bool,
-    /// Whether an action was just handled (to prevent double-trigger from keyboard)
+    /// Prevents double-trigger when Space/Enter activates both on_action and on_click.
+    /// See focus_navigation.rs module comment for details. DO NOT REMOVE.
     action_just_handled: bool,
 }
 
@@ -302,56 +303,27 @@ impl Render for RepeatableTextInput {
                     .flex_col()
                     .gap_2()
                     .children(entry_data.into_iter().map(|(index, entry, focus_handle, is_focused)| {
-                        let mut remove_button = with_focus_actions(
-                            div()
-                                .id(SharedString::from(format!("repeatable_remove_{}", index)))
-                                .key_context("CcfRepeatableButton")
-                                .track_focus(&focus_handle)
-                                .tab_stop(enabled),
+                        let remove_button = repeatable_remove_button(
+                            format!("repeatable_remove_{}", index),
+                            &focus_handle,
+                            &theme,
+                            enabled,
+                            is_focused,
+                            // on_action: set flag, then perform action
+                            move |this: &mut Self, window, cx| {
+                                this.action_just_handled = true;
+                                this.remove_entry(index, window, cx);
+                            },
+                            // on_click: skip if action just handled, otherwise perform action
+                            move |this: &mut Self, window, cx| {
+                                if this.action_just_handled {
+                                    this.action_just_handled = false;
+                                    return;
+                                }
+                                this.remove_entry(index, window, cx);
+                            },
                             cx,
-                        )
-                        .flex()
-                        .items_center()
-                        .justify_center()
-                        .h(px(28.))
-                        .w(px(28.))
-                        .rounded_md()
-                        .border_2()
-                        .cursor_for_enabled(enabled)
-                        .when(enabled, |d| {
-                            d.bg(rgb(theme.delete_bg))
-                                .hover(|d| d.bg(rgb(theme.delete_bg_hover)))
-                                .border_color(if is_focused { rgb(theme.border_focus) } else { rgba(0x00000000) })
-                        })
-                        .when(!enabled, |d| {
-                            d.bg(rgb(theme.disabled_bg))
-                                .border_color(rgba(0x00000000))
-                        })
-                            // Draw minus sign with a horizontal line
-                            .child({
-                                let line_color = if enabled { theme.text_label } else { theme.disabled_text };
-                                div()
-                                    .w(px(10.))
-                                    .h(px(2.))
-                                    .rounded_sm()
-                                    .bg(rgb(line_color))
-                            });
-
-                        if enabled {
-                            remove_button = remove_button
-                                .on_action(cx.listener(move |this, _: &ActivateButton, window, cx| {
-                                    this.action_just_handled = true;
-                                    this.remove_entry(index, window, cx);
-                                }))
-                                .on_click(cx.listener(move |this, _event, window, cx| {
-                                    // Skip if this click is from keyboard (action already handled)
-                                    if this.action_just_handled {
-                                        this.action_just_handled = false;
-                                        return;
-                                    }
-                                    this.remove_entry(index, window, cx);
-                                }));
-                        }
+                        );
 
                         div()
                             .flex()
@@ -372,82 +344,29 @@ impl Render for RepeatableTextInput {
                 div()
                     .flex()
                     .flex_row()
-                    .child({
-                        // Add button - height matches text input (28px)
-                        let mut add_button = with_focus_actions(
-                            div()
-                                .id("repeatable_add_button")
-                                .key_context("CcfRepeatableButton")
-                                .track_focus(&self.add_focus_handle)
-                                .tab_stop(enabled),
+                    .child(
+                        repeatable_add_button(
+                            "repeatable_add_button",
+                            &self.add_focus_handle,
+                            &theme,
+                            enabled,
+                            add_focused,
+                            // on_action: set flag, then perform action
+                            |this: &mut Self, _window, cx| {
+                                this.action_just_handled = true;
+                                this.add_entry(cx);
+                            },
+                            // on_click: skip if action just handled, otherwise perform action
+                            |this: &mut Self, _window, cx| {
+                                if this.action_just_handled {
+                                    this.action_just_handled = false;
+                                    return;
+                                }
+                                this.add_entry(cx);
+                            },
                             cx,
                         )
-                        .flex()
-                        .items_center()
-                        .justify_center()
-                        .h(px(28.))
-                        .w(px(28.))
-                        .rounded_md()
-                        .border_2()
-                        .cursor_for_enabled(enabled)
-                        .when(enabled, |d| {
-                            d.bg(rgb(theme.bg_input_hover))
-                                .hover(|d| d.bg(rgb(theme.bg_hover)))
-                                .border_color(if add_focused { rgb(theme.border_focus) } else { rgba(0x00000000) })
-                        })
-                        .when(!enabled, |d| {
-                            d.bg(rgb(theme.disabled_bg))
-                                .border_color(rgba(0x00000000))
-                        })
-                            // Draw plus sign with crossed lines
-                            .child({
-                                let line_color = if enabled { theme.text_label } else { theme.disabled_text };
-                                div()
-                                    .relative()
-                                    .w(px(10.))
-                                    .h(px(10.))
-                                    // Horizontal line
-                                    .child(
-                                        div()
-                                            .absolute()
-                                            .top(px(4.))
-                                            .left(px(0.))
-                                            .w(px(10.))
-                                            .h(px(2.))
-                                            .rounded_sm()
-                                            .bg(rgb(line_color))
-                                    )
-                                    // Vertical line
-                                    .child(
-                                        div()
-                                            .absolute()
-                                            .top(px(0.))
-                                            .left(px(4.))
-                                            .w(px(2.))
-                                            .h(px(10.))
-                                            .rounded_sm()
-                                            .bg(rgb(line_color))
-                                    )
-                            });
-
-                        if enabled {
-                            add_button = add_button
-                                .on_action(cx.listener(|this, _: &ActivateButton, _window, cx| {
-                                    this.action_just_handled = true;
-                                    this.add_entry(cx);
-                                }))
-                                .on_click(cx.listener(|this, _event, _window, cx| {
-                                    // Skip if this click is from keyboard (action already handled)
-                                    if this.action_just_handled {
-                                        this.action_just_handled = false;
-                                        return;
-                                    }
-                                    this.add_entry(cx);
-                                }));
-                        }
-
-                        add_button
-                    })
+                    )
             )
     }
 }

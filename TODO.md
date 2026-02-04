@@ -224,6 +224,14 @@ The library is functional and being used by clui.
 - [x] Simplified cursor_pointer/cursor_default patterns across 16 widgets
 - [x] Exported `with_focus_actions` and `EnabledCursorExt` from widgets module
 
+### ✅ Repeatable Button Helper Extraction (2026-02-03)
+- [x] Added `repeatable_remove_button()` helper to focus_navigation module
+- [x] Added `repeatable_add_button()` helper to focus_navigation module
+- [x] Extracted ~210 lines of duplicated button code from 3 repeatable widgets
+- [x] Added prominent warning comment about double-trigger bug prevention
+- [x] Two-callback pattern prevents Space/Enter firing both on_action and on_click
+- [x] Helpers exported from widgets module for potential external use
+
 ### ✅ New Widgets: Scrollable, Scrollbar, SegmentedControl (2026-02-02)
 - [x] Scrollable: Wrapper component that adds visible, interactive scrollbars to any content
 - [x] Scrollable: Auto-fade after inactivity, `.always_show_scrollbars()` option
