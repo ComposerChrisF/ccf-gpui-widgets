@@ -138,7 +138,7 @@ pub mod prelude {
         Tooltip,
         primary_button, secondary_button, danger_button,
         PasswordInput, PasswordInputEvent,
-        TabBar, TabBarEvent, TabItem,
+        TabBar, TabBarEvent,
         RepeatableTextInput, RepeatableTextInputEvent,
         ToggleSwitch, ToggleSwitchEvent, LabelPosition,
         Slider, SliderEvent,
@@ -148,7 +148,8 @@ pub mod prelude {
         Scrollable, scrollable_vertical, scrollable_horizontal, scrollable_both,
         ScrollbarAxis,
         SegmentedControl, SegmentedControlEvent, SegmentOption,
-        SidebarNav, SidebarNavEvent, SidebarItem,
+        SidebarNav, SidebarNavEvent,
+        SelectionItem, StringItem,
     };
 
     #[cfg(feature = "file-picker")]

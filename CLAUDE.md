@@ -221,15 +221,15 @@ All widgets follow the pattern: `cx.new(|cx| Widget::new(cx).builder_methods())`
 | Checkbox | Change(bool) | checked(), label() |
 | ToggleSwitch | Change(bool) | with_on(), label(), label_position() |
 | Dropdown | Change(String), Open, Close | choices(), with_selected_index(), placeholder() |
-| RadioGroup | Change(String) | choices(), with_selected_value() |
+| RadioGroup | Change(T) | choices(), with_selected_index(), selected_index() |
 | CheckboxGroup | Change(Vec<usize>) | choices(), with_selected_indices() |
-| SegmentedControl | Change(String) | options(), with_selected(), with_button_gap() |
+| SegmentedControl | Change(T) | options(), with_selected_index(), selected_index() |
 | ColorSwatch | Change(String) | with_value(), with_alpha() |
 | ProgressBar | Change(f64) | with_value(), indeterminate() |
 | Spinner | (no events) | size() |
 | Collapsible | Change(bool) | with_expanded(), title() |
-| TabBar | TabSelected(T) | new(tabs, active, cx), tab_row_padding() |
-| SidebarNav | Select(T) | new(items, selected, cx), with_width() |
+| TabBar | Change(T), ContextMenu | new(tabs, selected, cx), selected_index() |
+| SidebarNav | Change(T) | new(items, selected, cx), selected_index() |
 | Scrollable | (no events) | scrollable_vertical(), scrollable_horizontal(), scrollable_both() |
 | ConfirmationDialog | Primary, Secondary, Tertiary | style(), primary_label(), secondary_label() |
 | FilePicker | Change(PathBuf), Validated | mode(), extensions(), placeholder() |

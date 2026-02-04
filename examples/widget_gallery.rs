@@ -24,7 +24,7 @@ enum GalleryTab {
     Settings,
 }
 
-impl TabItem for GalleryTab {
+impl SelectionItem for GalleryTab {
     fn label(&self) -> SharedString {
         match self {
             GalleryTab::Overview => "Overview".into(),
@@ -54,7 +54,7 @@ enum GalleryCategory {
     Misc,
 }
 
-impl TabItem for GalleryCategory {
+impl SelectionItem for GalleryCategory {
     fn label(&self) -> SharedString {
         match self {
             GalleryCategory::Text => "Text".into(),
@@ -226,7 +226,7 @@ impl WidgetGallery {
 
         // Subscribe to category tab changes
         cx.subscribe(&category_tab_bar, |this, _entity, event: &TabBarEvent<GalleryCategory>, cx| {
-            if let TabBarEvent::TabSelected(category) = event {
+            if let TabBarEvent::Change(category) = event {
                 this.active_category = *category;
                 this.log_event("CategoryTab", format!("Changed to {:?}", category), cx);
             }
@@ -398,7 +398,7 @@ impl WidgetGallery {
                     ("200", "200%"),
                     ("custom", "Custom"),
                 ])
-                .with_selected("100")
+                .with_selected_index(1) // "100%"
         });
 
         // Collapsible sections
@@ -516,7 +516,7 @@ impl WidgetGallery {
         );
 
         // Subscribe to segmented control events
-        subscribe_widget!(cx, &segmented_control, "SegmentedControl", SegmentedControlEvent);
+        subscribe_widget!(cx, &segmented_control, "SegmentedControl", SegmentedControlEvent<SegmentOption>);
 
         Self {
             current_theme: ThemeChoice::Dark,
@@ -603,7 +603,7 @@ impl WidgetGallery {
         subscribe_widget!(cx, dropdown, "Dropdown", DropdownEvent);
         subscribe_widget!(cx, number_stepper, "NumberStepper (int)", NumberStepperEvent);
         subscribe_widget!(cx, number_stepper_float, "NumberStepper (float)", NumberStepperEvent);
-        subscribe_widget!(cx, radio_group, "RadioGroup", RadioGroupEvent);
+        subscribe_widget!(cx, radio_group, "RadioGroup", RadioGroupEvent<StringItem>);
         subscribe_widget!(cx, checkbox_group, "CheckboxGroup", CheckboxGroupEvent);
         subscribe_widget!(cx, color_swatch, "ColorSwatch", ColorSwatchEvent);
         subscribe_widget!(cx, color_swatch_alpha, "ColorSwatch (alpha)", ColorSwatchEvent);
@@ -1188,7 +1188,7 @@ impl WidgetGallery {
     }
 
     fn render_tab_bar_section(&self, cx: &Context<Self>) -> impl IntoElement {
-        let active = format!("{:?}", self.tab_bar.read(cx).active_tab());
+        let active = format!("{:?}", self.tab_bar.read(cx).selected());
 
         div().child(Self::render_widget_row(
             "Tab Bar",
@@ -1634,7 +1634,7 @@ impl WidgetGallery {
     }
 
     fn render_segmented_section(&self, cx: &Context<Self>) -> impl IntoElement {
-        let selected = self.segmented_control.read(cx).selected().to_string();
+        let selected = self.segmented_control.read(cx).selected().label.clone();
 
         div().child(Self::render_widget_row(
             "Segmented Control",

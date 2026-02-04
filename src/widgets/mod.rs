@@ -25,6 +25,7 @@ mod scrollbar;
 mod scrollable;
 mod segmented_control;
 mod sidebar_nav;
+mod selection;
 
 #[cfg(feature = "file-picker")]
 mod path_display;
@@ -64,8 +65,9 @@ pub use scrollbar::ScrollbarAxis;
 pub use segmented_control::{SegmentedControl, SegmentedControlEvent, SegmentOption};
 #[cfg(feature = "secure-password")]
 pub use secrecy::SecretString;
-pub use tab_bar::{TabBar, TabBarEvent, TabItem, register_keybindings as register_tab_bar_keybindings};
-pub use sidebar_nav::{SidebarNav, SidebarNavEvent, SidebarItem, register_keybindings as register_sidebar_nav_keybindings};
+pub use tab_bar::{TabBar, TabBarEvent, register_keybindings as register_tab_bar_keybindings};
+pub use sidebar_nav::{SidebarNav, SidebarNavEvent, register_keybindings as register_sidebar_nav_keybindings};
+pub use selection::{SelectionItem, StringItem};
 pub use repeatable_text_input::{RepeatableTextInput, RepeatableTextInputEvent, ActivateButton as RepeatableActivateButton, register_keybindings as register_repeatable_text_input_keybindings};
 
 #[cfg(feature = "file-picker")]

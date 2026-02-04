@@ -1,13 +1,13 @@
 //! Generic tab bar widget for switching between views
 //!
-//! A tab bar that can display any type implementing the `TabItem` trait.
+//! A tab bar that can display any type implementing the `SelectionItem` trait.
 //! Supports left-click tab switching, right-click context menus, and keyboard navigation.
 //! Use `register_keybindings()` at app startup to enable keyboard shortcuts.
 //!
 //! # Example
 //!
 //! ```ignore
-//! use ccf_gpui_widgets::widgets::{TabBar, TabBarEvent, TabItem};
+//! use ccf_gpui_widgets::widgets::{TabBar, TabBarEvent, SelectionItem};
 //! use gpui::*;
 //!
 //! // Register keybindings at app startup
@@ -20,7 +20,7 @@
 //!     Settings,
 //! }
 //!
-//! impl TabItem for MyTab {
+//! impl SelectionItem for MyTab {
 //!     fn label(&self) -> SharedString {
 //!         match self {
 //!             MyTab::Overview => "Overview".into(),
@@ -48,18 +48,29 @@
 //!
 //! cx.subscribe(&tab_bar, |this, _, event: &TabBarEvent<MyTab>, cx| {
 //!     match event {
-//!         TabBarEvent::TabSelected(tab) => this.switch_to(*tab, cx),
+//!         TabBarEvent::Change(tab) => this.switch_to(*tab, cx),
 //!         TabBarEvent::ContextMenu { tab, position } => {
 //!             this.show_context_menu(*tab, *position, cx);
 //!         }
 //!     }
 //! }).detach();
 //! ```
+//!
+//! # API Changes (2025-02)
+//!
+//! - Replaced `TabItem` trait with `SelectionItem` (unified trait across all selection widgets)
+//! - Renamed `active` field/methods to `selected` for consistency:
+//!   - `active_tab()` → `selected()`
+//!   - `set_active_tab()` → `set_selected()`
+//! - Added index-based selection: `selected_index()`, `set_selected_index()`
+//! - Renamed event: `TabSelected(T)` → `Change(T)`
+//! - Note: Navigation widgets (TabBar, SidebarNav) do NOT emit events from set_* methods
 
 use gpui::prelude::*;
 use gpui::*;
 use crate::theme::{get_theme_or, Theme};
 use super::focus_navigation::{with_focus_actions, EnabledCursorExt};
+use super::selection::SelectionItem;
 
 // Actions for keyboard navigation
 actions!(ccf_tab_bar, [SelectPreviousTab, SelectNextTab]);
@@ -77,22 +88,17 @@ pub fn register_keybindings(cx: &mut App) {
     ]);
 }
 
-/// Trait for items that can be displayed as tabs
-///
-/// Implement this trait for your tab enum or struct to use it with `TabBar`.
-pub trait TabItem: Clone + PartialEq + 'static {
-    /// The display label for this tab
-    fn label(&self) -> SharedString;
-
-    /// A unique element ID for this tab (used for click handling)
-    fn id(&self) -> ElementId;
-}
-
 /// Events emitted by TabBar
+///
+/// Note: `set_selected()` and `set_selected_index()` do NOT emit events.
+/// Navigation widgets represent UI navigation state where the consumer typically
+/// controls transitions and doesn't need redundant event notifications.
 #[derive(Debug, Clone)]
 pub enum TabBarEvent<T> {
-    /// A tab was selected (left-click)
-    TabSelected(T),
+    /// A tab was selected (left-click or keyboard navigation)
+    ///
+    /// Previously named `TabSelected(T)`.
+    Change(T),
     /// Context menu was requested (right-click)
     ContextMenu {
         tab: T,
@@ -102,9 +108,9 @@ pub enum TabBarEvent<T> {
 }
 
 /// Generic tab bar widget
-pub struct TabBar<T: TabItem> {
+pub struct TabBar<T: SelectionItem> {
     tabs: Vec<T>,
-    active: T,
+    selected: T,
     focus_handle: FocusHandle,
     custom_theme: Option<Theme>,
     /// Whether the widget is enabled (interactive)
@@ -116,18 +122,18 @@ pub struct TabBar<T: TabItem> {
     tab_row_padding: Pixels,
 }
 
-impl<T: TabItem> TabBar<T> {
+impl<T: SelectionItem> TabBar<T> {
     /// Create a new tab bar with the given tabs
     ///
     /// # Arguments
     ///
     /// * `tabs` - List of tabs to display
-    /// * `active` - The initially active tab
+    /// * `selected` - The initially selected tab
     /// * `cx` - Context for creating the focus handle
-    pub fn new(tabs: Vec<T>, active: T, cx: &mut Context<Self>) -> Self {
+    pub fn new(tabs: Vec<T>, selected: T, cx: &mut Context<Self>) -> Self {
         Self {
             tabs,
-            active,
+            selected,
             focus_handle: cx.focus_handle().tab_stop(true),
             custom_theme: None,
             enabled: true,
@@ -157,15 +163,33 @@ impl<T: TabItem> TabBar<T> {
         self
     }
 
-    /// Get the currently active tab
-    pub fn active_tab(&self) -> &T {
-        &self.active
+    /// Get the currently selected tab
+    pub fn selected(&self) -> &T {
+        &self.selected
     }
 
-    /// Set the active tab
-    pub fn set_active_tab(&mut self, tab: T, cx: &mut Context<Self>) {
-        self.active = tab;
+    /// Get the currently selected index
+    pub fn selected_index(&self) -> usize {
+        self.tabs.iter().position(|t| *t == self.selected).unwrap_or(0)
+    }
+
+    /// Set the selected tab
+    ///
+    /// Note: Does NOT emit Change event. Navigation widgets represent UI state
+    /// where the consumer controls transitions.
+    pub fn set_selected(&mut self, tab: T, cx: &mut Context<Self>) {
+        self.selected = tab;
         cx.notify();
+    }
+
+    /// Set selected by index
+    ///
+    /// Note: Does NOT emit Change event.
+    pub fn set_selected_index(&mut self, index: usize, cx: &mut Context<Self>) {
+        if let Some(tab) = self.tabs.get(index).cloned() {
+            self.selected = tab;
+            cx.notify();
+        }
     }
 
     /// Get the focus handle
@@ -191,15 +215,15 @@ impl<T: TabItem> TabBar<T> {
         if self.tabs.is_empty() {
             return;
         }
-        let current_index = self.tabs.iter().position(|t| *t == self.active).unwrap_or(0);
+        let current_index = self.tabs.iter().position(|t| *t == self.selected).unwrap_or(0);
         let new_index = if current_index == 0 {
             self.tabs.len() - 1
         } else {
             current_index - 1
         };
         if let Some(tab) = self.tabs.get(new_index) {
-            self.active = tab.clone();
-            cx.emit(TabBarEvent::TabSelected(self.active.clone()));
+            self.selected = tab.clone();
+            cx.emit(TabBarEvent::Change(self.selected.clone()));
             cx.notify();
         }
     }
@@ -209,32 +233,32 @@ impl<T: TabItem> TabBar<T> {
         if self.tabs.is_empty() {
             return;
         }
-        let current_index = self.tabs.iter().position(|t| *t == self.active).unwrap_or(0);
+        let current_index = self.tabs.iter().position(|t| *t == self.selected).unwrap_or(0);
         let new_index = if current_index >= self.tabs.len() - 1 {
             0
         } else {
             current_index + 1
         };
         if let Some(tab) = self.tabs.get(new_index) {
-            self.active = tab.clone();
-            cx.emit(TabBarEvent::TabSelected(self.active.clone()));
+            self.selected = tab.clone();
+            cx.emit(TabBarEvent::Change(self.selected.clone()));
             cx.notify();
         }
     }
 }
 
-impl<T: TabItem> EventEmitter<TabBarEvent<T>> for TabBar<T> {}
+impl<T: SelectionItem> EventEmitter<TabBarEvent<T>> for TabBar<T> {}
 
-impl<T: TabItem> Focusable for TabBar<T> {
+impl<T: SelectionItem> Focusable for TabBar<T> {
     fn focus_handle(&self, _cx: &App) -> FocusHandle {
         self.focus_handle.clone()
     }
 }
 
-impl<T: TabItem> Render for TabBar<T> {
+impl<T: SelectionItem> Render for TabBar<T> {
     fn render(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) -> impl IntoElement {
         let theme = get_theme_or(cx, self.custom_theme.as_ref());
-        let active_tab = self.active.clone();
+        let selected_tab = self.selected.clone();
         let is_focused = self.focus_handle.is_focused(window);
         let enabled = self.enabled;
 
@@ -280,8 +304,8 @@ impl<T: TabItem> Render for TabBar<T> {
             })
             .children(self.tabs.iter().map(|tab| {
                 let tab = tab.clone();
-                let is_active = tab == active_tab;
-                let show_focus = is_active && is_focused && enabled;
+                let is_selected = tab == selected_tab;
+                let show_focus = is_selected && is_focused && enabled;
 
                 // Tab container - handles clicks and identification
                 div()
@@ -298,8 +322,8 @@ impl<T: TabItem> Render for TabBar<T> {
                         .on_click({
                             let tab = tab.clone();
                             cx.listener(move |this, _event: &ClickEvent, window, cx| {
-                                this.active = tab.clone();
-                                cx.emit(TabBarEvent::TabSelected(tab.clone()));
+                                this.selected = tab.clone();
+                                cx.emit(TabBarEvent::Change(tab.clone()));
                                 if let Some(focus_handle) = this.previous_focus.take() {
                                     focus_handle.focus(window);
                                 } else {
@@ -323,28 +347,28 @@ impl<T: TabItem> Render for TabBar<T> {
                             .px_4()
                             .pb_2()
                             // Active tab: py_2 top + border_t_2 (always accent), no other borders
-                            .when(is_active, |d| {
+                            .when(is_selected, |d| {
                                 d.pt_2() // Standard top padding
                                     .border_t_2()
                             })
                             // Inactive tabs: pt = py_2 + 2px to match active height
-                            .when(!is_active, |d| {
+                            .when(!is_selected, |d| {
                                 d.pt(px(10.0)) // 8px (py_2) + 2px (border_t_2)
                                     .border_r_1()
                                     .border_b_1()
                             })
                             // Colors based on active/enabled state
-                            .when(is_active && enabled, |d| {
+                            .when(is_selected && enabled, |d| {
                                 d.bg(rgb(theme.bg_primary))
                                     .text_color(rgb(theme.text_primary))
                                     .border_color(rgb(theme.border_focus)) // Always accent for active tab
                             })
-                            .when(is_active && !enabled, |d| {
+                            .when(is_selected && !enabled, |d| {
                                 d.bg(rgb(theme.disabled_bg))
                                     .text_color(rgb(theme.disabled_text))
                                     .border_color(rgb(theme.disabled_bg))
                             })
-                            .when(!is_active && enabled, |d| {
+                            .when(!is_selected && enabled, |d| {
                                 d.bg(rgb(theme.bg_input))
                                     .text_color(rgb(theme.text_dimmed))
                                     .border_color(rgb(theme.border_default))
@@ -353,7 +377,7 @@ impl<T: TabItem> Render for TabBar<T> {
                                             .text_color(rgb(theme.text_muted))
                                     })
                             })
-                            .when(!is_active && !enabled, |d| {
+                            .when(!is_selected && !enabled, |d| {
                                 d.bg(rgb(theme.disabled_bg))
                                     .text_color(rgb(theme.disabled_text))
                                     .border_color(rgb(theme.disabled_bg))

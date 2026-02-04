@@ -282,6 +282,21 @@ The library is functional and being used by clui.
 - [x] Widget gallery: Added Collapsible demos (collapsed, expanded, static) to Utility category
 - [x] Theme: Adjusted warning color for better visibility
 
+### ✅ Unified Selection API (2026-02-03)
+- [x] Created `SelectionItem` trait for unified selection widget interface
+- [x] Created `StringItem` type for simple string-based selections
+- [x] Made RadioGroup generic: `RadioGroup<T: SelectionItem = StringItem>`
+- [x] Made SegmentedControl generic: `SegmentedControl<T: SelectionItem = SegmentOption>`
+- [x] Implemented `SelectionItem` for `SegmentOption`
+- [x] Replaced `TabItem` trait with `SelectionItem` in TabBar
+- [x] Replaced `SidebarItem` trait with `SelectionItem` in SidebarNav
+- [x] Added universal index-based selection: `selected_index()`, `set_selected_index()`, `with_selected_index()`
+- [x] Renamed TabBar: `active_tab()` → `selected()`, `set_active_tab()` → `set_selected()`
+- [x] Renamed events: `TabBarEvent::TabSelected(T)` → `Change(T)`, `SidebarNavEvent::Select(T)` → `Change(T)`
+- [x] RadioGroup/SegmentedControl events now generic: `RadioGroupEvent<T>::Change(T)`, `SegmentedControlEvent<T>::Change(T)`
+- [x] Backward compatible string API: `choices()`, `options()`, `with_selected_value()` still work
+- [x] **Breaking changes**: Removed `TabItem`, `SidebarItem` traits; event types changed; some method renames
+
 ### ✅ New Widgets: Toggle, Slider, Progress, Spinner, Dialog (2026-01-30)
 - [x] ToggleSwitch: iOS-style toggle switch with pill-shaped track and circular thumb
 - [x] ToggleSwitch: Label support with configurable position (left or right)

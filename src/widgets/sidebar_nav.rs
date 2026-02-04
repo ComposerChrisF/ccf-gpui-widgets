@@ -1,13 +1,13 @@
 //! Generic sidebar navigation widget for switching between sections
 //!
-//! A vertical navigation sidebar that can display any type implementing the `SidebarItem` trait.
+//! A vertical navigation sidebar that can display any type implementing the `SelectionItem` trait.
 //! Supports click-to-select and keyboard navigation with Up/Down arrows.
 //! Use `register_keybindings()` at app startup to enable keyboard shortcuts.
 //!
 //! # Example
 //!
 //! ```ignore
-//! use ccf_gpui_widgets::widgets::{SidebarNav, SidebarNavEvent, SidebarItem};
+//! use ccf_gpui_widgets::widgets::{SidebarNav, SidebarNavEvent, SelectionItem};
 //! use gpui::*;
 //!
 //! // Register keybindings at app startup
@@ -20,7 +20,7 @@
 //!     Settings,
 //! }
 //!
-//! impl SidebarItem for MySection {
+//! impl SelectionItem for MySection {
 //!     fn label(&self) -> SharedString {
 //!         match self {
 //!             MySection::Overview => "Overview".into(),
@@ -48,15 +48,23 @@
 //!
 //! cx.subscribe(&sidebar_nav, |this, _, event: &SidebarNavEvent<MySection>, cx| {
 //!     match event {
-//!         SidebarNavEvent::Select(section) => this.switch_to(*section, cx),
+//!         SidebarNavEvent::Change(section) => this.switch_to(*section, cx),
 //!     }
 //! }).detach();
 //! ```
+//!
+//! # API Changes (2025-02)
+//!
+//! - Replaced `SidebarItem` trait with `SelectionItem` (unified trait across all selection widgets)
+//! - Added index-based selection: `selected_index()`, `set_selected_index()`
+//! - Renamed event: `Select(T)` → `Change(T)`
+//! - Note: Navigation widgets (TabBar, SidebarNav) do NOT emit events from set_* methods
 
 use gpui::prelude::*;
 use gpui::*;
 use crate::theme::{get_theme_or, Theme};
 use super::focus_navigation::{with_focus_actions, EnabledCursorExt};
+use super::selection::SelectionItem;
 
 // Actions for keyboard navigation
 actions!(ccf_sidebar_nav, [SelectPrevious, SelectNext]);
@@ -74,26 +82,21 @@ pub fn register_keybindings(cx: &mut App) {
     ]);
 }
 
-/// Trait for items that can be displayed in the sidebar navigation
-///
-/// Implement this trait for your section enum or struct to use it with `SidebarNav`.
-pub trait SidebarItem: Clone + PartialEq + 'static {
-    /// The display label for this item
-    fn label(&self) -> SharedString;
-
-    /// A unique element ID for this item (used for click handling)
-    fn id(&self) -> ElementId;
-}
-
 /// Events emitted by SidebarNav
+///
+/// Note: `set_selected()` and `set_selected_index()` do NOT emit events.
+/// Navigation widgets represent UI navigation state where the consumer typically
+/// controls transitions and doesn't need redundant event notifications.
 #[derive(Debug, Clone)]
 pub enum SidebarNavEvent<T> {
     /// An item was selected
-    Select(T),
+    ///
+    /// Previously named `Select(T)`.
+    Change(T),
 }
 
 /// Generic sidebar navigation widget
-pub struct SidebarNav<T: SidebarItem> {
+pub struct SidebarNav<T: SelectionItem> {
     items: Vec<T>,
     selected: T,
     focus_handle: FocusHandle,
@@ -104,7 +107,7 @@ pub struct SidebarNav<T: SidebarItem> {
     width: Option<Pixels>,
 }
 
-impl<T: SidebarItem> SidebarNav<T> {
+impl<T: SelectionItem> SidebarNav<T> {
     /// Create a new sidebar nav with the given items
     ///
     /// # Arguments
@@ -149,10 +152,28 @@ impl<T: SidebarItem> SidebarNav<T> {
         &self.selected
     }
 
+    /// Get the currently selected index
+    pub fn selected_index(&self) -> usize {
+        self.items.iter().position(|i| *i == self.selected).unwrap_or(0)
+    }
+
     /// Set the selected item
+    ///
+    /// Note: Does NOT emit Change event. Navigation widgets represent UI state
+    /// where the consumer controls transitions.
     pub fn set_selected(&mut self, item: T, cx: &mut Context<Self>) {
         self.selected = item;
         cx.notify();
+    }
+
+    /// Set selected by index
+    ///
+    /// Note: Does NOT emit Change event.
+    pub fn set_selected_index(&mut self, index: usize, cx: &mut Context<Self>) {
+        if let Some(item) = self.items.get(index).cloned() {
+            self.selected = item;
+            cx.notify();
+        }
     }
 
     /// Get the focus handle
@@ -186,7 +207,7 @@ impl<T: SidebarItem> SidebarNav<T> {
         };
         if let Some(item) = self.items.get(new_index) {
             self.selected = item.clone();
-            cx.emit(SidebarNavEvent::Select(self.selected.clone()));
+            cx.emit(SidebarNavEvent::Change(self.selected.clone()));
             cx.notify();
         }
     }
@@ -204,21 +225,21 @@ impl<T: SidebarItem> SidebarNav<T> {
         };
         if let Some(item) = self.items.get(new_index) {
             self.selected = item.clone();
-            cx.emit(SidebarNavEvent::Select(self.selected.clone()));
+            cx.emit(SidebarNavEvent::Change(self.selected.clone()));
             cx.notify();
         }
     }
 }
 
-impl<T: SidebarItem> EventEmitter<SidebarNavEvent<T>> for SidebarNav<T> {}
+impl<T: SelectionItem> EventEmitter<SidebarNavEvent<T>> for SidebarNav<T> {}
 
-impl<T: SidebarItem> Focusable for SidebarNav<T> {
+impl<T: SelectionItem> Focusable for SidebarNav<T> {
     fn focus_handle(&self, _cx: &App) -> FocusHandle {
         self.focus_handle.clone()
     }
 }
 
-impl<T: SidebarItem> Render for SidebarNav<T> {
+impl<T: SelectionItem> Render for SidebarNav<T> {
     fn render(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) -> impl IntoElement {
         let theme = get_theme_or(cx, self.custom_theme.as_ref());
         let selected_item = self.selected.clone();
@@ -269,7 +290,7 @@ impl<T: SidebarItem> Render for SidebarNav<T> {
                     d.on_click({
                         cx.listener(move |this, _event: &ClickEvent, _window, cx| {
                             this.selected = item_clone.clone();
-                            cx.emit(SidebarNavEvent::Select(item_clone.clone()));
+                            cx.emit(SidebarNavEvent::Change(item_clone.clone()));
                             cx.notify();
                         })
                     })
