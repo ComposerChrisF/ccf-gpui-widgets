@@ -73,6 +73,8 @@ pub struct SegmentedControl {
     highlight_index: usize,
     custom_theme: Option<Theme>,
     enabled: bool,
+    /// Gap between segment buttons
+    button_gap: Pixels,
 }
 
 impl EventEmitter<SegmentedControlEvent> for SegmentedControl {}
@@ -93,6 +95,7 @@ impl SegmentedControl {
             highlight_index: 0,
             custom_theme: None,
             enabled: true,
+            button_gap: px(8.0),
         }
     }
 
@@ -140,6 +143,15 @@ impl SegmentedControl {
     #[must_use]
     pub fn with_enabled(mut self, enabled: bool) -> Self {
         self.enabled = enabled;
+        self
+    }
+
+    /// Set gap between segment buttons (builder pattern)
+    ///
+    /// Default is 8px.
+    #[must_use]
+    pub fn with_button_gap(mut self, gap: impl Into<Pixels>) -> Self {
+        self.button_gap = gap.into();
         self
     }
 
@@ -239,7 +251,7 @@ impl Render for SegmentedControl {
         }))
         .flex()
         .flex_row()
-        .gap_1()
+        .gap(self.button_gap)
         .children(self.options.iter().enumerate().map(|(idx, option)| {
             let value = option.value.clone();
             let is_selected = self.selected == option.value;
@@ -292,7 +304,16 @@ impl Render for SegmentedControl {
                     }));
             }
 
-            segment.child(option.label.clone())
+            // Inner focus ring around text (border always present to prevent layout shift)
+            segment.child(
+                div()
+                    .px_1()
+                    .border_1()
+                    .rounded_sm()
+                    .when(is_highlighted, |d| d.border_color(rgb(theme.border_focus)))
+                    .when(!is_highlighted, |d| d.border_color(rgba(0x00000000)))
+                    .child(option.label.clone())
+            )
         }))
     }
 }
