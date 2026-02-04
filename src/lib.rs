@@ -148,6 +148,7 @@ pub mod prelude {
         Scrollable, scrollable_vertical, scrollable_horizontal, scrollable_both,
         ScrollbarAxis,
         SegmentedControl, SegmentedControlEvent, SegmentOption,
+        SidebarNav, SidebarNavEvent, SidebarItem,
     };
 
     #[cfg(feature = "file-picker")]

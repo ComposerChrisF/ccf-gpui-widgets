@@ -24,6 +24,7 @@ mod confirmation_dialog;
 mod scrollbar;
 mod scrollable;
 mod segmented_control;
+mod sidebar_nav;
 
 #[cfg(feature = "file-picker")]
 mod path_display;
@@ -64,6 +65,7 @@ pub use segmented_control::{SegmentedControl, SegmentedControlEvent, SegmentOpti
 #[cfg(feature = "secure-password")]
 pub use secrecy::SecretString;
 pub use tab_bar::{TabBar, TabBarEvent, TabItem, register_keybindings as register_tab_bar_keybindings};
+pub use sidebar_nav::{SidebarNav, SidebarNavEvent, SidebarItem, register_keybindings as register_sidebar_nav_keybindings};
 pub use repeatable_text_input::{RepeatableTextInput, RepeatableTextInputEvent, ActivateButton as RepeatableActivateButton, register_keybindings as register_repeatable_text_input_keybindings};
 
 #[cfg(feature = "file-picker")]
@@ -103,6 +105,7 @@ pub fn register_all_keybindings(cx: &mut gpui::App) {
     register_color_swatch_keybindings(cx);
     register_focus_navigation_keybindings(cx);
     register_tab_bar_keybindings(cx);
+    register_sidebar_nav_keybindings(cx);
     register_repeatable_text_input_keybindings(cx);
     register_button_keybindings(cx);
     #[cfg(feature = "file-picker")]
