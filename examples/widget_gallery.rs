@@ -80,6 +80,35 @@ impl SelectionItem for GalleryCategory {
     }
 }
 
+/// Section enum for SidebarNav sample in Selection category
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum GallerySidebarSection {
+    Dashboard,
+    Analytics,
+    Reports,
+    Settings,
+}
+
+impl SelectionItem for GallerySidebarSection {
+    fn label(&self) -> SharedString {
+        match self {
+            GallerySidebarSection::Dashboard => "Dashboard".into(),
+            GallerySidebarSection::Analytics => "Analytics".into(),
+            GallerySidebarSection::Reports => "Reports".into(),
+            GallerySidebarSection::Settings => "Settings".into(),
+        }
+    }
+
+    fn id(&self) -> ElementId {
+        match self {
+            GallerySidebarSection::Dashboard => "sidebar_dashboard".into(),
+            GallerySidebarSection::Analytics => "sidebar_analytics".into(),
+            GallerySidebarSection::Reports => "sidebar_reports".into(),
+            GallerySidebarSection::Settings => "sidebar_settings".into(),
+        }
+    }
+}
+
 /// Main application state
 struct WidgetGallery {
     // Theme
@@ -88,7 +117,7 @@ struct WidgetGallery {
     widgets_enabled: bool,
 
     // Category navigation
-    category_tab_bar: Entity<TabBar<GalleryCategory>>,
+    category_sidebar_nav: Entity<SidebarNav<GalleryCategory>>,
     active_category: GalleryCategory,
 
     // Widgets
@@ -112,6 +141,7 @@ struct WidgetGallery {
     // New widgets
     password_input: Entity<PasswordInput>,
     tab_bar: Entity<TabBar<GalleryTab>>,
+    sidebar_nav_sample: Entity<SidebarNav<GallerySidebarSection>>,
     repeatable_text_input: Entity<RepeatableTextInput>,
     #[cfg(feature = "file-picker")]
     repeatable_file_picker: Entity<RepeatableFilePicker>,
@@ -206,9 +236,9 @@ fn dialog_result_label(
 
 impl WidgetGallery {
     fn new(cx: &mut Context<Self>) -> Self {
-        // Create category tab bar for navigation
-        let category_tab_bar = cx.new(|cx| {
-            TabBar::new(
+        // Create category sidebar nav for navigation
+        let category_sidebar_nav = cx.new(|cx| {
+            SidebarNav::new(
                 vec![
                     GalleryCategory::Text,
                     GalleryCategory::Selection,
@@ -221,15 +251,14 @@ impl WidgetGallery {
                 GalleryCategory::Text,
                 cx,
             )
-            .tab_row_padding(px(16.0))
+            .with_width(px(160.0))
         });
 
-        // Subscribe to category tab changes
-        cx.subscribe(&category_tab_bar, |this, _entity, event: &TabBarEvent<GalleryCategory>, cx| {
-            if let TabBarEvent::Change(category) = event {
-                this.active_category = *category;
-                this.log_event("CategoryTab", format!("Changed to {:?}", category), cx);
-            }
+        // Subscribe to category nav changes
+        cx.subscribe(&category_sidebar_nav, |this, _entity, event: &SidebarNavEvent<GalleryCategory>, cx| {
+            let SidebarNavEvent::Change(category) = event;
+            this.active_category = *category;
+            this.log_event("CategoryNav", format!("Changed to {:?}", category), cx);
         })
         .detach();
 
@@ -322,6 +351,20 @@ impl WidgetGallery {
                 GalleryTab::Overview,
                 cx,
             )
+        });
+
+        let sidebar_nav_sample = cx.new(|cx| {
+            SidebarNav::new(
+                vec![
+                    GallerySidebarSection::Dashboard,
+                    GallerySidebarSection::Analytics,
+                    GallerySidebarSection::Reports,
+                    GallerySidebarSection::Settings,
+                ],
+                GallerySidebarSection::Dashboard,
+                cx,
+            )
+            .with_width(px(140.0))
         });
 
         let repeatable_text_input = cx.new(|cx| {
@@ -494,6 +537,7 @@ impl WidgetGallery {
             cx,
             &password_input,
             &tab_bar,
+            &sidebar_nav_sample,
             &repeatable_text_input,
             #[cfg(feature = "file-picker")]
             &repeatable_file_picker,
@@ -521,7 +565,7 @@ impl WidgetGallery {
         Self {
             current_theme: ThemeChoice::Dark,
             widgets_enabled: true,
-            category_tab_bar,
+            category_sidebar_nav,
             active_category: GalleryCategory::Text,
             text_input,
             text_input_placeholder,
@@ -540,6 +584,7 @@ impl WidgetGallery {
             directory_picker,
             password_input,
             tab_bar,
+            sidebar_nav_sample,
             repeatable_text_input,
             #[cfg(feature = "file-picker")]
             repeatable_file_picker,
@@ -618,12 +663,14 @@ impl WidgetGallery {
         cx: &mut Context<Self>,
         password_input: &Entity<PasswordInput>,
         tab_bar: &Entity<TabBar<GalleryTab>>,
+        sidebar_nav_sample: &Entity<SidebarNav<GallerySidebarSection>>,
         repeatable_text_input: &Entity<RepeatableTextInput>,
         #[cfg(feature = "file-picker")] repeatable_file_picker: &Entity<RepeatableFilePicker>,
         #[cfg(feature = "file-picker")] repeatable_directory_picker: &Entity<RepeatableDirectoryPicker>,
     ) {
         subscribe_widget!(cx, password_input, "PasswordInput", PasswordInputEvent);
         subscribe_widget!(cx, tab_bar, "TabBar", TabBarEvent<GalleryTab>);
+        subscribe_widget!(cx, sidebar_nav_sample, "SidebarNav", SidebarNavEvent<GallerySidebarSection>);
         subscribe_widget!(cx, repeatable_text_input, "RepeatableTextInput", RepeatableTextInputEvent);
         #[cfg(feature = "file-picker")]
         subscribe_widget!(cx, repeatable_file_picker, "RepeatableFilePicker", RepeatableFilePickerEvent);
@@ -746,13 +793,14 @@ impl WidgetGallery {
             self.color_swatch_alpha,
             self.password_input,
             self.tab_bar,
+            self.sidebar_nav_sample,
             self.repeatable_text_input,
             self.toggle_switch,
             self.toggle_switch_labeled,
             self.slider,
             self.slider_with_value,
             self.segmented_control,
-            self.category_tab_bar,
+            self.category_sidebar_nav,
         );
 
         // Feature-gated widgets
@@ -1194,6 +1242,25 @@ impl WidgetGallery {
             "Tab Bar",
             "Click tabs, right-click for context menu",
             self.tab_bar.clone(),
+            Some(active),
+            cx,
+        ))
+    }
+
+    fn render_sidebar_nav_section(&self, cx: &Context<Self>) -> impl IntoElement {
+        let theme = get_theme(cx);
+        let active = format!("{:?}", self.sidebar_nav_sample.read(cx).selected());
+
+        div().child(Self::render_widget_row(
+            "Sidebar Nav",
+            "Vertical navigation, Up/Down keys",
+            div()
+                .h(px(150.0)) // Fixed height for demo
+                .border_1()
+                .border_color(rgb(theme.border_default))
+                .rounded_md()
+                .overflow_hidden()
+                .child(self.sidebar_nav_sample.clone()),
             Some(active),
             cx,
         ))
@@ -1921,16 +1988,6 @@ impl WidgetGallery {
 
     // Category navigation methods
 
-    fn render_category_tabs(&self, cx: &Context<Self>) -> impl IntoElement {
-        let theme = get_theme(cx);
-
-        div()
-            .w_full()
-            .pt_2()
-            .bg(rgb(theme.bg_secondary))
-            .child(self.category_tab_bar.clone())
-    }
-
     fn render_active_category(&self, cx: &Context<Self>) -> impl IntoElement {
         match self.active_category {
             GalleryCategory::Text => self.render_text_category(cx).into_any_element(),
@@ -2035,6 +2092,11 @@ impl WidgetGallery {
             .child(Self::render_category_section(
                 "Tab Bar",
                 self.render_tab_bar_section(cx),
+                cx,
+            ))
+            .child(Self::render_category_section(
+                "Sidebar Nav",
+                self.render_sidebar_nav_section(cx),
                 cx,
             ))
     }
@@ -2170,26 +2232,34 @@ impl Render for WidgetGallery {
             .bg(rgb(theme.bg_primary))
             // Header
             .child(self.render_header(cx))
-            // Category tabs
-            .child(self.render_category_tabs(cx))
-            // Main content area with scrolling
+            // Main area: Sidebar + Content (horizontal layout)
             .child(
                 div()
-                    .id("main-content")
-                    .w_full()
-                    .min_w_0()
+                    .id("main-area")
+                    .flex()
+                    .flex_row()
                     .flex_1()
-                    .overflow_y_scroll()
-                    .bg(rgb(theme.bg_primary))
-                    .p_4()
+                    .min_h_0() // Important for flex shrinking
+                    // Sidebar navigation
+                    .child(self.category_sidebar_nav.clone())
+                    // Content area
                     .child(
                         div()
-                            .flex()
-                            .flex_col()
-                            .gap_2()
-                            .max_w(px(900.0))
-                            .mx_auto()
-                            .child(self.render_active_category(cx)),
+                            .id("main-content")
+                            .flex_1()
+                            .min_w_0()
+                            .overflow_y_scroll()
+                            .bg(rgb(theme.bg_primary))
+                            .p_4()
+                            .child(
+                                div()
+                                    .flex()
+                                    .flex_col()
+                                    .gap_2()
+                                    .max_w(px(900.0))
+                                    .mx_auto()
+                                    .child(self.render_active_category(cx)),
+                            ),
                     ),
             )
             // Event log at bottom
