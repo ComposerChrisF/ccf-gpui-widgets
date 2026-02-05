@@ -500,7 +500,7 @@ impl Element for Scrollbar {
         _: &mut Self::RequestLayoutState,
         prepaint: &mut Self::PrepaintState,
         window: &mut Window,
-        cx: &mut App,
+        _cx: &mut App,
     ) {
         let view_id = window.current_view();
         let hitbox_bounds = prepaint.hitbox.bounds;
@@ -513,7 +513,8 @@ impl Element for Scrollbar {
                     .get()
                     .with_last_scroll(self.scroll_handle.offset(), Some(Instant::now())),
             );
-            cx.notify(view_id);
+            // Don't notify here - let GPUI handle scroll updates naturally.
+            // Calling cx.notify() in paint causes a re-render loop that resets scroll position.
         }
 
         if !is_visible && !self.always_visible {

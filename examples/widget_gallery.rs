@@ -6,7 +6,7 @@
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use ccf_gpui_widgets::prelude::*;
-use ccf_gpui_widgets::Theme;
+use ccf_gpui_widgets::{Theme, Palette};
 use std::collections::VecDeque;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -111,8 +111,21 @@ impl SelectionItem for GallerySidebarSection {
 
 /// Main application state
 struct WidgetGallery {
-    // Theme
+    // Theme selection
     current_theme: ThemeChoice,
+    theme_selector: Entity<SegmentedControl<ThemeChoice>>,
+
+    // Custom palette editor
+    show_palette_editor: bool,
+    custom_palette: Palette,
+    palette_bg_swatch: Entity<ColorSwatch>,
+    palette_text_swatch: Entity<ColorSwatch>,
+    palette_primary_swatch: Entity<ColorSwatch>,
+    palette_accent_swatch: Entity<ColorSwatch>,
+    palette_success_swatch: Entity<ColorSwatch>,
+    palette_error_swatch: Entity<ColorSwatch>,
+    palette_warning_swatch: Entity<ColorSwatch>,
+
     // Whether widgets are enabled (for disabled state demo)
     widgets_enabled: bool,
 
@@ -191,10 +204,29 @@ struct WidgetGallery {
     log_collapsed: bool,
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ThemeChoice {
-    Dark,
     Light,
+    Dark,
+    Custom,
+}
+
+impl SelectionItem for ThemeChoice {
+    fn label(&self) -> SharedString {
+        match self {
+            ThemeChoice::Light => "Light".into(),
+            ThemeChoice::Dark => "Dark".into(),
+            ThemeChoice::Custom => "Custom".into(),
+        }
+    }
+
+    fn id(&self) -> ElementId {
+        match self {
+            ThemeChoice::Light => "theme_light".into(),
+            ThemeChoice::Dark => "theme_dark".into(),
+            ThemeChoice::Custom => "theme_custom".into(),
+        }
+    }
 }
 
 struct EventLogEntry {
@@ -234,8 +266,100 @@ fn dialog_result_label(
     }
 }
 
+/// Convert hex string (with or without #) to u32
+fn hex_to_u32(hex: &str) -> u32 {
+    let hex = hex.trim_start_matches('#');
+    // Handle both 6-char (RRGGBB) and 8-char (RRGGBBAA) formats
+    let hex = if hex.len() > 6 { &hex[..6] } else { hex };
+    u32::from_str_radix(hex, 16).unwrap_or(0)
+}
+
+/// Convert u32 to hex string with # prefix
+fn u32_to_hex(val: u32) -> String {
+    format!("#{:06x}", val & 0xFFFFFF)
+}
+
 impl WidgetGallery {
     fn new(cx: &mut Context<Self>) -> Self {
+        // Create theme selector
+        let theme_selector = cx.new(|cx| {
+            SegmentedControl::new_with_items(
+                vec![ThemeChoice::Light, ThemeChoice::Dark, ThemeChoice::Custom],
+                ThemeChoice::Dark,
+                cx,
+            )
+        });
+
+        // Subscribe to theme selector changes
+        cx.subscribe(&theme_selector, |this, _entity, event: &SegmentedControlEvent<ThemeChoice>, cx| {
+            let SegmentedControlEvent::Change(choice) = event;
+            this.handle_theme_change(*choice, cx);
+        })
+        .detach();
+
+        // Initialize custom palette with dark defaults
+        let custom_palette = Palette::dark();
+
+        // Create palette editor color swatches
+        let palette_bg_swatch = cx.new(|cx| {
+            ColorSwatch::new(cx).with_value(&u32_to_hex(custom_palette.bg))
+        });
+        let palette_text_swatch = cx.new(|cx| {
+            ColorSwatch::new(cx).with_value(&u32_to_hex(custom_palette.text))
+        });
+        let palette_primary_swatch = cx.new(|cx| {
+            ColorSwatch::new(cx).with_value(&u32_to_hex(custom_palette.primary))
+        });
+        let palette_accent_swatch = cx.new(|cx| {
+            ColorSwatch::new(cx).with_value(&u32_to_hex(custom_palette.accent))
+        });
+        let palette_success_swatch = cx.new(|cx| {
+            ColorSwatch::new(cx).with_value(&u32_to_hex(custom_palette.success))
+        });
+        let palette_error_swatch = cx.new(|cx| {
+            ColorSwatch::new(cx).with_value(&u32_to_hex(custom_palette.error))
+        });
+        let palette_warning_swatch = cx.new(|cx| {
+            ColorSwatch::new(cx).with_value(&u32_to_hex(custom_palette.warning))
+        });
+
+        // Subscribe to palette swatch changes
+        cx.subscribe(&palette_bg_swatch, |this, _entity, event: &ColorSwatchEvent, cx| {
+            let ColorSwatchEvent::Change(hex) = event;
+            this.custom_palette.bg = hex_to_u32(hex);
+            this.log_event("Palette", format!("bg = {}", hex), cx);
+        }).detach();
+        cx.subscribe(&palette_text_swatch, |this, _entity, event: &ColorSwatchEvent, cx| {
+            let ColorSwatchEvent::Change(hex) = event;
+            this.custom_palette.text = hex_to_u32(hex);
+            this.log_event("Palette", format!("text = {}", hex), cx);
+        }).detach();
+        cx.subscribe(&palette_primary_swatch, |this, _entity, event: &ColorSwatchEvent, cx| {
+            let ColorSwatchEvent::Change(hex) = event;
+            this.custom_palette.primary = hex_to_u32(hex);
+            this.log_event("Palette", format!("primary = {}", hex), cx);
+        }).detach();
+        cx.subscribe(&palette_accent_swatch, |this, _entity, event: &ColorSwatchEvent, cx| {
+            let ColorSwatchEvent::Change(hex) = event;
+            this.custom_palette.accent = hex_to_u32(hex);
+            this.log_event("Palette", format!("accent = {}", hex), cx);
+        }).detach();
+        cx.subscribe(&palette_success_swatch, |this, _entity, event: &ColorSwatchEvent, cx| {
+            let ColorSwatchEvent::Change(hex) = event;
+            this.custom_palette.success = hex_to_u32(hex);
+            this.log_event("Palette", format!("success = {}", hex), cx);
+        }).detach();
+        cx.subscribe(&palette_error_swatch, |this, _entity, event: &ColorSwatchEvent, cx| {
+            let ColorSwatchEvent::Change(hex) = event;
+            this.custom_palette.error = hex_to_u32(hex);
+            this.log_event("Palette", format!("error = {}", hex), cx);
+        }).detach();
+        cx.subscribe(&palette_warning_swatch, |this, _entity, event: &ColorSwatchEvent, cx| {
+            let ColorSwatchEvent::Change(hex) = event;
+            this.custom_palette.warning = hex_to_u32(hex);
+            this.log_event("Palette", format!("warning = {}", hex), cx);
+        }).detach();
+
         // Create category sidebar nav for navigation
         let category_sidebar_nav = cx.new(|cx| {
             SidebarNav::new(
@@ -564,6 +688,16 @@ impl WidgetGallery {
 
         Self {
             current_theme: ThemeChoice::Dark,
+            theme_selector,
+            show_palette_editor: false,
+            custom_palette,
+            palette_bg_swatch,
+            palette_text_swatch,
+            palette_primary_swatch,
+            palette_accent_swatch,
+            palette_success_swatch,
+            palette_error_swatch,
+            palette_warning_swatch,
             widgets_enabled: true,
             category_sidebar_nav,
             active_category: GalleryCategory::Text,
@@ -758,19 +892,271 @@ impl WidgetGallery {
         cx.notify();
     }
 
-    fn toggle_theme(&mut self, cx: &mut Context<Self>) {
-        self.current_theme = match self.current_theme {
-            ThemeChoice::Dark => ThemeChoice::Light,
-            ThemeChoice::Light => ThemeChoice::Dark,
-        };
+    fn handle_theme_change(&mut self, choice: ThemeChoice, cx: &mut Context<Self>) {
+        self.current_theme = choice;
 
-        let theme = match self.current_theme {
-            ThemeChoice::Dark => Theme::dark(),
-            ThemeChoice::Light => Theme::light(),
-        };
-
-        cx.set_global(theme);
+        match choice {
+            ThemeChoice::Light => {
+                cx.set_global(Theme::light());
+                self.log_event("Theme", "Switched to Light".to_string(), cx);
+            }
+            ThemeChoice::Dark => {
+                cx.set_global(Theme::dark());
+                self.log_event("Theme", "Switched to Dark".to_string(), cx);
+            }
+            ThemeChoice::Custom => {
+                self.show_palette_editor = true;
+                self.log_event("Theme", "Opening palette editor".to_string(), cx);
+            }
+        }
         cx.notify();
+    }
+
+    fn apply_custom_palette(&mut self, cx: &mut Context<Self>) {
+        let theme = Theme::from_palette(self.custom_palette);
+        cx.set_global(theme);
+        self.show_palette_editor = false;
+        self.log_event("Theme", "Applied custom palette".to_string(), cx);
+        cx.notify();
+    }
+
+    fn close_palette_editor(&mut self, cx: &mut Context<Self>) {
+        self.show_palette_editor = false;
+        // Revert to previous non-custom theme if canceling
+        if self.current_theme == ThemeChoice::Custom {
+            self.current_theme = ThemeChoice::Dark;
+            self.theme_selector.update(cx, |s, scx| {
+                s.set_selected_index(1, scx); // Dark is index 1
+            });
+            cx.set_global(Theme::dark());
+        }
+        self.log_event("Theme", "Canceled palette editor".to_string(), cx);
+        cx.notify();
+    }
+
+    fn reset_palette_to(&mut self, palette: Palette, cx: &mut Context<Self>) {
+        self.custom_palette = palette;
+        self.palette_bg_swatch.update(cx, |s, scx| s.set_value(&u32_to_hex(palette.bg), scx));
+        self.palette_text_swatch.update(cx, |s, scx| s.set_value(&u32_to_hex(palette.text), scx));
+        self.palette_primary_swatch.update(cx, |s, scx| s.set_value(&u32_to_hex(palette.primary), scx));
+        self.palette_accent_swatch.update(cx, |s, scx| s.set_value(&u32_to_hex(palette.accent), scx));
+        self.palette_success_swatch.update(cx, |s, scx| s.set_value(&u32_to_hex(palette.success), scx));
+        self.palette_error_swatch.update(cx, |s, scx| s.set_value(&u32_to_hex(palette.error), scx));
+        self.palette_warning_swatch.update(cx, |s, scx| s.set_value(&u32_to_hex(palette.warning), scx));
+        cx.notify();
+    }
+
+    fn render_palette_editor(&self, cx: &Context<Self>) -> impl IntoElement {
+        let theme = get_theme(cx);
+
+        // Semi-transparent backdrop (rendered without deferred since other dialogs use it)
+        div()
+            .id("palette-editor-backdrop")
+            .absolute()
+            .inset_0()
+            .bg(rgba(0x00000080)) // 50% black
+            .flex()
+            .items_center()
+            .justify_center()
+            .on_mouse_down(MouseButton::Left, cx.listener(|this, _event, _window, cx| {
+                this.close_palette_editor(cx);
+            }))
+            .child(
+                // Modal dialog - uses a separate click handler that does nothing
+                // to prevent clicks from bubbling to backdrop
+                div()
+                    .id("palette-editor-modal")
+                    .w(px(520.0))
+                    .bg(rgb(theme.bg_secondary))
+                    .border_1()
+                    .border_color(rgb(theme.border_default))
+                    .rounded_lg()
+                    .shadow_lg()
+                    .occlude()
+                        // Title bar
+                        .child(
+                            div()
+                                .px_4()
+                                .py_3()
+                                .bg(rgb(theme.bg_section_header))
+                                .border_b_1()
+                                .border_color(rgb(theme.border_default))
+                                .text_lg()
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .text_color(rgb(theme.text_primary))
+                                .child("Customize Theme"),
+                        )
+                        // Content area
+                        .child(
+                            div()
+                                .p_4()
+                                .flex()
+                                .flex_col()
+                                .gap_3()
+                                // Background color
+                                .child(
+                                    div()
+                                        .flex()
+                                        .flex_row()
+                                        .items_center()
+                                        .gap_3()
+                                        .child(
+                                            div()
+                                                .w(px(80.0))
+                                                .flex_shrink_0()
+                                                .text_sm()
+                                                .text_color(rgb(theme.text_label))
+                                                .child("Background"),
+                                        )
+                                        .child(div().flex_1().child(self.palette_bg_swatch.clone())),
+                                )
+                                // Text color
+                                .child(
+                                    div()
+                                        .flex()
+                                        .flex_row()
+                                        .items_center()
+                                        .gap_3()
+                                        .child(
+                                            div()
+                                                .w(px(80.0))
+                                                .flex_shrink_0()
+                                                .text_sm()
+                                                .text_color(rgb(theme.text_label))
+                                                .child("Text"),
+                                        )
+                                        .child(div().flex_1().child(self.palette_text_swatch.clone())),
+                                )
+                                // Primary color
+                                .child(
+                                    div()
+                                        .flex()
+                                        .flex_row()
+                                        .items_center()
+                                        .gap_3()
+                                        .child(
+                                            div()
+                                                .w(px(80.0))
+                                                .flex_shrink_0()
+                                                .text_sm()
+                                                .text_color(rgb(theme.text_label))
+                                                .child("Primary"),
+                                        )
+                                        .child(div().flex_1().child(self.palette_primary_swatch.clone())),
+                                )
+                                // Accent color
+                                .child(
+                                    div()
+                                        .flex()
+                                        .flex_row()
+                                        .items_center()
+                                        .gap_3()
+                                        .child(
+                                            div()
+                                                .w(px(80.0))
+                                                .flex_shrink_0()
+                                                .text_sm()
+                                                .text_color(rgb(theme.text_label))
+                                                .child("Accent"),
+                                        )
+                                        .child(div().flex_1().child(self.palette_accent_swatch.clone())),
+                                )
+                                // Success color
+                                .child(
+                                    div()
+                                        .flex()
+                                        .flex_row()
+                                        .items_center()
+                                        .gap_3()
+                                        .child(
+                                            div()
+                                                .w(px(80.0))
+                                                .flex_shrink_0()
+                                                .text_sm()
+                                                .text_color(rgb(theme.text_label))
+                                                .child("Success"),
+                                        )
+                                        .child(div().flex_1().child(self.palette_success_swatch.clone())),
+                                )
+                                // Error color
+                                .child(
+                                    div()
+                                        .flex()
+                                        .flex_row()
+                                        .items_center()
+                                        .gap_3()
+                                        .child(
+                                            div()
+                                                .w(px(80.0))
+                                                .flex_shrink_0()
+                                                .text_sm()
+                                                .text_color(rgb(theme.text_label))
+                                                .child("Error"),
+                                        )
+                                        .child(div().flex_1().child(self.palette_error_swatch.clone())),
+                                )
+                                // Warning color
+                                .child(
+                                    div()
+                                        .flex()
+                                        .flex_row()
+                                        .items_center()
+                                        .gap_3()
+                                        .child(
+                                            div()
+                                                .w(px(80.0))
+                                                .flex_shrink_0()
+                                                .text_sm()
+                                                .text_color(rgb(theme.text_label))
+                                                .child("Warning"),
+                                        )
+                                        .child(div().flex_1().child(self.palette_warning_swatch.clone())),
+                                ),
+                        )
+                        // Button row
+                        .child(
+                            div()
+                                .px_4()
+                                .py_3()
+                                .bg(rgb(theme.bg_section_header))
+                                .border_t_1()
+                                .border_color(rgb(theme.border_default))
+                                .flex()
+                                .flex_row()
+                                .items_center()
+                                .gap_2()
+                                // Reset buttons on the left
+                                .child(
+                                    secondary_button("palette-reset-dark", "Reset Dark", cx)
+                                        .on_click(cx.listener(|this, _event, _window, cx| {
+                                            this.reset_palette_to(Palette::dark(), cx);
+                                            this.log_event("Palette", "Reset to dark".to_string(), cx);
+                                        })),
+                                )
+                                .child(
+                                    secondary_button("palette-reset-light", "Reset Light", cx)
+                                        .on_click(cx.listener(|this, _event, _window, cx| {
+                                            this.reset_palette_to(Palette::light(), cx);
+                                            this.log_event("Palette", "Reset to light".to_string(), cx);
+                                        })),
+                                )
+                                // Spacer
+                                .child(div().flex_1())
+                                // Cancel and Apply on the right
+                                .child(
+                                    secondary_button("palette-cancel", "Cancel", cx)
+                                        .on_click(cx.listener(|this, _event, _window, cx| {
+                                            this.close_palette_editor(cx);
+                                        })),
+                                )
+                                .child(
+                                    primary_button("palette-apply", "Apply", true, cx)
+                                        .on_click(cx.listener(|this, _event, _window, cx| {
+                                            this.apply_custom_palette(cx);
+                                        })),
+                                ),
+                        ),
+                )
     }
 
     fn toggle_widgets_enabled(&mut self, cx: &mut Context<Self>) {
@@ -823,10 +1209,6 @@ impl WidgetGallery {
 
     fn render_header(&self, cx: &Context<Self>) -> impl IntoElement {
         let theme = get_theme(cx);
-        let theme_button_text = match self.current_theme {
-            ThemeChoice::Dark => "Switch to Light",
-            ThemeChoice::Light => "Switch to Dark",
-        };
         let enabled_button_text = if self.widgets_enabled {
             "Disable Widgets"
         } else {
@@ -872,7 +1254,8 @@ impl WidgetGallery {
                 div()
                     .flex()
                     .flex_row()
-                    .gap_2()
+                    .gap_3()
+                    .items_center()
                     .child(
                         div()
                             .id("enable-toggle")
@@ -888,21 +1271,7 @@ impl WidgetGallery {
                                 this.toggle_widgets_enabled(cx);
                             })),
                     )
-                    .child(
-                        div()
-                            .id("theme-toggle")
-                            .px_3()
-                            .py_1()
-                            .bg(rgb(theme.primary))
-                            .hover(|s| s.bg(rgb(theme.primary_hover)))
-                            .text_color(rgb(theme.text_primary))
-                            .rounded_md()
-                            .cursor_pointer()
-                            .child(theme_button_text)
-                            .on_click(cx.listener(|this, _event, _window, cx| {
-                                this.toggle_theme(cx);
-                            })),
-                    ),
+                    .child(self.theme_selector.clone()),
             )
     }
 
@@ -1868,13 +2237,17 @@ impl WidgetGallery {
                     .overflow_hidden()
                     .child(
                         scrollable_horizontal(
+                            // Note: Horizontal scroll requires explicit width on content
+                            // that exceeds the container width
                             div()
+                                .w(px(600.0))
                                 .p_2()
                                 .flex()
                                 .flex_row()
                                 .gap_2()
                                 .children((1..=15).map(|i| {
                                     div()
+                                        .flex_shrink_0()
                                         .px_3()
                                         .py_1()
                                         .bg(rgb(theme.bg_input))
@@ -2279,6 +2652,10 @@ impl Render for WidgetGallery {
             // Danger dialog overlay (when shown)
             .when(self.show_danger_dialog, |d| {
                 d.child(self.danger_dialog.clone())
+            })
+            // Palette editor overlay (when shown)
+            .when(self.show_palette_editor, |d| {
+                d.child(self.render_palette_editor(cx))
             })
     }
 }

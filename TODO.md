@@ -245,6 +245,15 @@ The library is functional and being used by clui.
 - [x] All three widgets follow library patterns: builder methods, theme support, events
 - [x] Widget gallery: Added demos for SegmentedControl, Scrollable (vertical and horizontal)
 
+### ✅ Scrollable Widget Fixes (2026-02-04)
+- [x] Fixed scroll wheel event bubbling: events no longer propagate to parent containers
+- [x] Fixed horizontal scrolling: scrollbar now appears and content scrolls correctly
+- [x] Horizontal scrolling requires explicit width on content (GPUI layout limitation)
+- [x] Added comprehensive documentation for vertical, horizontal, and bidirectional scrolling
+- [x] Documented pitfalls: vertical needs constrained height, horizontal needs explicit width
+- [x] Documented what does NOT work for horizontal (flex_shrink_0 alone is insufficient)
+- [x] Widget gallery: Updated horizontal scroll example with explicit width
+
 ### ✅ NumberStepper Step Multiplier Enhancements (2026-02-02)
 - [x] NumberStepper: Added Alt/Option modifier for small step (0.1x default)
 - [x] NumberStepper: Configurable step multipliers via `.step_multipliers(small, large)`

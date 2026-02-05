@@ -10,23 +10,106 @@
 //! - Click-on-track to jump
 //! - Auto-fade after inactivity
 //! - ScrollHandle integration for programmatic control
+//! - Scroll events don't bubble to parent containers
 //!
-//! # Example
+//! # Vertical Scrolling
+//!
+//! Vertical scrolling works naturally with GPUI's layout system. Content that
+//! exceeds the container height will automatically trigger scrolling.
 //!
 //! ```ignore
-//! use ccf_gpui_widgets::prelude::scrollable_vertical;
+//! use ccf_gpui_widgets::scrollable_vertical;
 //! use gpui::*;
 //!
-//! // Simple usage
-//! scrollable_vertical(
-//!     div().children(vec![...])
+//! // Container with fixed height - content scrolls when it exceeds this height
+//! div()
+//!     .h(px(200.0))
+//!     .child(
+//!         scrollable_vertical(
+//!             div().children(many_items)  // Content grows naturally
+//!         )
+//!     )
+//! ```
+//!
+//! **Vertical scrolling pitfalls:**
+//! - The scrollable container needs a constrained height (explicit or from parent)
+//! - Without height constraint, content expands infinitely and never scrolls
+//! - Use `.h(px(...))`, `.max_h(px(...))`, or ensure parent constrains height
+//!
+//! # Horizontal Scrolling
+//!
+//! **Important:** Horizontal scrolling requires explicit width on content due to
+//! GPUI layout limitations. Flex items shrink to fit by default, so without
+//! explicit width, GPUI cannot detect content overflow.
+//!
+//! ```ignore
+//! use ccf_gpui_widgets::scrollable_horizontal;
+//! use gpui::*;
+//!
+//! // Container with fixed width
+//! div()
+//!     .w(px(300.0))
+//!     .child(
+//!         scrollable_horizontal(
+//!             div()
+//!                 .w(px(800.0))  // REQUIRED: explicit width > container width
+//!                 .flex()
+//!                 .flex_row()
+//!                 .gap_2()
+//!                 .children(items)
+//!         )
+//!     )
+//! ```
+//!
+//! **Horizontal scrolling pitfalls:**
+//! - Content MUST have explicit width via `.w(px(...))` that exceeds container
+//! - `flex_shrink_0()` on items is NOT sufficient - the container needs explicit width
+//! - Without explicit width, scrollbar won't appear and content won't scroll
+//! - Calculate required width based on content (e.g., `num_items * item_width + gaps`)
+//!
+//! **What does NOT work for horizontal:**
+//! ```ignore
+//! // WRONG: No explicit width - content shrinks to fit container
+//! scrollable_horizontal(
+//!     div()
+//!         .flex()
+//!         .flex_row()
+//!         .children(items.iter().map(|i| div().flex_shrink_0().child(i)))
 //! )
 //!
-//! // With options
+//! // WRONG: flex_shrink_0 on container doesn't help
+//! scrollable_horizontal(
+//!     div()
+//!         .flex_shrink_0()  // This doesn't prevent layout constraint
+//!         .flex()
+//!         .flex_row()
+//!         .children(items)
+//! )
+//! ```
+//!
+//! # Bidirectional Scrolling
+//!
+//! For content that scrolls both horizontally and vertically:
+//!
+//! ```ignore
+//! use ccf_gpui_widgets::scrollable_both;
+//!
+//! scrollable_both(
+//!     div()
+//!         .w(px(800.0))  // Explicit width for horizontal
+//!         // Height grows naturally for vertical
+//!         .children(content)
+//! )
+//! ```
+//!
+//! # Options
+//!
+//! ```ignore
 //! scrollable_vertical(content)
-//!     .with_scroll_handle(my_handle)
-//!     .always_show_scrollbars()
-//!     .id("my-scrollable")
+//!     .with_scroll_handle(my_handle)  // For programmatic scroll control
+//!     .always_show_scrollbars()       // Don't auto-hide scrollbars
+//!     .theme(custom_theme)            // Custom scrollbar colors
+//!     .id("my-scrollable")            // Custom element ID
 //! ```
 
 use super::scrollbar::{Scrollbar, ScrollbarAxis, ScrollbarState};
@@ -37,6 +120,7 @@ use gpui::{
     Pixels, Position, ScrollHandle, SharedString, Stateful, StatefulInteractiveElement, Style,
     StyleRefinement, Styled, Window,
 };
+use std::panic::Location;
 
 /// A scroll view with visible scrollbars
 ///
@@ -56,10 +140,15 @@ impl<E> Scrollable<E>
 where
     E: Element,
 {
-    pub(crate) fn new(axis: ScrollbarAxis, element: E) -> Self {
+    /// Internal constructor that uses the provided location for ID generation
+    fn new_with_location(axis: ScrollbarAxis, element: E, location: &'static Location<'static>) -> Self {
+        // Generate a stable ID based on call site location
+        // This ensures the same scrollable gets the same ID across renders
         let id = ElementId::Name(SharedString::from(format!(
-            "scrollable-{:?}",
-            element.id()
+            "scrollable-{}:{}:{}",
+            location.file(),
+            location.line(),
+            location.column()
         )));
 
         Self {
@@ -74,18 +163,21 @@ where
     }
 
     /// Create a vertical scrollable container
+    #[track_caller]
     pub fn vertical(element: E) -> Self {
-        Self::new(ScrollbarAxis::Vertical, element)
+        Self::new_with_location(ScrollbarAxis::Vertical, element, Location::caller())
     }
 
     /// Create a horizontal scrollable container
+    #[track_caller]
     pub fn horizontal(element: E) -> Self {
-        Self::new(ScrollbarAxis::Horizontal, element)
+        Self::new_with_location(ScrollbarAxis::Horizontal, element, Location::caller())
     }
 
     /// Create a scrollable container with both axes
+    #[track_caller]
     pub fn both(element: E) -> Self {
-        Self::new(ScrollbarAxis::Both, element)
+        Self::new_with_location(ScrollbarAxis::Both, element, Location::caller())
     }
 
     /// Always show scrollbars (don't fade out)
@@ -252,19 +344,45 @@ where
                     scrollbar = scrollbar.theme(*theme);
                 }
 
+                // Build the scroll container with axis-appropriate layout
+                let inner_scroll = div()
+                    .id(scroll_id.clone())
+                    .track_scroll(scroll_handle)
+                    .on_scroll_wheel(|_event, _window, cx| {
+                        // Stop propagation to prevent parent containers from scrolling
+                        cx.stop_propagation();
+                    });
+
+                // Apply axis-specific layout and overflow
+                let inner_scroll = match axis {
+                    ScrollbarAxis::Vertical => {
+                        // Vertical: wrap content to allow height growth
+                        inner_scroll
+                            .size_full()
+                            .overflow_y_scroll()
+                            .child(div().w_full().children(content))
+                    }
+                    ScrollbarAxis::Horizontal => {
+                        // Horizontal: no wrapper, content directly in scroll container
+                        inner_scroll
+                            .size_full()
+                            .overflow_x_scroll()
+                            .children(content)
+                    }
+                    ScrollbarAxis::Both => {
+                        // Both: wrap content to allow growth in both directions
+                        inner_scroll
+                            .size_full()
+                            .overflow_scroll()
+                            .child(div().flex_shrink_0().children(content))
+                    }
+                };
+
                 let mut element = div()
                     .relative()
                     .size_full()
                     .overflow_hidden()
-                    .child(
-                        div()
-                            .id(scroll_id)
-                            .track_scroll(scroll_handle)
-                            .overflow_scroll()
-                            .relative()
-                            .size_full()
-                            .child(div().children(content)),
-                    )
+                    .child(inner_scroll)
                     .child(
                         div()
                             .absolute()
@@ -286,7 +404,7 @@ where
 
     fn prepaint(
         &mut self,
-        _: Option<&GlobalElementId>,
+        id: Option<&GlobalElementId>,
         _: Option<&InspectorElementId>,
         _: Bounds<Pixels>,
         element: &mut Self::RequestLayoutState,
@@ -294,7 +412,12 @@ where
         cx: &mut App,
     ) -> Self::PrepaintState {
         element.prepaint(window, cx);
-        ScrollViewState::default()
+
+        // Access the cached state to preserve scroll position
+        self.with_element_state(id.unwrap(), window, cx, |_, state, _, _| ScrollViewState {
+            handle: state.handle.clone(),
+            state: state.state.clone(),
+        })
     }
 
     fn paint(
@@ -323,11 +446,12 @@ where
 ///         .children(items)
 /// )
 /// ```
+#[track_caller]
 pub fn scrollable_vertical<E>(element: E) -> Scrollable<E>
 where
     E: Element,
 {
-    Scrollable::vertical(element)
+    Scrollable::new_with_location(ScrollbarAxis::Vertical, element, Location::caller())
 }
 
 /// Create a horizontal scrollable container
@@ -342,11 +466,12 @@ where
 ///         .children(items)
 /// )
 /// ```
+#[track_caller]
 pub fn scrollable_horizontal<E>(element: E) -> Scrollable<E>
 where
     E: Element,
 {
-    Scrollable::horizontal(element)
+    Scrollable::new_with_location(ScrollbarAxis::Horizontal, element, Location::caller())
 }
 
 /// Create a scrollable container with both axes
@@ -358,9 +483,10 @@ where
 ///     div().children(items)
 /// )
 /// ```
+#[track_caller]
 pub fn scrollable_both<E>(element: E) -> Scrollable<E>
 where
     E: Element,
 {
-    Scrollable::both(element)
+    Scrollable::new_with_location(ScrollbarAxis::Both, element, Location::caller())
 }
