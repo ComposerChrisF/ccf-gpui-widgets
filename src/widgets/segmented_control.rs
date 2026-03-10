@@ -413,7 +413,7 @@ impl<T: SelectionItem> Render for SegmentedControl<T> {
                 .cursor_for_enabled(enabled);
 
             // Apply styling based on state
-            // Create semi-transparent version of focus color for selected background
+            // Convert 0xRRGGBB to 0xRRGGBBAA with low alpha (0x22) for a subtle tint
             let selected_bg = (theme.border_focus << 8) | 0x22;
 
             segment = if !enabled {

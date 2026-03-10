@@ -91,8 +91,9 @@ src/
 ```toml
 [features]
 default = []
-file-picker = ["dep:rfd", "dep:dirs"]  # Native file dialogs
-full = ["file-picker"]                  # All features
+file-picker = ["dep:rfd", "dep:dirs"]      # Native file dialogs
+secure-password = ["dep:secrecy", "dep:zeroize"]  # Zeroizing password storage
+full = ["file-picker", "secure-password"]   # All features
 ```
 
 ## GPUI Patterns
