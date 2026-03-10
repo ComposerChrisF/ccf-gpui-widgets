@@ -839,7 +839,7 @@ mod proptests {
             // For achromatic or near-achromatic colors, hue and saturation are unreliable
             // because the limited RGB space (256 values per channel) loses information.
             // Near black (l<10), near white (l>90), or low saturation (s<25) causes this.
-            let is_near_achromatic = s < 25.0 || l < 10.0 || l > 90.0;
+            let is_near_achromatic = s < 25.0 || !(10.0..=90.0).contains(&l);
             if !is_near_achromatic {
                 // Hue comparison needs to handle wrap-around (0 vs 360)
                 let h_diff = (hsl.h - hsl2.h).abs();

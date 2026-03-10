@@ -302,25 +302,25 @@ impl WidgetGallery {
 
         // Create palette editor color swatches
         let palette_bg_swatch = cx.new(|cx| {
-            ColorSwatch::new(cx).with_value(&u32_to_hex(custom_palette.bg))
+            ColorSwatch::new(cx).with_value(u32_to_hex(custom_palette.bg))
         });
         let palette_text_swatch = cx.new(|cx| {
-            ColorSwatch::new(cx).with_value(&u32_to_hex(custom_palette.text))
+            ColorSwatch::new(cx).with_value(u32_to_hex(custom_palette.text))
         });
         let palette_primary_swatch = cx.new(|cx| {
-            ColorSwatch::new(cx).with_value(&u32_to_hex(custom_palette.primary))
+            ColorSwatch::new(cx).with_value(u32_to_hex(custom_palette.primary))
         });
         let palette_accent_swatch = cx.new(|cx| {
-            ColorSwatch::new(cx).with_value(&u32_to_hex(custom_palette.accent))
+            ColorSwatch::new(cx).with_value(u32_to_hex(custom_palette.accent))
         });
         let palette_success_swatch = cx.new(|cx| {
-            ColorSwatch::new(cx).with_value(&u32_to_hex(custom_palette.success))
+            ColorSwatch::new(cx).with_value(u32_to_hex(custom_palette.success))
         });
         let palette_error_swatch = cx.new(|cx| {
-            ColorSwatch::new(cx).with_value(&u32_to_hex(custom_palette.error))
+            ColorSwatch::new(cx).with_value(u32_to_hex(custom_palette.error))
         });
         let palette_warning_swatch = cx.new(|cx| {
-            ColorSwatch::new(cx).with_value(&u32_to_hex(custom_palette.warning))
+            ColorSwatch::new(cx).with_value(u32_to_hex(custom_palette.warning))
         });
 
         // Subscribe to palette swatch changes
