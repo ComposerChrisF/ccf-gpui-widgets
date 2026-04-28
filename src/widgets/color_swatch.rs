@@ -39,11 +39,11 @@ use std::rc::Rc;
 use gpui::prelude::*;
 use gpui::*;
 
-use crate::theme::{get_theme_or, Theme};
-use crate::utils::color::{Rgb, Hsl, Hsv, parse_color, parse_color_alpha};
-use super::text_input::{TextInput, TextInputEvent};
-use super::focus_navigation::{FocusNext, FocusPrev};
 use super::button::{primary_button, secondary_button};
+use super::focus_navigation::{FocusNext, FocusPrev};
+use super::text_input::{TextInput, TextInputEvent};
+use crate::theme::{get_theme_or, Theme};
+use crate::utils::color::{parse_color, parse_color_alpha, Hsl, Hsv, Rgb};
 
 // Actions for keyboard navigation
 actions!(ccf_color_swatch, [ClosePicker, ApplyPicker]);
@@ -197,7 +197,8 @@ impl ColorSwatch {
                 }
                 _ => {}
             }
-        }).detach();
+        })
+        .detach();
 
         Self {
             value: "#000000".to_string(),
@@ -414,7 +415,10 @@ impl ColorSwatch {
     fn sync_value(&mut self, cx: &mut Context<Self>) {
         let rgb = self.current_rgb;
         self.value = if self.with_alpha && self.current_alpha != 255 {
-            format!("#{:02X}{:02X}{:02X}{:02X}", rgb.r, rgb.g, rgb.b, self.current_alpha)
+            format!(
+                "#{:02X}{:02X}{:02X}{:02X}",
+                rgb.r, rgb.g, rgb.b, self.current_alpha
+            )
         } else {
             format!("#{:02X}{:02X}{:02X}", rgb.r, rgb.g, rgb.b)
         };
@@ -464,7 +468,12 @@ impl ColorSwatch {
     /// Parse original value for comparison display
     fn parse_original_color(&self) -> Rgba {
         if let Some(rgba_val) = parse_color_alpha(&self.original_value) {
-            rgba(((rgba_val.r as u32) << 24) | ((rgba_val.g as u32) << 16) | ((rgba_val.b as u32) << 8) | (rgba_val.a as u32))
+            rgba(
+                ((rgba_val.r as u32) << 24)
+                    | ((rgba_val.g as u32) << 16)
+                    | ((rgba_val.b as u32) << 8)
+                    | (rgba_val.a as u32),
+            )
         } else {
             rgba(0x000000FF)
         }
@@ -475,7 +484,15 @@ impl ColorSwatch {
     /// Converts mouse position to saturation/value coordinates:
     /// - X axis = Saturation (0% left to 100% right)
     /// - Y axis = Value/Brightness (100% top to 0% bottom)
-    fn handle_sl_at_position(&mut self, x: f32, y: f32, origin: Point<Pixels>, canvas_width: f32, canvas_height: f32, cx: &mut Context<Self>) {
+    fn handle_sl_at_position(
+        &mut self,
+        x: f32,
+        y: f32,
+        origin: Point<Pixels>,
+        canvas_width: f32,
+        canvas_height: f32,
+        cx: &mut Context<Self>,
+    ) {
         let origin_x: f32 = origin.x.into();
         let origin_y: f32 = origin.y.into();
         let rel_x = (x - origin_x).clamp(0.0, canvas_width);
@@ -490,7 +507,13 @@ impl ColorSwatch {
     ///
     /// Converts mouse position to hue value (0-359°). Hue is clamped to prevent
     /// wrap-around (360° = 0° = red).
-    fn handle_hue_at_position(&mut self, x: f32, origin_x: f32, slider_width: f32, cx: &mut Context<Self>) {
+    fn handle_hue_at_position(
+        &mut self,
+        x: f32,
+        origin_x: f32,
+        slider_width: f32,
+        cx: &mut Context<Self>,
+    ) {
         // Must match the display calculation
         // Note: border doesn't affect layout width in GPUI, only content width matters
         let handle_width = 4.0f32;
@@ -511,7 +534,13 @@ impl ColorSwatch {
     /// Handle alpha slider interaction at position
     ///
     /// Converts mouse position to alpha value (0-255).
-    fn handle_alpha_at_position(&mut self, x: f32, origin_x: f32, slider_width: f32, cx: &mut Context<Self>) {
+    fn handle_alpha_at_position(
+        &mut self,
+        x: f32,
+        origin_x: f32,
+        slider_width: f32,
+        cx: &mut Context<Self>,
+    ) {
         // Must match the display calculation
         // Note: border doesn't affect layout width in GPUI, only content width matters
         let handle_width = 4.0f32;
@@ -1184,7 +1213,7 @@ impl ColorSwatch {
                     .w(px(16.))
                     .text_xs()
                     .text_color(rgb(text_color))
-                    .child(label.to_string())
+                    .child(label.to_string()),
             )
             .child(
                 div()
@@ -1213,7 +1242,7 @@ impl ColorSwatch {
                             },
                         )
                         .size_full()
-                        .absolute()
+                        .absolute(),
                     )
                     // Handle - use measured width, accounting for handle width
                     .child({
@@ -1243,7 +1272,8 @@ impl ColorSwatch {
                             if usable_width <= 0.0 {
                                 return;
                             }
-                            let rel_x = (x - origin - handle_visual_width / 2.0).clamp(0.0, usable_width);
+                            let rel_x =
+                                (x - origin - handle_visual_width / 2.0).clamp(0.0, usable_width);
                             let new_value = (rel_x / usable_width) * max;
                             update_fn(this, new_value, cx);
                         })
@@ -1258,21 +1288,24 @@ impl ColorSwatch {
                         },
                         |_drag, _offset, _window, cx| cx.new(|_| EmptyDragView),
                     )
-                    .on_drag_move(cx.listener(move |this, event: &DragMoveEvent<ComponentDrag>, _window, cx| {
-                        let x: f32 = event.event.position.x.into();
-                        let drag = event.drag(cx);
-                        let origin = drag.origin.get();
-                        let slider_w = drag.width.get();
-                        let usable_width = slider_w - drag.handle_visual_width;
-                        // Guard against division by zero
-                        if usable_width <= 0.0 {
-                            return;
-                        }
-                        // Map click position to handle left edge position, then to value
-                        let rel_x = (x - origin - drag.handle_visual_width / 2.0).clamp(0.0, usable_width);
-                        let new_value = (rel_x / usable_width) * drag.max_value;
-                        (drag.update_fn)(this, new_value, cx);
-                    }))
+                    .on_drag_move(cx.listener(
+                        move |this, event: &DragMoveEvent<ComponentDrag>, _window, cx| {
+                            let x: f32 = event.event.position.x.into();
+                            let drag = event.drag(cx);
+                            let origin = drag.origin.get();
+                            let slider_w = drag.width.get();
+                            let usable_width = slider_w - drag.handle_visual_width;
+                            // Guard against division by zero
+                            if usable_width <= 0.0 {
+                                return;
+                            }
+                            // Map click position to handle left edge position, then to value
+                            let rel_x = (x - origin - drag.handle_visual_width / 2.0)
+                                .clamp(0.0, usable_width);
+                            let new_value = (rel_x / usable_width) * drag.max_value;
+                            (drag.update_fn)(this, new_value, cx);
+                        },
+                    )),
             )
             .child(
                 div()
@@ -1281,7 +1314,7 @@ impl ColorSwatch {
                     .text_xs()
                     .text_color(rgb(text_color))
                     .text_right()
-                    .child(format!("{}", value_display))
+                    .child(format!("{}", value_display)),
             )
     }
 }

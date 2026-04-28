@@ -34,14 +34,13 @@
 //! }).detach();
 //! ```
 
-use gpui::prelude::*;
-use gpui::*;
-use crate::theme::{get_theme, Theme};
 use super::directory_picker::{
-    DirectoryPicker, DirectoryPickerEvent,
-    DirectoryPickerValidation, ValidationDisplay,
+    DirectoryPicker, DirectoryPickerEvent, DirectoryPickerValidation, ValidationDisplay,
 };
 use super::focus_navigation::{repeatable_add_button, repeatable_remove_button};
+use crate::theme::{get_theme, Theme};
+use gpui::prelude::*;
+use gpui::*;
 
 /// Events emitted by RepeatableDirectoryPicker
 #[derive(Debug, Clone)]
@@ -198,12 +197,10 @@ impl RepeatableDirectoryPicker {
 
     /// Returns true if all non-empty entries are valid
     pub fn is_all_valid(&self, cx: &App) -> bool {
-        self.entries
-            .iter()
-            .all(|entry| {
-                let picker = entry.read(cx);
-                picker.value().is_empty() || picker.is_valid()
-            })
+        self.entries.iter().all(|entry| {
+            let picker = entry.read(cx);
+            picker.value().is_empty() || picker.is_valid()
+        })
     }
 
     /// Create a new DirectoryPicker entry with current configuration
@@ -236,11 +233,15 @@ impl RepeatableDirectoryPicker {
         }
 
         // Subscribe to changes to emit our own change events
-        cx.subscribe(&picker, |this, _picker, event: &DirectoryPickerEvent, cx| {
-            let DirectoryPickerEvent::Change(_) = event;
-            let values = this.values(cx);
-            cx.emit(RepeatableDirectoryPickerEvent::Change(values));
-        }).detach();
+        cx.subscribe(
+            &picker,
+            |this, _picker, event: &DirectoryPickerEvent, cx| {
+                let DirectoryPickerEvent::Change(_) = event;
+                let values = this.values(cx);
+                cx.emit(RepeatableDirectoryPickerEvent::Change(values));
+            },
+        )
+        .detach();
 
         picker
     }
@@ -266,7 +267,8 @@ impl RepeatableDirectoryPicker {
         for value in values {
             let entry = self.create_entry(Some(&value), cx);
             self.entries.push(entry);
-            self.remove_focus_handles.push(cx.focus_handle().tab_stop(true));
+            self.remove_focus_handles
+                .push(cx.focus_handle().tab_stop(true));
         }
     }
 
@@ -274,7 +276,8 @@ impl RepeatableDirectoryPicker {
         let index = self.entries.len();
         let entry = self.create_entry(None, cx);
         self.entries.push(entry);
-        self.remove_focus_handles.push(cx.focus_handle().tab_stop(true));
+        self.remove_focus_handles
+            .push(cx.focus_handle().tab_stop(true));
         cx.emit(RepeatableDirectoryPickerEvent::EntryAdded(index));
         cx.emit(RepeatableDirectoryPickerEvent::Change(self.values(cx)));
         cx.notify();
@@ -327,7 +330,9 @@ impl Render for RepeatableDirectoryPicker {
         let enabled = self.enabled;
 
         // Collect entries with their remove button focus handles
-        let entry_data: Vec<_> = self.entries.iter()
+        let entry_data: Vec<_> = self
+            .entries
+            .iter()
             .zip(self.remove_focus_handles.iter())
             .enumerate()
             .map(|(index, (entry, focus_handle))| {
@@ -346,71 +351,66 @@ impl Render for RepeatableDirectoryPicker {
                     .flex()
                     .flex_col()
                     .gap_2()
-                    .children(entry_data.into_iter().map(|(index, entry, focus_handle, is_focused)| {
-                        let remove_button = repeatable_remove_button(
-                            format!("dir_remove_{}", index),
-                            &focus_handle,
-                            &theme,
-                            enabled,
-                            is_focused,
-                            // on_action: set flag, then perform action
-                            move |this: &mut Self, window, cx| {
-                                this.action_just_handled = true;
-                                this.remove_entry(index, window, cx);
-                            },
-                            // on_click: skip if action just handled, otherwise perform action
-                            move |this: &mut Self, window, cx| {
-                                if this.action_just_handled {
-                                    this.action_just_handled = false;
-                                    return;
-                                }
-                                this.remove_entry(index, window, cx);
-                            },
-                            cx,
-                        );
+                    .children(entry_data.into_iter().map(
+                        |(index, entry, focus_handle, is_focused)| {
+                            let remove_button = repeatable_remove_button(
+                                format!("dir_remove_{}", index),
+                                &focus_handle,
+                                &theme,
+                                enabled,
+                                is_focused,
+                                // on_action: set flag, then perform action
+                                move |this: &mut Self, window, cx| {
+                                    this.action_just_handled = true;
+                                    this.remove_entry(index, window, cx);
+                                },
+                                // on_click: skip if action just handled, otherwise perform action
+                                move |this: &mut Self, window, cx| {
+                                    if this.action_just_handled {
+                                        this.action_just_handled = false;
+                                        return;
+                                    }
+                                    this.remove_entry(index, window, cx);
+                                },
+                                cx,
+                            );
 
-                        div()
-                            .flex()
-                            .flex_row()
-                            .items_center()
-                            .gap_2()
-                            .child(
-                                // DirectoryPicker widget
-                                div()
-                                    .flex_1()
-                                    .child(entry)
-                            )
-                            .when(can_remove, |d| d.child(remove_button))
-                    }))
+                            div()
+                                .flex()
+                                .flex_row()
+                                .items_center()
+                                .gap_2()
+                                .child(
+                                    // DirectoryPicker widget
+                                    div().flex_1().child(entry),
+                                )
+                                .when(can_remove, |d| d.child(remove_button))
+                        },
+                    )),
             )
             .child(
                 // Add button row
-                div()
-                    .flex()
-                    .flex_row()
-                    .child(
-                        repeatable_add_button(
-                            "repeatable_dir_add_button",
-                            &self.add_focus_handle,
-                            &theme,
-                            enabled,
-                            add_focused,
-                            // on_action: set flag, then perform action
-                            |this: &mut Self, _window, cx| {
-                                this.action_just_handled = true;
-                                this.add_entry(cx);
-                            },
-                            // on_click: skip if action just handled, otherwise perform action
-                            |this: &mut Self, _window, cx| {
-                                if this.action_just_handled {
-                                    this.action_just_handled = false;
-                                    return;
-                                }
-                                this.add_entry(cx);
-                            },
-                            cx,
-                        )
-                    )
+                div().flex().flex_row().child(repeatable_add_button(
+                    "repeatable_dir_add_button",
+                    &self.add_focus_handle,
+                    &theme,
+                    enabled,
+                    add_focused,
+                    // on_action: set flag, then perform action
+                    |this: &mut Self, _window, cx| {
+                        this.action_just_handled = true;
+                        this.add_entry(cx);
+                    },
+                    // on_click: skip if action just handled, otherwise perform action
+                    |this: &mut Self, _window, cx| {
+                        if this.action_just_handled {
+                            this.action_just_handled = false;
+                            return;
+                        }
+                        this.add_entry(cx);
+                    },
+                    cx,
+                )),
             )
     }
 }

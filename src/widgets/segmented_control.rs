@@ -68,9 +68,9 @@
 use gpui::prelude::*;
 use gpui::*;
 
-use crate::theme::{get_theme_or, Theme};
 use super::focus_navigation::{handle_tab_navigation, with_focus_actions, EnabledCursorExt};
 use super::selection::SelectionItem;
+use crate::theme::{get_theme_or, Theme};
 
 /// Events emitted by SegmentedControl
 #[derive(Clone, Debug)]
@@ -284,7 +284,10 @@ impl<T: SelectionItem> SegmentedControl<T> {
 
     /// Get the currently selected index
     pub fn selected_index(&self) -> usize {
-        self.items.iter().position(|i| *i == self.selected).unwrap_or(0)
+        self.items
+            .iter()
+            .position(|i| *i == self.selected)
+            .unwrap_or(0)
     }
 
     /// Set selected item programmatically
@@ -359,42 +362,44 @@ impl<T: SelectionItem> Render for SegmentedControl<T> {
                 .tab_stop(enabled),
             cx,
         )
-        .on_key_down(cx.listener(move |control, event: &KeyDownEvent, window, cx| {
-            if !control.enabled {
-                return;
-            }
-            if handle_tab_navigation(event, window) {
-                return;
-            }
-            match event.keystroke.key.as_str() {
-                "left" => {
-                    if control.highlight_index > 0 {
-                        control.highlight_index -= 1;
-                    } else if num_items > 0 {
-                        control.highlight_index = num_items - 1;
+        .on_key_down(
+            cx.listener(move |control, event: &KeyDownEvent, window, cx| {
+                if !control.enabled {
+                    return;
+                }
+                if handle_tab_navigation(event, window) {
+                    return;
+                }
+                match event.keystroke.key.as_str() {
+                    "left" => {
+                        if control.highlight_index > 0 {
+                            control.highlight_index -= 1;
+                        } else if num_items > 0 {
+                            control.highlight_index = num_items - 1;
+                        }
+                        control.select_by_index(cx);
+                        cx.notify();
+                        cx.stop_propagation();
                     }
-                    control.select_by_index(cx);
-                    cx.notify();
-                    cx.stop_propagation();
-                }
-                "right" => {
-                    if control.highlight_index < num_items.saturating_sub(1) {
-                        control.highlight_index += 1;
-                    } else {
-                        control.highlight_index = 0;
+                    "right" => {
+                        if control.highlight_index < num_items.saturating_sub(1) {
+                            control.highlight_index += 1;
+                        } else {
+                            control.highlight_index = 0;
+                        }
+                        control.select_by_index(cx);
+                        cx.notify();
+                        cx.stop_propagation();
                     }
-                    control.select_by_index(cx);
-                    cx.notify();
-                    cx.stop_propagation();
+                    "space" | "enter" => {
+                        control.select_by_index(cx);
+                        cx.notify();
+                        cx.stop_propagation();
+                    }
+                    _ => {}
                 }
-                "space" | "enter" => {
-                    control.select_by_index(cx);
-                    cx.notify();
-                    cx.stop_propagation();
-                }
-                _ => {}
-            }
-        }))
+            }),
+        )
         .flex()
         .flex_row()
         .gap(self.button_gap)
@@ -438,16 +443,17 @@ impl<T: SelectionItem> Render for SegmentedControl<T> {
             };
 
             if enabled {
-                segment = segment
-                    .hover(|s| s.bg(rgb(theme.bg_hover)))
-                    .on_mouse_down(MouseButton::Left, cx.listener(move |control, _event: &MouseDownEvent, window, cx| {
+                segment = segment.hover(|s| s.bg(rgb(theme.bg_hover))).on_mouse_down(
+                    MouseButton::Left,
+                    cx.listener(move |control, _event: &MouseDownEvent, window, cx| {
                         control.focus_handle.focus(window);
                         if let Some(index) = control.items.iter().position(|i| *i == item_clone) {
                             control.highlight_index = index;
                             control.select_by_index(cx);
                         }
                         cx.notify();
-                    }));
+                    }),
+                );
             }
 
             // Inner focus ring around text (border always present to prevent layout shift)
@@ -458,7 +464,7 @@ impl<T: SelectionItem> Render for SegmentedControl<T> {
                     .rounded_sm()
                     .when(is_highlighted, |d| d.border_color(rgb(theme.border_focus)))
                     .when(!is_highlighted, |d| d.border_color(rgba(0x00000000)))
-                    .child(item.label())
+                    .child(item.label()),
             )
         }))
     }

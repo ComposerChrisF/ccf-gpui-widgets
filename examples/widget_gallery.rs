@@ -3,10 +3,10 @@
 //! Run with: cargo run --example widget_gallery --features full
 //! Or without file pickers: cargo run --example widget_gallery
 
+use ccf_gpui_widgets::prelude::*;
+use ccf_gpui_widgets::{Palette, Theme};
 use gpui::prelude::FluentBuilder;
 use gpui::*;
-use ccf_gpui_widgets::prelude::*;
-use ccf_gpui_widgets::{Theme, Palette};
 use std::collections::VecDeque;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -291,74 +291,98 @@ impl WidgetGallery {
         });
 
         // Subscribe to theme selector changes
-        cx.subscribe(&theme_selector, |this, _entity, event: &SegmentedControlEvent<ThemeChoice>, cx| {
-            let SegmentedControlEvent::Change(choice) = event;
-            this.handle_theme_change(*choice, cx);
-        })
+        cx.subscribe(
+            &theme_selector,
+            |this, _entity, event: &SegmentedControlEvent<ThemeChoice>, cx| {
+                let SegmentedControlEvent::Change(choice) = event;
+                this.handle_theme_change(*choice, cx);
+            },
+        )
         .detach();
 
         // Initialize custom palette with dark defaults
         let custom_palette = Palette::dark();
 
         // Create palette editor color swatches
-        let palette_bg_swatch = cx.new(|cx| {
-            ColorSwatch::new(cx).with_value(u32_to_hex(custom_palette.bg))
-        });
-        let palette_text_swatch = cx.new(|cx| {
-            ColorSwatch::new(cx).with_value(u32_to_hex(custom_palette.text))
-        });
-        let palette_primary_swatch = cx.new(|cx| {
-            ColorSwatch::new(cx).with_value(u32_to_hex(custom_palette.primary))
-        });
-        let palette_accent_swatch = cx.new(|cx| {
-            ColorSwatch::new(cx).with_value(u32_to_hex(custom_palette.accent))
-        });
-        let palette_success_swatch = cx.new(|cx| {
-            ColorSwatch::new(cx).with_value(u32_to_hex(custom_palette.success))
-        });
-        let palette_error_swatch = cx.new(|cx| {
-            ColorSwatch::new(cx).with_value(u32_to_hex(custom_palette.error))
-        });
-        let palette_warning_swatch = cx.new(|cx| {
-            ColorSwatch::new(cx).with_value(u32_to_hex(custom_palette.warning))
-        });
+        let palette_bg_swatch =
+            cx.new(|cx| ColorSwatch::new(cx).with_value(u32_to_hex(custom_palette.bg)));
+        let palette_text_swatch =
+            cx.new(|cx| ColorSwatch::new(cx).with_value(u32_to_hex(custom_palette.text)));
+        let palette_primary_swatch =
+            cx.new(|cx| ColorSwatch::new(cx).with_value(u32_to_hex(custom_palette.primary)));
+        let palette_accent_swatch =
+            cx.new(|cx| ColorSwatch::new(cx).with_value(u32_to_hex(custom_palette.accent)));
+        let palette_success_swatch =
+            cx.new(|cx| ColorSwatch::new(cx).with_value(u32_to_hex(custom_palette.success)));
+        let palette_error_swatch =
+            cx.new(|cx| ColorSwatch::new(cx).with_value(u32_to_hex(custom_palette.error)));
+        let palette_warning_swatch =
+            cx.new(|cx| ColorSwatch::new(cx).with_value(u32_to_hex(custom_palette.warning)));
 
         // Subscribe to palette swatch changes
-        cx.subscribe(&palette_bg_swatch, |this, _entity, event: &ColorSwatchEvent, cx| {
-            let ColorSwatchEvent::Change(hex) = event;
-            this.custom_palette.bg = hex_to_u32(hex);
-            this.log_event("Palette", format!("bg = {}", hex), cx);
-        }).detach();
-        cx.subscribe(&palette_text_swatch, |this, _entity, event: &ColorSwatchEvent, cx| {
-            let ColorSwatchEvent::Change(hex) = event;
-            this.custom_palette.text = hex_to_u32(hex);
-            this.log_event("Palette", format!("text = {}", hex), cx);
-        }).detach();
-        cx.subscribe(&palette_primary_swatch, |this, _entity, event: &ColorSwatchEvent, cx| {
-            let ColorSwatchEvent::Change(hex) = event;
-            this.custom_palette.primary = hex_to_u32(hex);
-            this.log_event("Palette", format!("primary = {}", hex), cx);
-        }).detach();
-        cx.subscribe(&palette_accent_swatch, |this, _entity, event: &ColorSwatchEvent, cx| {
-            let ColorSwatchEvent::Change(hex) = event;
-            this.custom_palette.accent = hex_to_u32(hex);
-            this.log_event("Palette", format!("accent = {}", hex), cx);
-        }).detach();
-        cx.subscribe(&palette_success_swatch, |this, _entity, event: &ColorSwatchEvent, cx| {
-            let ColorSwatchEvent::Change(hex) = event;
-            this.custom_palette.success = hex_to_u32(hex);
-            this.log_event("Palette", format!("success = {}", hex), cx);
-        }).detach();
-        cx.subscribe(&palette_error_swatch, |this, _entity, event: &ColorSwatchEvent, cx| {
-            let ColorSwatchEvent::Change(hex) = event;
-            this.custom_palette.error = hex_to_u32(hex);
-            this.log_event("Palette", format!("error = {}", hex), cx);
-        }).detach();
-        cx.subscribe(&palette_warning_swatch, |this, _entity, event: &ColorSwatchEvent, cx| {
-            let ColorSwatchEvent::Change(hex) = event;
-            this.custom_palette.warning = hex_to_u32(hex);
-            this.log_event("Palette", format!("warning = {}", hex), cx);
-        }).detach();
+        cx.subscribe(
+            &palette_bg_swatch,
+            |this, _entity, event: &ColorSwatchEvent, cx| {
+                let ColorSwatchEvent::Change(hex) = event;
+                this.custom_palette.bg = hex_to_u32(hex);
+                this.log_event("Palette", format!("bg = {}", hex), cx);
+            },
+        )
+        .detach();
+        cx.subscribe(
+            &palette_text_swatch,
+            |this, _entity, event: &ColorSwatchEvent, cx| {
+                let ColorSwatchEvent::Change(hex) = event;
+                this.custom_palette.text = hex_to_u32(hex);
+                this.log_event("Palette", format!("text = {}", hex), cx);
+            },
+        )
+        .detach();
+        cx.subscribe(
+            &palette_primary_swatch,
+            |this, _entity, event: &ColorSwatchEvent, cx| {
+                let ColorSwatchEvent::Change(hex) = event;
+                this.custom_palette.primary = hex_to_u32(hex);
+                this.log_event("Palette", format!("primary = {}", hex), cx);
+            },
+        )
+        .detach();
+        cx.subscribe(
+            &palette_accent_swatch,
+            |this, _entity, event: &ColorSwatchEvent, cx| {
+                let ColorSwatchEvent::Change(hex) = event;
+                this.custom_palette.accent = hex_to_u32(hex);
+                this.log_event("Palette", format!("accent = {}", hex), cx);
+            },
+        )
+        .detach();
+        cx.subscribe(
+            &palette_success_swatch,
+            |this, _entity, event: &ColorSwatchEvent, cx| {
+                let ColorSwatchEvent::Change(hex) = event;
+                this.custom_palette.success = hex_to_u32(hex);
+                this.log_event("Palette", format!("success = {}", hex), cx);
+            },
+        )
+        .detach();
+        cx.subscribe(
+            &palette_error_swatch,
+            |this, _entity, event: &ColorSwatchEvent, cx| {
+                let ColorSwatchEvent::Change(hex) = event;
+                this.custom_palette.error = hex_to_u32(hex);
+                this.log_event("Palette", format!("error = {}", hex), cx);
+            },
+        )
+        .detach();
+        cx.subscribe(
+            &palette_warning_swatch,
+            |this, _entity, event: &ColorSwatchEvent, cx| {
+                let ColorSwatchEvent::Change(hex) = event;
+                this.custom_palette.warning = hex_to_u32(hex);
+                this.log_event("Palette", format!("warning = {}", hex), cx);
+            },
+        )
+        .detach();
 
         // Create category sidebar nav for navigation
         let category_sidebar_nav = cx.new(|cx| {
@@ -379,11 +403,14 @@ impl WidgetGallery {
         });
 
         // Subscribe to category nav changes
-        cx.subscribe(&category_sidebar_nav, |this, _entity, event: &SidebarNavEvent<GalleryCategory>, cx| {
-            let SidebarNavEvent::Change(category) = event;
-            this.active_category = *category;
-            this.log_event("CategoryNav", format!("Changed to {:?}", category), cx);
-        })
+        cx.subscribe(
+            &category_sidebar_nav,
+            |this, _entity, event: &SidebarNavEvent<GalleryCategory>, cx| {
+                let SidebarNavEvent::Change(category) = event;
+                this.active_category = *category;
+                this.log_event("CategoryNav", format!("Changed to {:?}", category), cx);
+            },
+        )
         .detach();
 
         // Create widgets
@@ -395,7 +422,8 @@ impl WidgetGallery {
         });
 
         let checkbox = cx.new(Checkbox::new);
-        let checkbox_labeled = cx.new(|cx| Checkbox::new(cx).label("Enable feature").with_checked(true));
+        let checkbox_labeled =
+            cx.new(|cx| Checkbox::new(cx).label("Enable feature").with_checked(true));
 
         let dropdown = cx.new(|cx| {
             Dropdown::new(cx).choices(vec![
@@ -412,9 +440,9 @@ impl WidgetGallery {
                 .min(0.0)
                 .max(100.0)
                 .step(1.0)
-                .resolution(1.0)           // Snap to integers
-                .display_precision(0)      // No decimal places
-                .drag_sensitivities(0.5, 2.0, 0.1)  // normal, fast, slow
+                .resolution(1.0) // Snap to integers
+                .display_precision(0) // No decimal places
+                .drag_sensitivities(0.5, 2.0, 0.1) // normal, fast, slow
         });
         let number_stepper_float = cx.new(|cx| {
             NumberStepper::new(cx)
@@ -422,9 +450,9 @@ impl WidgetGallery {
                 .min(-10.0)
                 .max(10.0)
                 .step(0.1)
-                .resolution(0.1)           // Snap to 0.1
-                .display_precision(1)      // 1 decimal place
-                .drag_sensitivities(0.2, 0.5, 0.05)  // normal, fast, slow
+                .resolution(0.1) // Snap to 0.1
+                .display_precision(1) // 1 decimal place
+                .drag_sensitivities(0.2, 0.5, 0.05) // normal, fast, slow
         });
 
         let radio_group = cx.new(|cx| {
@@ -451,7 +479,7 @@ impl WidgetGallery {
         let color_swatch = cx.new(|cx| ColorSwatch::new(cx).with_value("#3b82f6"));
         let color_swatch_alpha = cx.new(|cx| {
             ColorSwatch::new(cx)
-                .with_value("coral")  // Using a CSS named color!
+                .with_value("coral") // Using a CSS named color!
                 .with_alpha(true)
         });
 
@@ -471,7 +499,11 @@ impl WidgetGallery {
 
         let tab_bar = cx.new(|cx| {
             TabBar::new(
-                vec![GalleryTab::Overview, GalleryTab::Details, GalleryTab::Settings],
+                vec![
+                    GalleryTab::Overview,
+                    GalleryTab::Details,
+                    GalleryTab::Settings,
+                ],
                 GalleryTab::Overview,
                 cx,
             )
@@ -545,11 +577,8 @@ impl WidgetGallery {
                 .show_percentage(true)
                 .label("Upload Progress")
         });
-        let progress_bar_indeterminate = cx.new(|_cx| {
-            ProgressBar::new()
-                .indeterminate()
-                .label("Loading...")
-        });
+        let progress_bar_indeterminate =
+            cx.new(|_cx| ProgressBar::new().indeterminate().label("Loading..."));
 
         let spinner = cx.new(|_cx| Spinner::new().label("Processing..."));
         let spinner_small = cx.new(|_cx| Spinner::new().size(SpinnerSize::Small));
@@ -569,22 +598,21 @@ impl WidgetGallery {
         });
 
         // Collapsible sections
-        let collapsible = cx.new(|cx| {
-            Collapsible::new("Advanced Options", cx)
-                .with_collapsed(true)
-        });
-        let collapsible_expanded = cx.new(|cx| {
-            Collapsible::new("Details Section", cx)
-                .with_collapsed(false)
-        });
-        let collapsible_static = cx.new(|cx| {
-            Collapsible::new("Static Section Header", cx)
-                .collapsible(false)
-        });
+        let collapsible =
+            cx.new(|cx| Collapsible::new("Advanced Options", cx).with_collapsed(true));
+        let collapsible_expanded =
+            cx.new(|cx| Collapsible::new("Details Section", cx).with_collapsed(false));
+        let collapsible_static =
+            cx.new(|cx| Collapsible::new("Static Section Header", cx).collapsible(false));
 
         // Subscribe to collapsible events
         subscribe_widget!(cx, &collapsible, "Collapsible", CollapsibleEvent);
-        subscribe_widget!(cx, &collapsible_expanded, "Collapsible (expanded)", CollapsibleEvent);
+        subscribe_widget!(
+            cx,
+            &collapsible_expanded,
+            "Collapsible (expanded)",
+            CollapsibleEvent
+        );
 
         // Info dialog: single button, easy to dismiss
         let info_dialog = cx.new(|cx| {
@@ -684,7 +712,12 @@ impl WidgetGallery {
         );
 
         // Subscribe to segmented control events
-        subscribe_widget!(cx, &segmented_control, "SegmentedControl", SegmentedControlEvent<SegmentOption>);
+        subscribe_widget!(
+            cx,
+            &segmented_control,
+            "SegmentedControl",
+            SegmentedControlEvent<SegmentOption>
+        );
 
         Self {
             current_theme: ThemeChoice::Dark,
@@ -776,20 +809,45 @@ impl WidgetGallery {
         #[cfg(feature = "file-picker")] directory_picker: &Entity<DirectoryPicker>,
     ) {
         subscribe_widget!(cx, text_input, "TextInput", TextInputEvent);
-        subscribe_widget!(cx, text_input_placeholder, "TextInput (prefilled)", TextInputEvent);
+        subscribe_widget!(
+            cx,
+            text_input_placeholder,
+            "TextInput (prefilled)",
+            TextInputEvent
+        );
         subscribe_widget!(cx, checkbox, "Checkbox", CheckboxEvent);
         subscribe_widget!(cx, checkbox_labeled, "Checkbox (labeled)", CheckboxEvent);
         subscribe_widget!(cx, dropdown, "Dropdown", DropdownEvent);
-        subscribe_widget!(cx, number_stepper, "NumberStepper (int)", NumberStepperEvent);
-        subscribe_widget!(cx, number_stepper_float, "NumberStepper (float)", NumberStepperEvent);
+        subscribe_widget!(
+            cx,
+            number_stepper,
+            "NumberStepper (int)",
+            NumberStepperEvent
+        );
+        subscribe_widget!(
+            cx,
+            number_stepper_float,
+            "NumberStepper (float)",
+            NumberStepperEvent
+        );
         subscribe_widget!(cx, radio_group, "RadioGroup", RadioGroupEvent<StringItem>);
         subscribe_widget!(cx, checkbox_group, "CheckboxGroup", CheckboxGroupEvent);
         subscribe_widget!(cx, color_swatch, "ColorSwatch", ColorSwatchEvent);
-        subscribe_widget!(cx, color_swatch_alpha, "ColorSwatch (alpha)", ColorSwatchEvent);
+        subscribe_widget!(
+            cx,
+            color_swatch_alpha,
+            "ColorSwatch (alpha)",
+            ColorSwatchEvent
+        );
         #[cfg(feature = "file-picker")]
         {
             subscribe_widget!(cx, file_picker, "FilePicker", FilePickerEvent);
-            subscribe_widget!(cx, directory_picker, "DirectoryPicker", DirectoryPickerEvent);
+            subscribe_widget!(
+                cx,
+                directory_picker,
+                "DirectoryPicker",
+                DirectoryPickerEvent
+            );
         }
     }
 
@@ -800,16 +858,38 @@ impl WidgetGallery {
         sidebar_nav_sample: &Entity<SidebarNav<GallerySidebarSection>>,
         repeatable_text_input: &Entity<RepeatableTextInput>,
         #[cfg(feature = "file-picker")] repeatable_file_picker: &Entity<RepeatableFilePicker>,
-        #[cfg(feature = "file-picker")] repeatable_directory_picker: &Entity<RepeatableDirectoryPicker>,
+        #[cfg(feature = "file-picker")] repeatable_directory_picker: &Entity<
+            RepeatableDirectoryPicker,
+        >,
     ) {
         subscribe_widget!(cx, password_input, "PasswordInput", PasswordInputEvent);
         subscribe_widget!(cx, tab_bar, "TabBar", TabBarEvent<GalleryTab>);
-        subscribe_widget!(cx, sidebar_nav_sample, "SidebarNav", SidebarNavEvent<GallerySidebarSection>);
-        subscribe_widget!(cx, repeatable_text_input, "RepeatableTextInput", RepeatableTextInputEvent);
+        subscribe_widget!(
+            cx,
+            sidebar_nav_sample,
+            "SidebarNav",
+            SidebarNavEvent<GallerySidebarSection>
+        );
+        subscribe_widget!(
+            cx,
+            repeatable_text_input,
+            "RepeatableTextInput",
+            RepeatableTextInputEvent
+        );
         #[cfg(feature = "file-picker")]
-        subscribe_widget!(cx, repeatable_file_picker, "RepeatableFilePicker", RepeatableFilePickerEvent);
+        subscribe_widget!(
+            cx,
+            repeatable_file_picker,
+            "RepeatableFilePicker",
+            RepeatableFilePickerEvent
+        );
         #[cfg(feature = "file-picker")]
-        subscribe_widget!(cx, repeatable_directory_picker, "RepeatableDirectoryPicker", RepeatableDirectoryPickerEvent);
+        subscribe_widget!(
+            cx,
+            repeatable_directory_picker,
+            "RepeatableDirectoryPicker",
+            RepeatableDirectoryPickerEvent
+        );
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -826,42 +906,60 @@ impl WidgetGallery {
         danger_dialog: &Entity<ConfirmationDialog>,
     ) {
         subscribe_widget!(cx, toggle_switch, "ToggleSwitch", ToggleSwitchEvent);
-        subscribe_widget!(cx, toggle_switch_labeled, "ToggleSwitch (labeled)", ToggleSwitchEvent);
+        subscribe_widget!(
+            cx,
+            toggle_switch_labeled,
+            "ToggleSwitch (labeled)",
+            ToggleSwitchEvent
+        );
         subscribe_widget!(cx, slider, "Slider", SliderEvent);
         subscribe_widget!(cx, slider_with_value, "Slider (with value)", SliderEvent);
         subscribe_widget!(cx, progress_bar, "ProgressBar", ProgressBarEvent);
 
         // Dialog subscriptions need custom handlers for result tracking
-        cx.subscribe(info_dialog, |this, _entity, event: &ConfirmationDialogEvent, cx| {
-            this.log_event("Dialog (Info)", format!("{:?}", event), cx);
-            this.info_result = Some(dialog_result_label(event, "OK", "Secondary", "Tertiary"));
-            this.show_info_dialog = false;
-            cx.notify();
-        })
+        cx.subscribe(
+            info_dialog,
+            |this, _entity, event: &ConfirmationDialogEvent, cx| {
+                this.log_event("Dialog (Info)", format!("{:?}", event), cx);
+                this.info_result = Some(dialog_result_label(event, "OK", "Secondary", "Tertiary"));
+                this.show_info_dialog = false;
+                cx.notify();
+            },
+        )
         .detach();
 
-        cx.subscribe(yes_no_dialog, |this, _entity, event: &ConfirmationDialogEvent, cx| {
-            this.log_event("Dialog (Yes/No)", format!("{:?}", event), cx);
-            this.yes_no_result = Some(dialog_result_label(event, "Yes", "No", "Tertiary"));
-            this.show_yes_no_dialog = false;
-            cx.notify();
-        })
+        cx.subscribe(
+            yes_no_dialog,
+            |this, _entity, event: &ConfirmationDialogEvent, cx| {
+                this.log_event("Dialog (Yes/No)", format!("{:?}", event), cx);
+                this.yes_no_result = Some(dialog_result_label(event, "Yes", "No", "Tertiary"));
+                this.show_yes_no_dialog = false;
+                cx.notify();
+            },
+        )
         .detach();
 
-        cx.subscribe(save_dialog, |this, _entity, event: &ConfirmationDialogEvent, cx| {
-            this.log_event("Dialog (Save)", format!("{:?}", event), cx);
-            this.save_result = Some(dialog_result_label(event, "Save", "Cancel", "Don't Save"));
-            this.show_save_dialog = false;
-            cx.notify();
-        })
+        cx.subscribe(
+            save_dialog,
+            |this, _entity, event: &ConfirmationDialogEvent, cx| {
+                this.log_event("Dialog (Save)", format!("{:?}", event), cx);
+                this.save_result = Some(dialog_result_label(event, "Save", "Cancel", "Don't Save"));
+                this.show_save_dialog = false;
+                cx.notify();
+            },
+        )
         .detach();
 
-        cx.subscribe(danger_dialog, |this, _entity, event: &ConfirmationDialogEvent, cx| {
-            this.log_event("Dialog (Danger)", format!("{:?}", event), cx);
-            this.danger_result = Some(dialog_result_label(event, "Delete", "Cancel", "Tertiary"));
-            this.show_danger_dialog = false;
-            cx.notify();
-        })
+        cx.subscribe(
+            danger_dialog,
+            |this, _entity, event: &ConfirmationDialogEvent, cx| {
+                this.log_event("Dialog (Danger)", format!("{:?}", event), cx);
+                this.danger_result =
+                    Some(dialog_result_label(event, "Delete", "Cancel", "Tertiary"));
+                this.show_danger_dialog = false;
+                cx.notify();
+            },
+        )
         .detach();
     }
 
@@ -936,13 +1034,20 @@ impl WidgetGallery {
 
     fn reset_palette_to(&mut self, palette: Palette, cx: &mut Context<Self>) {
         self.custom_palette = palette;
-        self.palette_bg_swatch.update(cx, |s, scx| s.set_value(&u32_to_hex(palette.bg), scx));
-        self.palette_text_swatch.update(cx, |s, scx| s.set_value(&u32_to_hex(palette.text), scx));
-        self.palette_primary_swatch.update(cx, |s, scx| s.set_value(&u32_to_hex(palette.primary), scx));
-        self.palette_accent_swatch.update(cx, |s, scx| s.set_value(&u32_to_hex(palette.accent), scx));
-        self.palette_success_swatch.update(cx, |s, scx| s.set_value(&u32_to_hex(palette.success), scx));
-        self.palette_error_swatch.update(cx, |s, scx| s.set_value(&u32_to_hex(palette.error), scx));
-        self.palette_warning_swatch.update(cx, |s, scx| s.set_value(&u32_to_hex(palette.warning), scx));
+        self.palette_bg_swatch
+            .update(cx, |s, scx| s.set_value(&u32_to_hex(palette.bg), scx));
+        self.palette_text_swatch
+            .update(cx, |s, scx| s.set_value(&u32_to_hex(palette.text), scx));
+        self.palette_primary_swatch
+            .update(cx, |s, scx| s.set_value(&u32_to_hex(palette.primary), scx));
+        self.palette_accent_swatch
+            .update(cx, |s, scx| s.set_value(&u32_to_hex(palette.accent), scx));
+        self.palette_success_swatch
+            .update(cx, |s, scx| s.set_value(&u32_to_hex(palette.success), scx));
+        self.palette_error_swatch
+            .update(cx, |s, scx| s.set_value(&u32_to_hex(palette.error), scx));
+        self.palette_warning_swatch
+            .update(cx, |s, scx| s.set_value(&u32_to_hex(palette.warning), scx));
         cx.notify();
     }
 
@@ -958,9 +1063,12 @@ impl WidgetGallery {
             .flex()
             .items_center()
             .justify_center()
-            .on_mouse_down(MouseButton::Left, cx.listener(|this, _event, _window, cx| {
-                this.close_palette_editor(cx);
-            }))
+            .on_mouse_down(
+                MouseButton::Left,
+                cx.listener(|this, _event, _window, cx| {
+                    this.close_palette_editor(cx);
+                }),
+            )
             .child(
                 // Modal dialog - uses a separate click handler that does nothing
                 // to prevent clicks from bubbling to backdrop
@@ -973,190 +1081,197 @@ impl WidgetGallery {
                     .rounded_lg()
                     .shadow_lg()
                     .occlude()
-                        // Title bar
-                        .child(
-                            div()
-                                .px_4()
-                                .py_3()
-                                .bg(rgb(theme.bg_section_header))
-                                .border_b_1()
-                                .border_color(rgb(theme.border_default))
-                                .text_lg()
-                                .font_weight(FontWeight::SEMIBOLD)
-                                .text_color(rgb(theme.text_primary))
-                                .child("Customize Theme"),
-                        )
-                        // Content area
-                        .child(
-                            div()
-                                .p_4()
-                                .flex()
-                                .flex_col()
-                                .gap_3()
-                                // Background color
-                                .child(
-                                    div()
-                                        .flex()
-                                        .flex_row()
-                                        .items_center()
-                                        .gap_3()
-                                        .child(
-                                            div()
-                                                .w(px(80.0))
-                                                .flex_shrink_0()
-                                                .text_sm()
-                                                .text_color(rgb(theme.text_label))
-                                                .child("Background"),
-                                        )
-                                        .child(div().flex_1().child(self.palette_bg_swatch.clone())),
-                                )
-                                // Text color
-                                .child(
-                                    div()
-                                        .flex()
-                                        .flex_row()
-                                        .items_center()
-                                        .gap_3()
-                                        .child(
-                                            div()
-                                                .w(px(80.0))
-                                                .flex_shrink_0()
-                                                .text_sm()
-                                                .text_color(rgb(theme.text_label))
-                                                .child("Text"),
-                                        )
-                                        .child(div().flex_1().child(self.palette_text_swatch.clone())),
-                                )
-                                // Primary color
-                                .child(
-                                    div()
-                                        .flex()
-                                        .flex_row()
-                                        .items_center()
-                                        .gap_3()
-                                        .child(
-                                            div()
-                                                .w(px(80.0))
-                                                .flex_shrink_0()
-                                                .text_sm()
-                                                .text_color(rgb(theme.text_label))
-                                                .child("Primary"),
-                                        )
-                                        .child(div().flex_1().child(self.palette_primary_swatch.clone())),
-                                )
-                                // Accent color
-                                .child(
-                                    div()
-                                        .flex()
-                                        .flex_row()
-                                        .items_center()
-                                        .gap_3()
-                                        .child(
-                                            div()
-                                                .w(px(80.0))
-                                                .flex_shrink_0()
-                                                .text_sm()
-                                                .text_color(rgb(theme.text_label))
-                                                .child("Accent"),
-                                        )
-                                        .child(div().flex_1().child(self.palette_accent_swatch.clone())),
-                                )
-                                // Success color
-                                .child(
-                                    div()
-                                        .flex()
-                                        .flex_row()
-                                        .items_center()
-                                        .gap_3()
-                                        .child(
-                                            div()
-                                                .w(px(80.0))
-                                                .flex_shrink_0()
-                                                .text_sm()
-                                                .text_color(rgb(theme.text_label))
-                                                .child("Success"),
-                                        )
-                                        .child(div().flex_1().child(self.palette_success_swatch.clone())),
-                                )
-                                // Error color
-                                .child(
-                                    div()
-                                        .flex()
-                                        .flex_row()
-                                        .items_center()
-                                        .gap_3()
-                                        .child(
-                                            div()
-                                                .w(px(80.0))
-                                                .flex_shrink_0()
-                                                .text_sm()
-                                                .text_color(rgb(theme.text_label))
-                                                .child("Error"),
-                                        )
-                                        .child(div().flex_1().child(self.palette_error_swatch.clone())),
-                                )
-                                // Warning color
-                                .child(
-                                    div()
-                                        .flex()
-                                        .flex_row()
-                                        .items_center()
-                                        .gap_3()
-                                        .child(
-                                            div()
-                                                .w(px(80.0))
-                                                .flex_shrink_0()
-                                                .text_sm()
-                                                .text_color(rgb(theme.text_label))
-                                                .child("Warning"),
-                                        )
-                                        .child(div().flex_1().child(self.palette_warning_swatch.clone())),
+                    // Title bar
+                    .child(
+                        div()
+                            .px_4()
+                            .py_3()
+                            .bg(rgb(theme.bg_section_header))
+                            .border_b_1()
+                            .border_color(rgb(theme.border_default))
+                            .text_lg()
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .text_color(rgb(theme.text_primary))
+                            .child("Customize Theme"),
+                    )
+                    // Content area
+                    .child(
+                        div()
+                            .p_4()
+                            .flex()
+                            .flex_col()
+                            .gap_3()
+                            // Background color
+                            .child(
+                                div()
+                                    .flex()
+                                    .flex_row()
+                                    .items_center()
+                                    .gap_3()
+                                    .child(
+                                        div()
+                                            .w(px(80.0))
+                                            .flex_shrink_0()
+                                            .text_sm()
+                                            .text_color(rgb(theme.text_label))
+                                            .child("Background"),
+                                    )
+                                    .child(div().flex_1().child(self.palette_bg_swatch.clone())),
+                            )
+                            // Text color
+                            .child(
+                                div()
+                                    .flex()
+                                    .flex_row()
+                                    .items_center()
+                                    .gap_3()
+                                    .child(
+                                        div()
+                                            .w(px(80.0))
+                                            .flex_shrink_0()
+                                            .text_sm()
+                                            .text_color(rgb(theme.text_label))
+                                            .child("Text"),
+                                    )
+                                    .child(div().flex_1().child(self.palette_text_swatch.clone())),
+                            )
+                            // Primary color
+                            .child(
+                                div()
+                                    .flex()
+                                    .flex_row()
+                                    .items_center()
+                                    .gap_3()
+                                    .child(
+                                        div()
+                                            .w(px(80.0))
+                                            .flex_shrink_0()
+                                            .text_sm()
+                                            .text_color(rgb(theme.text_label))
+                                            .child("Primary"),
+                                    )
+                                    .child(
+                                        div().flex_1().child(self.palette_primary_swatch.clone()),
+                                    ),
+                            )
+                            // Accent color
+                            .child(
+                                div()
+                                    .flex()
+                                    .flex_row()
+                                    .items_center()
+                                    .gap_3()
+                                    .child(
+                                        div()
+                                            .w(px(80.0))
+                                            .flex_shrink_0()
+                                            .text_sm()
+                                            .text_color(rgb(theme.text_label))
+                                            .child("Accent"),
+                                    )
+                                    .child(
+                                        div().flex_1().child(self.palette_accent_swatch.clone()),
+                                    ),
+                            )
+                            // Success color
+                            .child(
+                                div()
+                                    .flex()
+                                    .flex_row()
+                                    .items_center()
+                                    .gap_3()
+                                    .child(
+                                        div()
+                                            .w(px(80.0))
+                                            .flex_shrink_0()
+                                            .text_sm()
+                                            .text_color(rgb(theme.text_label))
+                                            .child("Success"),
+                                    )
+                                    .child(
+                                        div().flex_1().child(self.palette_success_swatch.clone()),
+                                    ),
+                            )
+                            // Error color
+                            .child(
+                                div()
+                                    .flex()
+                                    .flex_row()
+                                    .items_center()
+                                    .gap_3()
+                                    .child(
+                                        div()
+                                            .w(px(80.0))
+                                            .flex_shrink_0()
+                                            .text_sm()
+                                            .text_color(rgb(theme.text_label))
+                                            .child("Error"),
+                                    )
+                                    .child(div().flex_1().child(self.palette_error_swatch.clone())),
+                            )
+                            // Warning color
+                            .child(
+                                div()
+                                    .flex()
+                                    .flex_row()
+                                    .items_center()
+                                    .gap_3()
+                                    .child(
+                                        div()
+                                            .w(px(80.0))
+                                            .flex_shrink_0()
+                                            .text_sm()
+                                            .text_color(rgb(theme.text_label))
+                                            .child("Warning"),
+                                    )
+                                    .child(
+                                        div().flex_1().child(self.palette_warning_swatch.clone()),
+                                    ),
+                            ),
+                    )
+                    // Button row
+                    .child(
+                        div()
+                            .px_4()
+                            .py_3()
+                            .bg(rgb(theme.bg_section_header))
+                            .border_t_1()
+                            .border_color(rgb(theme.border_default))
+                            .flex()
+                            .flex_row()
+                            .items_center()
+                            .gap_2()
+                            // Reset buttons on the left
+                            .child(
+                                secondary_button("palette-reset-dark", "Reset Dark", cx).on_click(
+                                    cx.listener(|this, _event, _window, cx| {
+                                        this.reset_palette_to(Palette::dark(), cx);
+                                        this.log_event("Palette", "Reset to dark".to_string(), cx);
+                                    }),
                                 ),
-                        )
-                        // Button row
-                        .child(
-                            div()
-                                .px_4()
-                                .py_3()
-                                .bg(rgb(theme.bg_section_header))
-                                .border_t_1()
-                                .border_color(rgb(theme.border_default))
-                                .flex()
-                                .flex_row()
-                                .items_center()
-                                .gap_2()
-                                // Reset buttons on the left
-                                .child(
-                                    secondary_button("palette-reset-dark", "Reset Dark", cx)
-                                        .on_click(cx.listener(|this, _event, _window, cx| {
-                                            this.reset_palette_to(Palette::dark(), cx);
-                                            this.log_event("Palette", "Reset to dark".to_string(), cx);
-                                        })),
-                                )
-                                .child(
-                                    secondary_button("palette-reset-light", "Reset Light", cx)
-                                        .on_click(cx.listener(|this, _event, _window, cx| {
-                                            this.reset_palette_to(Palette::light(), cx);
-                                            this.log_event("Palette", "Reset to light".to_string(), cx);
-                                        })),
-                                )
-                                // Spacer
-                                .child(div().flex_1())
-                                // Cancel and Apply on the right
-                                .child(
-                                    secondary_button("palette-cancel", "Cancel", cx)
-                                        .on_click(cx.listener(|this, _event, _window, cx| {
-                                            this.close_palette_editor(cx);
-                                        })),
-                                )
-                                .child(
-                                    primary_button("palette-apply", "Apply", true, cx)
-                                        .on_click(cx.listener(|this, _event, _window, cx| {
-                                            this.apply_custom_palette(cx);
-                                        })),
-                                ),
-                        ),
-                )
+                            )
+                            .child(
+                                secondary_button("palette-reset-light", "Reset Light", cx)
+                                    .on_click(cx.listener(|this, _event, _window, cx| {
+                                        this.reset_palette_to(Palette::light(), cx);
+                                        this.log_event("Palette", "Reset to light".to_string(), cx);
+                                    })),
+                            )
+                            // Spacer
+                            .child(div().flex_1())
+                            // Cancel and Apply on the right
+                            .child(secondary_button("palette-cancel", "Cancel", cx).on_click(
+                                cx.listener(|this, _event, _window, cx| {
+                                    this.close_palette_editor(cx);
+                                }),
+                            ))
+                            .child(primary_button("palette-apply", "Apply", true, cx).on_click(
+                                cx.listener(|this, _event, _window, cx| {
+                                    this.apply_custom_palette(cx);
+                                }),
+                            )),
+                    ),
+            )
     }
 
     fn toggle_widgets_enabled(&mut self, cx: &mut Context<Self>) {
@@ -1165,7 +1280,8 @@ impl WidgetGallery {
 
         // Update all widgets
         set_enabled_all!(
-            cx, enabled,
+            cx,
+            enabled,
             self.text_input,
             self.text_input_placeholder,
             self.checkbox,
@@ -1192,7 +1308,8 @@ impl WidgetGallery {
         // Feature-gated widgets
         #[cfg(feature = "file-picker")]
         set_enabled_all!(
-            cx, enabled,
+            cx,
+            enabled,
             self.file_picker,
             self.directory_picker,
             self.repeatable_file_picker,
@@ -1494,19 +1611,18 @@ impl WidgetGallery {
             .child(Self::render_widget_row(
                 "Primary Button",
                 "Main action button",
-                div()
-                    .w(px(130.0))
-                    .child(
-                        primary_button("primary_demo", "Click Me", true, cx)
-                            .on_click(cx.listener(|this, _event, _window, cx| {
-                                this.primary_click_count += 1;
-                                this.log_event(
-                                    "Button",
-                                    format!("Primary clicked (count: {})", this.primary_click_count),
-                                    cx,
-                                );
-                            })),
-                    ),
+                div().w(px(130.0)).child(
+                    primary_button("primary_demo", "Click Me", true, cx).on_click(cx.listener(
+                        |this, _event, _window, cx| {
+                            this.primary_click_count += 1;
+                            this.log_event(
+                                "Button",
+                                format!("Primary clicked (count: {})", this.primary_click_count),
+                                cx,
+                            );
+                        },
+                    )),
+                ),
                 Some(format!("clicks: {}", primary_count)),
                 cx,
             ))
@@ -1522,40 +1638,39 @@ impl WidgetGallery {
             .child(Self::render_widget_row(
                 "Secondary Button",
                 "Alternative action",
-                div()
-                    .w(px(130.0))
-                    .child(
-                        secondary_button("secondary_demo", "Cancel", cx).on_click(cx.listener(
-                            |this, _event, _window, cx| {
-                                this.secondary_click_count += 1;
-                                this.log_event(
-                                    "Button",
-                                    format!("Secondary clicked (count: {})", this.secondary_click_count),
-                                    cx,
-                                );
-                            },
-                        )),
-                    ),
+                div().w(px(130.0)).child(
+                    secondary_button("secondary_demo", "Cancel", cx).on_click(cx.listener(
+                        |this, _event, _window, cx| {
+                            this.secondary_click_count += 1;
+                            this.log_event(
+                                "Button",
+                                format!(
+                                    "Secondary clicked (count: {})",
+                                    this.secondary_click_count
+                                ),
+                                cx,
+                            );
+                        },
+                    )),
+                ),
                 Some(format!("clicks: {}", secondary_count)),
                 cx,
             ))
             .child(Self::render_widget_row(
                 "Danger Button",
                 "Destructive action",
-                div()
-                    .w(px(130.0))
-                    .child(
-                        danger_button("danger_demo", "Delete", true, cx).on_click(cx.listener(
-                            |this, _event, _window, cx| {
-                                this.danger_click_count += 1;
-                                this.log_event(
-                                    "Button",
-                                    format!("Danger clicked (count: {})", this.danger_click_count),
-                                    cx,
-                                );
-                            },
-                        )),
-                    ),
+                div().w(px(130.0)).child(
+                    danger_button("danger_demo", "Delete", true, cx).on_click(cx.listener(
+                        |this, _event, _window, cx| {
+                            this.danger_click_count += 1;
+                            this.log_event(
+                                "Button",
+                                format!("Danger clicked (count: {})", this.danger_click_count),
+                                cx,
+                            );
+                        },
+                    )),
+                ),
                 Some(format!("clicks: {}", danger_count)),
                 cx,
             ))
@@ -1689,14 +1804,9 @@ impl WidgetGallery {
                             .whitespace_nowrap()
                             .when(values.is_empty(), |d| d.child(empty_label.to_string()))
                             .when(!values.is_empty(), |d| {
-                                d.flex()
-                                    .flex_col()
-                                    .children(values.iter().map(|v| {
-                                        div()
-                                            .overflow_x_hidden()
-                                            .text_ellipsis()
-                                            .child(v.clone())
-                                    }))
+                                d.flex().flex_col().children(values.iter().map(|v| {
+                                    div().overflow_x_hidden().text_ellipsis().child(v.clone())
+                                }))
                             }),
                     ),
             )
@@ -1851,7 +1961,9 @@ impl WidgetGallery {
             .child(Self::render_widget_row(
                 "Indeterminate Progress",
                 "Animated loading bar",
-                div().w(px(300.0)).child(self.progress_bar_indeterminate.clone()),
+                div()
+                    .w(px(300.0))
+                    .child(self.progress_bar_indeterminate.clone()),
                 Some("indeterminate".to_string()),
                 cx,
             ))
@@ -1948,24 +2060,21 @@ impl WidgetGallery {
                     .flex_row()
                     .gap_2()
                     .items_center()
-                    .child(
-                        div()
-                            .max_w(px(140.0))
-                            .child(
-                                primary_button("show_info_dialog_btn", "Show Info...", true, cx)
-                                    .on_click(cx.listener(|this, _event, _window, cx| {
-                                        this.info_result = None;
-                                        this.show_info_dialog = true;
-                                        this.log_event("Dialog (Info)", "Opened".to_string(), cx);
-                                    }))
-                            )
-                    )
+                    .child(div().max_w(px(140.0)).child(
+                        primary_button("show_info_dialog_btn", "Show Info...", true, cx).on_click(
+                            cx.listener(|this, _event, _window, cx| {
+                                this.info_result = None;
+                                this.show_info_dialog = true;
+                                this.log_event("Dialog (Info)", "Opened".to_string(), cx);
+                            }),
+                        ),
+                    ))
                     .when_some(info_result, |d, result| {
                         d.child(
                             div()
                                 .text_sm()
                                 .text_color(rgb(theme.text_muted))
-                                .child(format!("Result: {}", result))
+                                .child(format!("Result: {}", result)),
                         )
                     }),
                 None,
@@ -1980,24 +2089,21 @@ impl WidgetGallery {
                     .flex_row()
                     .gap_2()
                     .items_center()
-                    .child(
-                        div()
-                            .max_w(px(140.0))
-                            .child(
-                                primary_button("show_yes_no_dialog_btn", "Confirm...", true, cx)
-                                    .on_click(cx.listener(|this, _event, _window, cx| {
-                                        this.yes_no_result = None;
-                                        this.show_yes_no_dialog = true;
-                                        this.log_event("Dialog (Yes/No)", "Opened".to_string(), cx);
-                                    }))
-                            )
-                    )
+                    .child(div().max_w(px(140.0)).child(
+                        primary_button("show_yes_no_dialog_btn", "Confirm...", true, cx).on_click(
+                            cx.listener(|this, _event, _window, cx| {
+                                this.yes_no_result = None;
+                                this.show_yes_no_dialog = true;
+                                this.log_event("Dialog (Yes/No)", "Opened".to_string(), cx);
+                            }),
+                        ),
+                    ))
                     .when_some(yes_no_result, |d, result| {
                         d.child(
                             div()
                                 .text_sm()
                                 .text_color(rgb(theme.text_muted))
-                                .child(format!("Result: {}", result))
+                                .child(format!("Result: {}", result)),
                         )
                     }),
                 None,
@@ -2013,23 +2119,21 @@ impl WidgetGallery {
                     .gap_2()
                     .items_center()
                     .child(
-                        div()
-                            .max_w(px(140.0))
-                            .child(
-                                primary_button("show_save_dialog_btn", "Save Changes...", true, cx)
-                                    .on_click(cx.listener(|this, _event, _window, cx| {
-                                        this.save_result = None;
-                                        this.show_save_dialog = true;
-                                        this.log_event("Dialog (Save)", "Opened".to_string(), cx);
-                                    }))
-                            )
+                        div().max_w(px(140.0)).child(
+                            primary_button("show_save_dialog_btn", "Save Changes...", true, cx)
+                                .on_click(cx.listener(|this, _event, _window, cx| {
+                                    this.save_result = None;
+                                    this.show_save_dialog = true;
+                                    this.log_event("Dialog (Save)", "Opened".to_string(), cx);
+                                })),
+                        ),
                     )
                     .when_some(save_result, |d, result| {
                         d.child(
                             div()
                                 .text_sm()
                                 .text_color(rgb(theme.text_muted))
-                                .child(format!("Result: {}", result))
+                                .child(format!("Result: {}", result)),
                         )
                     }),
                 None,
@@ -2045,23 +2149,21 @@ impl WidgetGallery {
                     .gap_2()
                     .items_center()
                     .child(
-                        div()
-                            .max_w(px(140.0))
-                            .child(
-                                danger_button("show_danger_dialog_btn", "Delete Item...", true, cx)
-                                    .on_click(cx.listener(|this, _event, _window, cx| {
-                                        this.danger_result = None;
-                                        this.show_danger_dialog = true;
-                                        this.log_event("Dialog (Danger)", "Opened".to_string(), cx);
-                                    }))
-                            )
+                        div().max_w(px(140.0)).child(
+                            danger_button("show_danger_dialog_btn", "Delete Item...", true, cx)
+                                .on_click(cx.listener(|this, _event, _window, cx| {
+                                    this.danger_result = None;
+                                    this.show_danger_dialog = true;
+                                    this.log_event("Dialog (Danger)", "Opened".to_string(), cx);
+                                })),
+                        ),
                     )
                     .when_some(danger_result, |d, result| {
                         d.child(
                             div()
                                 .text_sm()
                                 .text_color(rgb(theme.text_muted))
-                                .child(format!("Result: {}", result))
+                                .child(format!("Result: {}", result)),
                         )
                     }),
                 None,
@@ -2207,19 +2309,14 @@ impl WidgetGallery {
                     .rounded_md()
                     .overflow_hidden()
                     .child(
-                        scrollable_vertical(
-                            div()
-                                .p_2()
-                                .flex()
-                                .flex_col()
-                                .gap_1()
-                                .children((1..=20).map(|i| {
-                                    div()
-                                        .text_sm()
-                                        .text_color(rgb(theme.text_primary))
-                                        .child(format!("Item {} - Scroll to see more", i))
-                                })),
-                        )
+                        scrollable_vertical(div().p_2().flex().flex_col().gap_1().children(
+                            (1..=20).map(|i| {
+                                div()
+                                    .text_sm()
+                                    .text_color(rgb(theme.text_primary))
+                                    .child(format!("Item {} - Scroll to see more", i))
+                            }),
+                        ))
                         .always_show_scrollbars(),
                     ),
                 None,
@@ -2239,13 +2336,8 @@ impl WidgetGallery {
                         scrollable_horizontal(
                             // Note: Horizontal scroll requires explicit width on content
                             // that exceeds the container width
-                            div()
-                                .w(px(600.0))
-                                .p_2()
-                                .flex()
-                                .flex_row()
-                                .gap_2()
-                                .children((1..=15).map(|i| {
+                            div().w(px(600.0)).p_2().flex().flex_row().gap_2().children(
+                                (1..=15).map(|i| {
                                     div()
                                         .flex_shrink_0()
                                         .px_3()
@@ -2256,7 +2348,8 @@ impl WidgetGallery {
                                         .text_color(rgb(theme.text_primary))
                                         .whitespace_nowrap()
                                         .child(format!("Tag {}", i))
-                                })),
+                                }),
+                            ),
                         )
                         .always_show_scrollbars(),
                     ),
@@ -2325,36 +2418,32 @@ impl WidgetGallery {
                         .overflow_y_scroll()
                         .bg(rgb(theme.bg_primary))
                         .p_2()
-                        .child(
-                            div()
-                                .flex()
-                                .flex_col()
-                                .gap_1()
-                                .children(self.event_log.iter().map(|entry| {
-                                    div()
-                                        .flex()
-                                        .flex_row()
-                                        .gap_2()
-                                        .text_xs()
-                                        .font_family("monospace")
-                                        .child(
-                                            div()
-                                                .text_color(rgb(theme.text_muted))
-                                                .child(entry.timestamp.clone()),
-                                        )
-                                        .child(
-                                            div()
-                                                .text_color(rgb(theme.primary))
-                                                .min_w(px(150.0))
-                                                .child(entry.widget.clone()),
-                                        )
-                                        .child(
-                                            div()
-                                                .text_color(rgb(theme.text_primary))
-                                                .child(entry.event.clone()),
-                                        )
-                                })),
-                        ),
+                        .child(div().flex().flex_col().gap_1().children(
+                            self.event_log.iter().map(|entry| {
+                                div()
+                                    .flex()
+                                    .flex_row()
+                                    .gap_2()
+                                    .text_xs()
+                                    .font_family("monospace")
+                                    .child(
+                                        div()
+                                            .text_color(rgb(theme.text_muted))
+                                            .child(entry.timestamp.clone()),
+                                    )
+                                    .child(
+                                        div()
+                                            .text_color(rgb(theme.primary))
+                                            .min_w(px(150.0))
+                                            .child(entry.widget.clone()),
+                                    )
+                                    .child(
+                                        div()
+                                            .text_color(rgb(theme.text_primary))
+                                            .child(entry.event.clone()),
+                                    )
+                            }),
+                        )),
                 )
             })
     }
@@ -2397,12 +2486,7 @@ impl WidgetGallery {
                     .text_color(rgb(theme.text_primary))
                     .child(title),
             )
-            .child(
-                div()
-                    .p_4()
-                    .bg(rgb(theme.bg_secondary))
-                    .child(content),
-            )
+            .child(div().p_4().bg(rgb(theme.bg_secondary)).child(content))
     }
 
     fn render_text_category(&self, cx: &Context<Self>) -> impl IntoElement {
@@ -2638,17 +2722,13 @@ impl Render for WidgetGallery {
             // Event log at bottom
             .child(self.render_event_log(cx))
             // Info dialog overlay (when shown)
-            .when(self.show_info_dialog, |d| {
-                d.child(self.info_dialog.clone())
-            })
+            .when(self.show_info_dialog, |d| d.child(self.info_dialog.clone()))
             // Yes/No dialog overlay (when shown)
             .when(self.show_yes_no_dialog, |d| {
                 d.child(self.yes_no_dialog.clone())
             })
             // Save dialog overlay (when shown)
-            .when(self.show_save_dialog, |d| {
-                d.child(self.save_dialog.clone())
-            })
+            .when(self.show_save_dialog, |d| d.child(self.save_dialog.clone()))
             // Danger dialog overlay (when shown)
             .when(self.show_danger_dialog, |d| {
                 d.child(self.danger_dialog.clone())

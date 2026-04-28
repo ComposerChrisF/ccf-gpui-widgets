@@ -20,11 +20,11 @@
 //!     }));
 //! ```
 
-use gpui::prelude::*;
-use gpui::*;
+use super::focus_navigation::{FocusNext, FocusPrev};
 use crate::theme::get_theme;
 use crate::utils::darken;
-use super::focus_navigation::{FocusNext, FocusPrev};
+use gpui::prelude::*;
+use gpui::*;
 
 // Actions for button activation
 actions!(ccf_button, [ActivateButton]);
@@ -120,11 +120,7 @@ pub fn primary_button(
 /// # Returns
 ///
 /// A focusable `Stateful<Div>` that can be composed with `.on_click()` and other handlers.
-pub fn secondary_button(
-    id: impl Into<ElementId>,
-    label: &str,
-    cx: &App,
-) -> Stateful<Div> {
+pub fn secondary_button(id: impl Into<ElementId>, label: &str, cx: &App) -> Stateful<Div> {
     let theme = get_theme(cx);
 
     div()

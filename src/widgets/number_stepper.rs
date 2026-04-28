@@ -44,10 +44,10 @@ use std::rc::Rc;
 use gpui::prelude::*;
 use gpui::*;
 
-use crate::theme::{get_theme_or, Theme};
-use crate::utils::format_display_value;
 use super::focus_navigation::{handle_tab_navigation, with_focus_actions, EnabledCursorExt};
 use super::text_input::{TextInput, TextInputEvent};
+use crate::theme::{get_theme_or, Theme};
+use crate::utils::format_display_value;
 
 /// Events emitted by NumberStepper
 #[derive(Clone, Debug)]
@@ -140,26 +140,28 @@ impl NumberStepper {
                 .borderless(true)
                 .select_on_focus(true)
                 .input_filter(|c| c.is_ascii_digit() || c == '.' || c == '-')
-                .emit_tab_events(true)  // Let NumberStepper handle Tab
+                .emit_tab_events(true) // Let NumberStepper handle Tab
         });
 
         // Subscribe to TextInput events
-        cx.subscribe(&edit_input, |this: &mut Self, _input, event: &TextInputEvent, cx| {
-            match event {
-                TextInputEvent::Enter => this.commit_edit(cx),
-                TextInputEvent::Escape => this.cancel_edit(cx),
-                TextInputEvent::Blur => {
-                    if this.editing {
+        cx.subscribe(
+            &edit_input,
+            |this: &mut Self, _input, event: &TextInputEvent, cx| {
+                match event {
+                    TextInputEvent::Enter => this.commit_edit(cx),
+                    TextInputEvent::Escape => this.cancel_edit(cx),
+                    TextInputEvent::Blur if this.editing => {
                         this.commit_edit(cx);
                     }
+                    TextInputEvent::Tab | TextInputEvent::ShiftTab => {
+                        // Treat Tab same as Enter - commit and stay on stepper
+                        this.commit_edit(cx);
+                    }
+                    _ => {}
                 }
-                TextInputEvent::Tab | TextInputEvent::ShiftTab => {
-                    // Treat Tab same as Enter - commit and stay on stepper
-                    this.commit_edit(cx);
-                }
-                _ => {}
-            }
-        }).detach();
+            },
+        )
+        .detach();
 
         Self {
             value: 0.0,
@@ -172,8 +174,8 @@ impl NumberStepper {
             custom_theme: None,
             enabled: true,
             value_per_pixel_normal: 0.5,
-            value_per_pixel_fast: 2.5,   // 5x normal
-            value_per_pixel_slow: 0.05,  // 0.1x normal
+            value_per_pixel_fast: 2.5,  // 5x normal
+            value_per_pixel_slow: 0.05, // 0.1x normal
             auto_scale_drag: true,
             value_display_width: Rc::new(Cell::new(0.0)),
             editing: false,
@@ -527,7 +529,8 @@ impl NumberStepper {
         };
 
         let delta_pixels = (x - self.drag_start_x) as f64;
-        let new_value = self.normalize_value(self.drag_start_value + delta_pixels * value_per_pixel);
+        let new_value =
+            self.normalize_value(self.drag_start_value + delta_pixels * value_per_pixel);
         if (self.value - new_value).abs() > f64::EPSILON {
             self.value = new_value;
             cx.emit(NumberStepperEvent::Change(self.value));
@@ -559,7 +562,11 @@ impl Render for NumberStepper {
         let is_focused = self.focus_handle.is_focused(window);
 
         // Colors for the unified control (use disabled colors when disabled)
-        let bg_color = if enabled { theme.bg_input } else { theme.disabled_bg };
+        let bg_color = if enabled {
+            theme.bg_input
+        } else {
+            theme.disabled_bg
+        };
         let border_color = if !enabled {
             theme.disabled_bg
         } else if is_focused || editing {
@@ -567,9 +574,21 @@ impl Render for NumberStepper {
         } else {
             theme.border_input
         };
-        let separator_color = if enabled { theme.text_muted } else { theme.disabled_text };
-        let text_color = if enabled { theme.text_value } else { theme.disabled_text };
-        let button_text_color = if enabled { theme.text_value } else { theme.disabled_text };
+        let separator_color = if enabled {
+            theme.text_muted
+        } else {
+            theme.disabled_text
+        };
+        let text_color = if enabled {
+            theme.text_value
+        } else {
+            theme.disabled_text
+        };
+        let button_text_color = if enabled {
+            theme.text_value
+        } else {
+            theme.disabled_text
+        };
 
         // Build the center value element (without its own border/background)
         let value_element = if editing && enabled {
@@ -606,39 +625,50 @@ impl Render for NumberStepper {
             if enabled {
                 value_div = value_div
                     // Double-click to edit, single-click starts drag state tracking
-                    .on_mouse_down(MouseButton::Left, cx.listener(|stepper, event: &MouseDownEvent, window, cx| {
-                        if !stepper.enabled {
-                            return;
-                        }
-                        stepper.focus_handle.focus(window);
-                        if event.click_count == 2 {
-                            // Double-click: enter edit mode
-                            stepper.enter_edit_mode(window, cx);
-                        } else {
-                            // Single click: record drag start position for on_drag_move
-                            let x: f32 = event.position.x.into();
-                            stepper.start_drag(x);
-                        }
-                    }))
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(|stepper, event: &MouseDownEvent, window, cx| {
+                            if !stepper.enabled {
+                                return;
+                            }
+                            stepper.focus_handle.focus(window);
+                            if event.click_count == 2 {
+                                // Double-click: enter edit mode
+                                stepper.enter_edit_mode(window, cx);
+                            } else {
+                                // Single click: record drag start position for on_drag_move
+                                let x: f32 = event.position.x.into();
+                                stepper.start_drag(x);
+                            }
+                        }),
+                    )
                     // Initiate drag - this enables on_drag_move to track outside element bounds
                     .on_drag(NumberDragState, |_state, _position, _window, cx| {
                         cx.new(|_| EmptyDragView)
                     })
                     // Track drag movement even outside element bounds (Shift=fast, Alt/Option=slow)
-                    .on_drag_move(cx.listener(|stepper, event: &DragMoveEvent<NumberDragState>, _window, cx| {
-                        if stepper.dragging {
-                            let x: f32 = event.event.position.x.into();
-                            stepper.update_drag(x, &event.event.modifiers, cx);
-                        }
-                    }))
+                    .on_drag_move(cx.listener(
+                        |stepper, event: &DragMoveEvent<NumberDragState>, _window, cx| {
+                            if stepper.dragging {
+                                let x: f32 = event.event.position.x.into();
+                                stepper.update_drag(x, &event.event.modifiers, cx);
+                            }
+                        },
+                    ))
                     // End drag on mouse up (inside element)
-                    .on_mouse_up(MouseButton::Left, cx.listener(|stepper, _event: &MouseUpEvent, _window, _cx| {
-                        stepper.end_drag();
-                    }))
+                    .on_mouse_up(
+                        MouseButton::Left,
+                        cx.listener(|stepper, _event: &MouseUpEvent, _window, _cx| {
+                            stepper.end_drag();
+                        }),
+                    )
                     // End drag on mouse up outside element
-                    .on_mouse_up_out(MouseButton::Left, cx.listener(|stepper, _event: &MouseUpEvent, _window, _cx| {
-                        stepper.end_drag();
-                    }));
+                    .on_mouse_up_out(
+                        MouseButton::Left,
+                        cx.listener(|stepper, _event: &MouseUpEvent, _window, _cx| {
+                            stepper.end_drag();
+                        }),
+                    );
             }
 
             value_div
@@ -652,18 +682,13 @@ impl Render for NumberStepper {
                         |_, _, _, _| {},
                     )
                     .size_full()
-                    .absolute()
+                    .absolute(),
                 )
                 .child(display_value)
         };
 
         // Vertical separator element
-        let separator = || {
-            div()
-                .w(px(1.0))
-                .h_full()
-                .bg(rgb(separator_color))
-        };
+        let separator = || div().w(px(1.0)).h_full().bg(rgb(separator_color));
 
         // Build decrement button
         let mut decrement_button = div()
@@ -676,28 +701,30 @@ impl Render for NumberStepper {
             .text_color(rgb(button_text_color))
             .cursor_for_enabled(enabled)
             .when(enabled, |d| d.hover(|h| h.bg(rgb(theme.bg_hover))))
-            .child("\u{2212}");  // Using proper minus sign
+            .child("\u{2212}"); // Using proper minus sign
 
         if enabled {
-            decrement_button = decrement_button.on_click(cx.listener(|stepper, event: &ClickEvent, window, cx| {
-                if !stepper.enabled {
-                    return;
-                }
-                stepper.focus_handle.focus(window);
-                if stepper.editing {
-                    // Set editing to false before anything that could trigger blur
-                    stepper.editing = false;
-                }
-                // Shift = large step, Alt/Option = small step, Normal = 1x
-                let multiplier = if event.modifiers().shift {
-                    stepper.step_large_multiplier
-                } else if event.modifiers().alt {
-                    stepper.step_small_multiplier
-                } else {
-                    1.0
-                };
-                stepper.decrement(multiplier, cx);
-            }));
+            decrement_button = decrement_button.on_click(cx.listener(
+                |stepper, event: &ClickEvent, window, cx| {
+                    if !stepper.enabled {
+                        return;
+                    }
+                    stepper.focus_handle.focus(window);
+                    if stepper.editing {
+                        // Set editing to false before anything that could trigger blur
+                        stepper.editing = false;
+                    }
+                    // Shift = large step, Alt/Option = small step, Normal = 1x
+                    let multiplier = if event.modifiers().shift {
+                        stepper.step_large_multiplier
+                    } else if event.modifiers().alt {
+                        stepper.step_small_multiplier
+                    } else {
+                        1.0
+                    };
+                    stepper.decrement(multiplier, cx);
+                },
+            ));
         }
 
         // Build increment button
@@ -714,25 +741,27 @@ impl Render for NumberStepper {
             .child("+");
 
         if enabled {
-            increment_button = increment_button.on_click(cx.listener(|stepper, event: &ClickEvent, window, cx| {
-                if !stepper.enabled {
-                    return;
-                }
-                stepper.focus_handle.focus(window);
-                if stepper.editing {
-                    // Set editing to false before anything that could trigger blur
-                    stepper.editing = false;
-                }
-                // Shift = large step, Alt/Option = small step, Normal = 1x
-                let multiplier = if event.modifiers().shift {
-                    stepper.step_large_multiplier
-                } else if event.modifiers().alt {
-                    stepper.step_small_multiplier
-                } else {
-                    1.0
-                };
-                stepper.increment(multiplier, cx);
-            }));
+            increment_button = increment_button.on_click(cx.listener(
+                |stepper, event: &ClickEvent, window, cx| {
+                    if !stepper.enabled {
+                        return;
+                    }
+                    stepper.focus_handle.focus(window);
+                    if stepper.editing {
+                        // Set editing to false before anything that could trigger blur
+                        stepper.editing = false;
+                    }
+                    // Shift = large step, Alt/Option = small step, Normal = 1x
+                    let multiplier = if event.modifiers().shift {
+                        stepper.step_large_multiplier
+                    } else if event.modifiers().alt {
+                        stepper.step_small_multiplier
+                    } else {
+                        1.0
+                    };
+                    stepper.increment(multiplier, cx);
+                },
+            ));
         }
 
         // Unified container with all three parts
@@ -744,40 +773,44 @@ impl Render for NumberStepper {
             cx,
         )
         .on_key_down(cx.listener(|stepper, event: &KeyDownEvent, window, cx| {
-                // Don't handle keys when disabled or editing (TextInput handles them)
-                if !stepper.enabled || stepper.editing {
-                    return;
-                }
-                if handle_tab_navigation(event, window) {
-                    return;
-                }
-                let multiplier = if event.keystroke.modifiers.shift { 10.0 } else { 1.0 };
-                match event.keystroke.key.as_str() {
-                    "enter" => stepper.enter_edit_mode(window, cx),
-                    "up" => stepper.increment(multiplier, cx),
-                    "down" => stepper.decrement(multiplier, cx),
-                    _ => {}
-                }
-            }))
-            // Unified styling - single rounded box
-            .flex()
-            .flex_row()
-            .items_center()
-            .h(px(28.0))  // Fixed height for uniform appearance
-            .bg(rgb(bg_color))
-            .border_1()
-            .border_color(rgb(border_color))
-            .rounded_md()
-            .overflow_hidden()
-            // Decrement button
-            .child(decrement_button)
-            // Left separator
-            .child(separator())
-            // Value display
-            .child(value_element)
-            // Right separator
-            .child(separator())
-            // Increment button
-            .child(increment_button)
+            // Don't handle keys when disabled or editing (TextInput handles them)
+            if !stepper.enabled || stepper.editing {
+                return;
+            }
+            if handle_tab_navigation(event, window) {
+                return;
+            }
+            let multiplier = if event.keystroke.modifiers.shift {
+                10.0
+            } else {
+                1.0
+            };
+            match event.keystroke.key.as_str() {
+                "enter" => stepper.enter_edit_mode(window, cx),
+                "up" => stepper.increment(multiplier, cx),
+                "down" => stepper.decrement(multiplier, cx),
+                _ => {}
+            }
+        }))
+        // Unified styling - single rounded box
+        .flex()
+        .flex_row()
+        .items_center()
+        .h(px(28.0)) // Fixed height for uniform appearance
+        .bg(rgb(bg_color))
+        .border_1()
+        .border_color(rgb(border_color))
+        .rounded_md()
+        .overflow_hidden()
+        // Decrement button
+        .child(decrement_button)
+        // Left separator
+        .child(separator())
+        // Value display
+        .child(value_element)
+        // Right separator
+        .child(separator())
+        // Increment button
+        .child(increment_button)
     }
 }

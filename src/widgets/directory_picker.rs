@@ -28,25 +28,19 @@ use gpui::prelude::*;
 #[cfg(feature = "file-picker")]
 use gpui::*;
 
+use super::focus_navigation::{EnabledCursorExt, FocusNext, FocusPrev};
+#[cfg(feature = "file-picker")]
+use super::path_display::PathDisplayInfo;
 #[cfg(feature = "file-picker")]
 use crate::theme::{get_theme_or, Theme};
-use super::focus_navigation::{FocusNext, FocusPrev, EnabledCursorExt};
 #[cfg(feature = "file-picker")]
 use crate::utils::path::{parse_path, PathInfo};
 #[cfg(feature = "file-picker")]
 use crate::widgets::{TextInput, TextInputEvent, Tooltip};
-#[cfg(feature = "file-picker")]
-use super::path_display::PathDisplayInfo;
 
 // Actions for keyboard handling
 #[cfg(feature = "file-picker")]
-actions!(
-    ccf_directory_picker,
-    [
-        BrowseDirectory,
-        ActivateButton,
-    ]
-);
+actions!(ccf_directory_picker, [BrowseDirectory, ActivateButton,]);
 
 /// Register key bindings for directory picker
 ///
@@ -58,14 +52,18 @@ actions!(
 pub fn register_keybindings(cx: &mut App) {
     // Browse shortcut (Cmd+O / Ctrl+O)
     #[cfg(target_os = "macos")]
-    cx.bind_keys([
-        KeyBinding::new("cmd-o", BrowseDirectory, Some("CcfDirectoryPicker")),
-    ]);
+    cx.bind_keys([KeyBinding::new(
+        "cmd-o",
+        BrowseDirectory,
+        Some("CcfDirectoryPicker"),
+    )]);
 
     #[cfg(not(target_os = "macos"))]
-    cx.bind_keys([
-        KeyBinding::new("ctrl-o", BrowseDirectory, Some("CcfDirectoryPicker")),
-    ]);
+    cx.bind_keys([KeyBinding::new(
+        "ctrl-o",
+        BrowseDirectory,
+        Some("CcfDirectoryPicker"),
+    )]);
 
     // Button activation (Enter/Space when button is focused)
     cx.bind_keys([
@@ -118,7 +116,6 @@ pub fn validate_directory_path(path: &str) -> DirectoryPickerValidation {
         DirectoryPickerValidation::PathDoesNotExist
     }
 }
-
 
 /// Directory picker widget
 #[cfg(feature = "file-picker")]
@@ -281,7 +278,12 @@ impl DirectoryPicker {
         self.validate() == DirectoryPickerValidation::Valid
     }
 
-    fn compute_path_display(&self, path_info: &PathInfo, theme: &Theme, validation_display: &ValidationDisplay) -> PathDisplayInfo {
+    fn compute_path_display(
+        &self,
+        path_info: &PathInfo,
+        theme: &Theme,
+        validation_display: &ValidationDisplay,
+    ) -> PathDisplayInfo {
         let mut info = PathDisplayInfo::new();
 
         if path_info.full_path.as_os_str().is_empty() {
@@ -289,18 +291,34 @@ impl DirectoryPicker {
         }
 
         // Check if colors and/or messages should be shown
-        let show_colors = matches!(validation_display, ValidationDisplay::Full | ValidationDisplay::ColorsOnly);
-        let show_message = matches!(validation_display, ValidationDisplay::Full | ValidationDisplay::MessageOnly);
+        let show_colors = matches!(
+            validation_display,
+            ValidationDisplay::Full | ValidationDisplay::ColorsOnly
+        );
+        let show_message = matches!(
+            validation_display,
+            ValidationDisplay::Full | ValidationDisplay::MessageOnly
+        );
 
         // Helper to get the appropriate color (respects show_colors setting)
         let color_or_muted = |color: u32| -> u32 {
-            if show_colors { color } else { theme.text_muted }
+            if show_colors {
+                color
+            } else {
+                theme.text_muted
+            }
         };
 
         if path_info.fully_exists() {
-            info.add_segment(&path_info.existing_canonical.to_string_lossy(), theme.text_muted);
+            info.add_segment(
+                &path_info.existing_canonical.to_string_lossy(),
+                theme.text_muted,
+            );
         } else {
-            info.add_segment(&path_info.existing_canonical.to_string_lossy(), theme.text_muted);
+            info.add_segment(
+                &path_info.existing_canonical.to_string_lossy(),
+                theme.text_muted,
+            );
             let non_existing = path_info.non_existing_suffix.to_string_lossy();
             if !non_existing.is_empty() {
                 info.add_path_prefix(&non_existing, color_or_muted(theme.error));
@@ -320,34 +338,34 @@ impl DirectoryPicker {
         self.is_editing = true;
 
         let value = self.value.clone();
-        let edit_state = cx.new(|cx| {
-            TextInput::new(cx)
-                .with_value(value)
-                .select_on_focus(true)
-        });
+        let edit_state = cx.new(|cx| TextInput::new(cx).with_value(value).select_on_focus(true));
 
-        cx.subscribe(&edit_state, |this, edit_state, event: &TextInputEvent, cx| {
-            match event {
-                TextInputEvent::Enter | TextInputEvent::Blur => {
-                    this.is_editing = false;
-                    let text = edit_state.read(cx).content().to_string();
-                    let path_info = parse_path(&text);
-                    let new_value = path_info.full_path_string();
-                    if this.value != new_value {
-                        this.value = new_value;
-                        cx.emit(DirectoryPickerEvent::Change(this.value.clone()));
+        cx.subscribe(
+            &edit_state,
+            |this, edit_state, event: &TextInputEvent, cx| {
+                match event {
+                    TextInputEvent::Enter | TextInputEvent::Blur => {
+                        this.is_editing = false;
+                        let text = edit_state.read(cx).content().to_string();
+                        let path_info = parse_path(&text);
+                        let new_value = path_info.full_path_string();
+                        if this.value != new_value {
+                            this.value = new_value;
+                            cx.emit(DirectoryPickerEvent::Change(this.value.clone()));
+                        }
+                        cx.notify();
                     }
-                    cx.notify();
+                    TextInputEvent::Escape => {
+                        // Cancel editing and refocus the picker
+                        this.is_editing = false;
+                        this.pending_refocus = true;
+                        cx.notify();
+                    }
+                    _ => {}
                 }
-                TextInputEvent::Escape => {
-                    // Cancel editing and refocus the picker
-                    this.is_editing = false;
-                    this.pending_refocus = true;
-                    cx.notify();
-                }
-                _ => {}
-            }
-        }).detach();
+            },
+        )
+        .detach();
 
         self.edit_state = Some(edit_state.clone());
         edit_state.read(cx).focus_handle().focus(window);
@@ -370,30 +388,36 @@ impl DirectoryPicker {
             }
         } else {
             None
-        }.or_else(|| std::env::current_dir().ok());
+        }
+        .or_else(|| std::env::current_dir().ok());
 
-        window.spawn(cx, async move |async_cx| {
-            let result = async_cx.background_executor().spawn(async move {
-                let mut dialog = rfd::AsyncFileDialog::new();
+        window
+            .spawn(cx, async move |async_cx| {
+                let result = async_cx
+                    .background_executor()
+                    .spawn(async move {
+                        let mut dialog = rfd::AsyncFileDialog::new();
 
-                if let Some(dir) = initial_dir {
-                    dialog = dialog.set_directory(&dir);
+                        if let Some(dir) = initial_dir {
+                            dialog = dialog.set_directory(&dir);
+                        }
+
+                        dialog.pick_folder().await
+                    })
+                    .await;
+
+                if let Some(folder) = result {
+                    let path = folder.path().to_string_lossy().to_string();
+                    let _ = async_cx.update_entity(&entity, |this: &mut DirectoryPicker, cx| {
+                        if this.value != path {
+                            this.value = path;
+                            cx.emit(DirectoryPickerEvent::Change(this.value.clone()));
+                        }
+                        cx.notify();
+                    });
                 }
-
-                dialog.pick_folder().await
-            }).await;
-
-            if let Some(folder) = result {
-                let path = folder.path().to_string_lossy().to_string();
-                let _ = async_cx.update_entity(&entity, |this: &mut DirectoryPicker, cx| {
-                    if this.value != path {
-                        this.value = path;
-                        cx.emit(DirectoryPickerEvent::Change(this.value.clone()));
-                    }
-                    cx.notify();
-                });
-            }
-        }).detach();
+            })
+            .detach();
     }
 }
 
@@ -444,7 +468,9 @@ impl Render for DirectoryPicker {
             None
         };
 
-        let placeholder = self.placeholder.clone()
+        let placeholder = self
+            .placeholder
+            .clone()
             .unwrap_or_else(|| SharedString::from("Click to enter path, or drag & drop"));
 
         let browse_shortcut_enabled = self.browse_shortcut_enabled;
@@ -475,10 +501,7 @@ impl Render for DirectoryPicker {
                 d.drag_over::<ExternalPaths>({
                     let bg_hover = theme.bg_input_hover;
                     let border = theme.border_focus;
-                    move |d, _, _, _| {
-                        d.bg(rgb(bg_hover))
-                            .border_color(rgb(border))
-                    }
+                    move |d, _, _, _| d.bg(rgb(bg_hover)).border_color(rgb(border))
                 })
             })
             .child(
@@ -526,7 +549,7 @@ impl Render for DirectoryPicker {
                                 .text_sm()
                                 .italic()
                                 .text_color(rgb(theme.text_dimmed))
-                                .child("No directory selected")
+                                .child("No directory selected"),
                         )
                         .child(
                             div()
@@ -534,27 +557,27 @@ impl Render for DirectoryPicker {
                                 .italic()
                                 .text_color(rgb(theme.text_dimmed))
                                 .line_height(relative(1.4))
-                                .child(placeholder.clone())
+                                .child(placeholder.clone()),
                         )
                     })
                     // Empty state (disabled)
                     .when(!self.is_editing && self.value.is_empty() && !enabled, |d| {
                         d.cursor_default()
-                        .child(
-                            div()
-                                .text_sm()
-                                .italic()
-                                .text_color(rgb(theme.disabled_text))
-                                .child("No directory selected")
-                        )
-                        .child(
-                            div()
-                                .text_xs()
-                                .italic()
-                                .text_color(rgb(theme.disabled_text))
-                                .line_height(relative(1.4))
-                                .child(placeholder.clone())
-                        )
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .italic()
+                                    .text_color(rgb(theme.disabled_text))
+                                    .child("No directory selected"),
+                            )
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .italic()
+                                    .text_color(rgb(theme.disabled_text))
+                                    .line_height(relative(1.4))
+                                    .child(placeholder.clone()),
+                            )
                     })
                     // Display mode (enabled)
                     .when(!self.is_editing && !self.value.is_empty() && enabled, |d| {
@@ -569,7 +592,7 @@ impl Render for DirectoryPicker {
                                 .text_sm()
                                 .font_weight(FontWeight::SEMIBOLD)
                                 .text_color(rgb(theme.text_label))
-                                .child(dirname.clone().unwrap_or_default())
+                                .child(dirname.clone().unwrap_or_default()),
                         )
                         .when(!path_display.is_empty(), |d| {
                             d.child(
@@ -577,51 +600,63 @@ impl Render for DirectoryPicker {
                                     .text_xs()
                                     .min_w_0()
                                     .line_height(relative(1.4))
-                                    .child(path_display.to_styled_text())
+                                    .child(path_display.to_styled_text()),
                             )
                         })
-                        .when_some(path_display.explanation.clone(), |d, (msg, color)| {
-                            d.child(
-                                div()
-                                    .text_xs()
-                                    .italic()
-                                    .text_color(rgb(color))
-                                    .mt_1()
-                                    .child(msg)
-                            )
-                        })
+                        .when_some(
+                            path_display.explanation.clone(),
+                            |d, (msg, color)| {
+                                d.child(
+                                    div()
+                                        .text_xs()
+                                        .italic()
+                                        .text_color(rgb(color))
+                                        .mt_1()
+                                        .child(msg),
+                                )
+                            },
+                        )
                     })
                     // Display mode (disabled)
-                    .when(!self.is_editing && !self.value.is_empty() && !enabled, |d| {
-                        d.cursor_default()
-                        .child(
-                            div()
-                                .text_sm()
-                                .font_weight(FontWeight::SEMIBOLD)
-                                .text_color(rgb(theme.disabled_text))
-                                .child(dirname.clone().unwrap_or_default())
-                        )
-                        .when(!path_display.is_empty(), |d| {
-                            d.child(
-                                div()
-                                    .text_xs()
-                                    .min_w_0()
-                                    .line_height(relative(1.4))
-                                    .text_color(rgb(theme.disabled_text))
-                                    .child(self.value.clone())
-                            )
-                        })
-                    })
+                    .when(
+                        !self.is_editing && !self.value.is_empty() && !enabled,
+                        |d| {
+                            d.cursor_default()
+                                .child(
+                                    div()
+                                        .text_sm()
+                                        .font_weight(FontWeight::SEMIBOLD)
+                                        .text_color(rgb(theme.disabled_text))
+                                        .child(dirname.clone().unwrap_or_default()),
+                                )
+                                .when(!path_display.is_empty(), |d| {
+                                    d.child(
+                                        div()
+                                            .text_xs()
+                                            .min_w_0()
+                                            .line_height(relative(1.4))
+                                            .text_color(rgb(theme.disabled_text))
+                                            .child(self.value.clone()),
+                                    )
+                                })
+                        },
+                    )
                     // Edit mode
                     .when(self.is_editing && self.edit_state.is_some(), |d| {
-                        let Some(edit_state) = self.edit_state.as_ref() else { return d };
+                        let Some(edit_state) = self.edit_state.as_ref() else {
+                            return d;
+                        };
                         let edit_text = edit_state.read(cx).content().to_string();
                         let edit_path_info = if edit_text.is_empty() {
                             PathInfo::empty()
                         } else {
                             parse_path(&edit_text)
                         };
-                        let edit_display = self.compute_path_display(&edit_path_info, &theme, &self.validation_display);
+                        let edit_display = self.compute_path_display(
+                            &edit_path_info,
+                            &theme,
+                            &self.validation_display,
+                        );
 
                         d.child(
                             div()
@@ -640,19 +675,15 @@ impl Render for DirectoryPicker {
                                         .when(edit_display.is_empty(), |d| {
                                             d.text_color(rgb(theme.text_dimmed))
                                                 .child("(empty path)")
-                                        })
+                                        }),
                                 )
                                 .when_some(edit_display.explanation.clone(), |d, (msg, color)| {
                                     d.child(
-                                        div()
-                                            .text_xs()
-                                            .italic()
-                                            .text_color(rgb(color))
-                                            .child(msg)
+                                        div().text_xs().italic().text_color(rgb(color)).child(msg),
                                     )
-                                })
+                                }),
                         )
-                    })
+                    }),
             )
             .child(
                 // Icon buttons (Edit and Browse)
@@ -696,15 +727,17 @@ impl Render for DirectoryPicker {
                                     picker.start_editing(window, cx);
                                     cx.notify();
                                 }))
-                                .on_action(cx.listener(|picker, _: &ActivateButton, window, cx| {
-                                    // Skip if we just received programmatic focus
-                                    if picker.ignore_next_activation {
-                                        picker.ignore_next_activation = false;
-                                        return;
-                                    }
-                                    picker.start_editing(window, cx);
-                                    cx.notify();
-                                }))
+                                .on_action(cx.listener(
+                                    |picker, _: &ActivateButton, window, cx| {
+                                        // Skip if we just received programmatic focus
+                                        if picker.ignore_next_activation {
+                                            picker.ignore_next_activation = false;
+                                            return;
+                                        }
+                                        picker.start_editing(window, cx);
+                                        cx.notify();
+                                    },
+                                ))
                             })
                             .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
                                 window.focus_next();
@@ -712,31 +745,33 @@ impl Render for DirectoryPicker {
                             .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
                                 window.focus_prev();
                             }))
-                            .on_key_down(cx.listener(|_picker, event: &KeyDownEvent, window, _cx| {
-                                if event.keystroke.key == "tab" {
-                                    if event.keystroke.modifiers.shift {
-                                        window.focus_prev();
-                                    } else {
-                                        window.focus_next();
+                            .on_key_down(cx.listener(
+                                |_picker, event: &KeyDownEvent, window, _cx| {
+                                    if event.keystroke.key == "tab" {
+                                        if event.keystroke.modifiers.shift {
+                                            window.focus_prev();
+                                        } else {
+                                            window.focus_next();
+                                        }
                                     }
-                                }
-                            }))
+                                },
+                            ))
                             .when(enabled, |d| {
-                                d.tooltip(|_window, cx| cx.new(|_cx| Tooltip::new("Edit path")).into())
+                                d.tooltip(|_window, cx| {
+                                    cx.new(|_cx| Tooltip::new("Edit path")).into()
+                                })
                             })
                             .child(
                                 div()
                                     .text_sm()
                                     .when(enabled, |d| d.text_color(rgb(theme.text_label)))
                                     .when(!enabled, |d| d.text_color(rgb(theme.disabled_text)))
-                                    .child("✎")
-                            )
+                                    .child("✎"),
+                            ),
                     )
                     .child(
                         // Divider between buttons
-                        div()
-                            .h(px(1.))
-                            .bg(rgb(theme.border_default))
+                        div().h(px(1.)).bg(rgb(theme.border_default)),
                     )
                     .child(
                         // Browse button
@@ -767,9 +802,11 @@ impl Render for DirectoryPicker {
                                 d.on_click(cx.listener(|picker, _event, window, cx| {
                                     picker.open_directory_dialog(window, cx);
                                 }))
-                                .on_action(cx.listener(|picker, _: &ActivateButton, window, cx| {
-                                    picker.open_directory_dialog(window, cx);
-                                }))
+                                .on_action(cx.listener(
+                                    |picker, _: &ActivateButton, window, cx| {
+                                        picker.open_directory_dialog(window, cx);
+                                    },
+                                ))
                             })
                             .on_action(cx.listener(|_this, _: &FocusNext, window, _cx| {
                                 window.focus_next();
@@ -777,26 +814,30 @@ impl Render for DirectoryPicker {
                             .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
                                 window.focus_prev();
                             }))
-                            .on_key_down(cx.listener(|_picker, event: &KeyDownEvent, window, _cx| {
-                                if event.keystroke.key == "tab" {
-                                    if event.keystroke.modifiers.shift {
-                                        window.focus_prev();
-                                    } else {
-                                        window.focus_next();
+                            .on_key_down(cx.listener(
+                                |_picker, event: &KeyDownEvent, window, _cx| {
+                                    if event.keystroke.key == "tab" {
+                                        if event.keystroke.modifiers.shift {
+                                            window.focus_prev();
+                                        } else {
+                                            window.focus_next();
+                                        }
                                     }
-                                }
-                            }))
+                                },
+                            ))
                             .when(enabled, |d| {
-                                d.tooltip(|_window, cx| cx.new(|_cx| Tooltip::new("Select directory...")).into())
+                                d.tooltip(|_window, cx| {
+                                    cx.new(|_cx| Tooltip::new("Select directory...")).into()
+                                })
                             })
                             .child(
                                 div()
                                     .text_sm()
                                     .when(enabled, |d| d.text_color(rgb(theme.text_label)))
                                     .when(!enabled, |d| d.text_color(rgb(theme.disabled_text)))
-                                    .child("📂")
-                            )
-                    )
+                                    .child("📂"),
+                            ),
+                    ),
             )
     }
 }

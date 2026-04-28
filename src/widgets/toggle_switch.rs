@@ -25,8 +25,8 @@
 use gpui::prelude::*;
 use gpui::*;
 
-use crate::theme::{get_theme_or, Theme};
 use super::focus_navigation::{handle_tab_navigation, with_focus_actions, EnabledCursorExt};
+use crate::theme::{get_theme_or, Theme};
 
 /// Position of the label relative to the toggle switch
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -192,7 +192,11 @@ impl Render for ToggleSwitch {
                 let track = if is_on { theme.primary } else { theme.bg_input };
                 (track, theme.bg_white)
             } else {
-                let track = if is_on { theme.disabled_text } else { theme.disabled_bg };
+                let track = if is_on {
+                    theme.disabled_text
+                } else {
+                    theme.disabled_bg
+                };
                 (track, theme.disabled_bg)
             };
 
@@ -213,7 +217,7 @@ impl Render for ToggleSwitch {
                         .h(px(thumb_size))
                         .rounded_full()
                         .bg(rgb(thumb_bg))
-                        .when(enabled, |d| d.shadow_sm())
+                        .when(enabled, |d| d.shadow_sm()),
                 )
         };
 
@@ -224,17 +228,19 @@ impl Render for ToggleSwitch {
                 .tab_stop(enabled),
             cx,
         )
-        .on_key_down(cx.listener(move |toggle, event: &KeyDownEvent, window, cx| {
-            if !toggle.enabled {
-                return;
-            }
-            if handle_tab_navigation(event, window) {
-                return;
-            }
-            if matches!(event.keystroke.key.as_str(), "space" | "enter") {
-                toggle.toggle(cx);
-            }
-        }))
+        .on_key_down(
+            cx.listener(move |toggle, event: &KeyDownEvent, window, cx| {
+                if !toggle.enabled {
+                    return;
+                }
+                if handle_tab_navigation(event, window) {
+                    return;
+                }
+                if matches!(event.keystroke.key.as_str(), "space" | "enter") {
+                    toggle.toggle(cx);
+                }
+            }),
+        )
         .flex()
         .flex_row()
         .gap_2()
@@ -244,13 +250,20 @@ impl Render for ToggleSwitch {
         .rounded_sm()
         .cursor_for_enabled(enabled)
         .border_2()
-        .border_color(if is_focused && enabled { rgb(theme.border_focus) } else { rgba(0x00000000) });
+        .border_color(if is_focused && enabled {
+            rgb(theme.border_focus)
+        } else {
+            rgba(0x00000000)
+        });
 
         if enabled {
-            container = container.on_mouse_down(MouseButton::Left, cx.listener(|toggle, _event, window, cx| {
-                toggle.focus_handle.focus(window);
-                toggle.toggle(cx);
-            }));
+            container = container.on_mouse_down(
+                MouseButton::Left,
+                cx.listener(|toggle, _event, window, cx| {
+                    toggle.focus_handle.focus(window);
+                    toggle.toggle(cx);
+                }),
+            );
         }
 
         // Arrange label and toggle based on position

@@ -400,8 +400,16 @@ impl Element for Scrollbar {
                     )
                 },
                 size: size(
-                    if is_vertical { WIDTH } else { hitbox.size.width },
-                    if is_vertical { hitbox.size.height } else { WIDTH },
+                    if is_vertical {
+                        WIDTH
+                    } else {
+                        hitbox.size.width
+                    },
+                    if is_vertical {
+                        hitbox.size.height
+                    } else {
+                        WIDTH
+                    },
                 ),
             };
 
@@ -552,14 +560,16 @@ impl Element for Scrollbar {
                         let scroll_handle = self.scroll_handle.clone();
 
                         move |event: &ScrollWheelEvent, phase, _hitbox, cx| {
-                            if phase.bubble() && hitbox_bounds.contains(&event.position)
-                                && scroll_handle.offset() != state.0.get().last_scroll_offset {
-                                    state.0.set(state.0.get().with_last_scroll(
-                                        scroll_handle.offset(),
-                                        Some(Instant::now()),
-                                    ));
-                                    cx.notify(view_id);
-                                }
+                            if phase.bubble()
+                                && hitbox_bounds.contains(&event.position)
+                                && scroll_handle.offset() != state.0.get().last_scroll_offset
+                            {
+                                state.0.set(state.0.get().with_last_scroll(
+                                    scroll_handle.offset(),
+                                    Some(Instant::now()),
+                                ));
+                                cx.notify(view_id);
+                            }
                         }
                     });
 

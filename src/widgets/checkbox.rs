@@ -25,8 +25,8 @@
 use gpui::prelude::*;
 use gpui::*;
 
-use crate::theme::{get_theme_or, Theme};
 use super::focus_navigation::{handle_tab_navigation, with_focus_actions, EnabledCursorExt};
+use crate::theme::{get_theme_or, Theme};
 
 /// Events emitted by Checkbox
 #[derive(Clone, Debug)]
@@ -161,17 +161,19 @@ impl Render for Checkbox {
                 .tab_stop(enabled),
             cx,
         )
-        .on_key_down(cx.listener(move |checkbox, event: &KeyDownEvent, window, cx| {
-            if !checkbox.enabled {
-                return;
-            }
-            if handle_tab_navigation(event, window) {
-                return;
-            }
-            if matches!(event.keystroke.key.as_str(), "space" | "enter") {
-                checkbox.toggle(cx);
-            }
-        }))
+        .on_key_down(
+            cx.listener(move |checkbox, event: &KeyDownEvent, window, cx| {
+                if !checkbox.enabled {
+                    return;
+                }
+                if handle_tab_navigation(event, window) {
+                    return;
+                }
+                if matches!(event.keystroke.key.as_str(), "space" | "enter") {
+                    checkbox.toggle(cx);
+                }
+            }),
+        )
         .flex()
         .flex_row()
         .gap_2()
@@ -180,62 +182,64 @@ impl Render for Checkbox {
         .px_1()
         .rounded_sm()
         .cursor_for_enabled(enabled)
-            .border_2()
-            .border_color(if is_focused && enabled { rgb(theme.border_focus) } else { rgba(0x00000000) })
-            .when(enabled, |d| {
-                d.on_mouse_down(MouseButton::Left, cx.listener(|checkbox, _event, window, cx| {
+        .border_2()
+        .border_color(if is_focused && enabled {
+            rgb(theme.border_focus)
+        } else {
+            rgba(0x00000000)
+        })
+        .when(enabled, |d| {
+            d.on_mouse_down(
+                MouseButton::Left,
+                cx.listener(|checkbox, _event, window, cx| {
                     checkbox.focus_handle.focus(window);
                     checkbox.toggle(cx);
-                }))
-            })
-            .child(
-                // Checkbox box
-                div()
-                    .w(px(20.))
-                    .h(px(20.))
-                    .border_1()
-                    .rounded_sm()
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .when(!enabled, |d| {
-                        // Disabled styling
-                        d.bg(rgb(theme.disabled_bg))
-                            .border_color(rgb(theme.disabled_bg))
-                            .when(checked, |d| {
-                                d.child(
-                                    div()
-                                        .text_color(rgb(theme.disabled_text))
-                                        .text_sm()
-                                        .child("✓")
-                                )
-                            })
-                    })
-                    .when(enabled && checked, |d| {
-                        d.bg(rgb(theme.primary))
-                            .border_color(rgb(theme.primary))
-                            .child(
-                                div()
-                                    .text_color(rgb(theme.text_black))
-                                    .text_sm()
-                                    .child("✓")
-                            )
-                    })
-                    .when(enabled && !checked, |d| {
-                        d.bg(rgb(theme.bg_input))
-                            .border_color(rgb(theme.border_input))
-                            .hover(|d| d.bg(rgb(theme.bg_input_hover)))
-                    })
+                }),
             )
-            .when_some(label, |d, label_text| {
-                d.child(
-                    div()
-                        .text_sm()
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .when(enabled, |d| d.text_color(rgb(theme.text_label)))
-                        .when(!enabled, |d| d.text_color(rgb(theme.disabled_text)))
-                        .child(label_text)
-                )
-            })
+        })
+        .child(
+            // Checkbox box
+            div()
+                .w(px(20.))
+                .h(px(20.))
+                .border_1()
+                .rounded_sm()
+                .flex()
+                .items_center()
+                .justify_center()
+                .when(!enabled, |d| {
+                    // Disabled styling
+                    d.bg(rgb(theme.disabled_bg))
+                        .border_color(rgb(theme.disabled_bg))
+                        .when(checked, |d| {
+                            d.child(
+                                div()
+                                    .text_color(rgb(theme.disabled_text))
+                                    .text_sm()
+                                    .child("✓"),
+                            )
+                        })
+                })
+                .when(enabled && checked, |d| {
+                    d.bg(rgb(theme.primary))
+                        .border_color(rgb(theme.primary))
+                        .child(div().text_color(rgb(theme.text_black)).text_sm().child("✓"))
+                })
+                .when(enabled && !checked, |d| {
+                    d.bg(rgb(theme.bg_input))
+                        .border_color(rgb(theme.border_input))
+                        .hover(|d| d.bg(rgb(theme.bg_input_hover)))
+                }),
+        )
+        .when_some(label, |d, label_text| {
+            d.child(
+                div()
+                    .text_sm()
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .when(enabled, |d| d.text_color(rgb(theme.text_label)))
+                    .when(!enabled, |d| d.text_color(rgb(theme.disabled_text)))
+                    .child(label_text),
+            )
+        })
     }
 }

@@ -8,6 +8,12 @@ The library is functional and being used by clui.
 
 ## Completed
 
+### ✅ CI Fixes: fmt, clippy, security audit (2026-04-28)
+- [x] `cargo fmt` reformatted 33 files (enforced by CI Format job)
+- [x] Fixed 2 clippy `collapsible_match` errors (number_stepper.rs, confirmation_dialog.rs) — collapsed inner `if` into match guards
+- [x] `cargo update` resolved all 6 RustSec advisories (bytes, quinn-proto, rand, rustls-webpki bumped; core2 removed)
+- [x] 4 unmaintained-crate warnings remain (async-std, instant, paste, rustls-pemfile) — all transitive via `gpui 0.2.2`, do not fail audit
+
 ### ✅ Initial Implementation (2026-01-25)
 - [x] Theme system with dark/light presets and builder pattern
 - [x] TextInput with cursor, selection, clipboard, horizontal scrolling
@@ -52,7 +58,7 @@ The library is functional and being used by clui.
 - [x] RGB component sliders (R, G, B)
 - [x] Old/New color comparison with hex values
 - [x] CSS named color support (140 colors)
-- [x] Proper drag support using GPUI's drag API
+- [x] Proper drag support using GPUI’s drag API
 - [x] Persistent slider measurements across render frames
 - [x] Color utilities: Rgb, Rgba, Hsl, Hsv with conversions
 - [x] Documentation: docs/COLOR_PICKER.md
@@ -106,7 +112,7 @@ The library is functional and being used by clui.
 - [x] TextInput: Added `borderless` mode for embedding in unified containers
 - [x] TextInput: Word navigation disabled in masked mode (prevents password structure leak)
 - [x] TextInput: Copy disabled in masked mode (prevents password clipboard leak)
-- [x] TextInput: Cut deletes but doesn't copy in masked mode
+- [x] TextInput: Cut deletes but doesn’t copy in masked mode
 - [x] PasswordInput: Refactored to use TextInput internally (full editing support)
 - [x] PasswordInput: Unified visual styling matching NumberStepper (shared border/background)
 - [x] PasswordInput: Simpler line-art eye icons (◎ show, ⊖ hide)
@@ -180,7 +186,7 @@ The library is functional and being used by clui.
 - [x] Widgets updated: TextInput, Checkbox, Collapsible, Dropdown, RadioGroup, CheckboxGroup, ToggleSwitch, TabBar, Slider, NumberStepper, PasswordInput, ColorSwatch, FilePicker, DirectoryPicker, RepeatableTextInput, RepeatableFilePicker, RepeatableDirectoryPicker
 - [x] **Breaking change**: ToggleSwitch renamed `enabled`→`on`, `with_enabled()`→`with_on()`, `is_enabled()`→`is_on()`, `set_enabled()`→`set_on()` (to avoid conflict with disabled state)
 - [x] Added missing getters: NumberStepper (`get_min/max/step/resolution/display_precision`), Slider (`get_min/max/step/display_precision`), Dropdown (`is_open`)
-- [x] Widget gallery: Added "Enable/Disable Widgets" toggle button to demonstrate disabled state
+- [x] Widget gallery: Added “Enable/Disable Widgets” toggle button to demonstrate disabled state
 
 ### ✅ TabBar Focus Behavior Improvements (2026-02-02)
 - [x] TabBar: Mouse clicks no longer steal focus from other widgets
@@ -305,7 +311,7 @@ The library is functional and being used by clui.
 ### ✅ ColorPicker Popover UX Improvements (2026-02-04)
 - [x] Added Cancel/Apply workflow: ESC reverts to original, Enter applies and closes
 - [x] Clicking outside the picker now applies the current color (instead of just closing)
-- [x] "Old" color swatch is now clickable to reset to original color
+- [x] “Old” color swatch is now clickable to reset to original color
 - [x] Added Cancel and Apply buttons at bottom of picker
 - [x] R/G/B sliders now use flex layout (matching H slider) with proper alignment
 - [x] R/G/B slider values are right-justified for visual consistency
@@ -410,13 +416,13 @@ The library is functional and being used by clui.
 
 ## Known Issues
 
-1. **Key context naming**: TextInput uses "CcfTextInput" to avoid conflicts with consumers who might have their own "TextInput" context.
+1. **Key context naming**: TextInput uses “CcfTextInput” to avoid conflicts with consumers who might have their own “TextInput” context.
 
-2. **FilePicker/DirectoryPicker compilation**: These require the `file-picker` feature flag and won't compile without it.
+2. **FilePicker/DirectoryPicker compilation**: These require the `file-picker` feature flag and won’t compile without it.
 
-3. **Theme mismatch**: If consumer doesn't set global theme, widgets use default dark theme which may not match consumer's UI.
+3. **Theme mismatch**: If consumer doesn’t set global theme, widgets use default dark theme which may not match consumer’s UI.
 
-4. **Flexbox layout instability**: Scrollable flex containers need `w_full()` and `min_w_0()` to prevent layout issues. See `GPUI-LAYOUT-PATTERNS.md` for details.
+4. **Flexbox layout instability**: Scrollable flex containers need `w_full()` and `min_w_0()` to prevent layout issues.  See `GPUI-LAYOUT-PATTERNS.md` for details.
 
 ---
 
@@ -426,7 +432,7 @@ The library is functional and being used by clui.
 
 **Issue**: Tab key navigation between widgets was not working.
 
-**Root Cause**: When using `.track_focus(&focus_handle)` on a div, the subsequent `.tab_stop(true)` call does not affect the already-tracked focus handle. GPUI only applies the div's tab_stop setting when creating a new handle (when `tracked_focus_handle.is_none()`).
+**Root Cause**: When using `.track_focus(&focus_handle)` on a div, the subsequent `.tab_stop(true)` call does not affect the already-tracked focus handle.  GPUI only applies the div’s tab_stop setting when creating a new handle (when `tracked_focus_handle.is_none()`).
 
 **Solution**: Set `tab_stop(true)` directly on the FocusHandle when creating it:
 ```rust

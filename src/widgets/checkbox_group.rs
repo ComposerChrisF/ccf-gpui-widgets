@@ -27,8 +27,8 @@ use std::collections::HashSet;
 use gpui::prelude::*;
 use gpui::*;
 
-use crate::theme::{get_theme_or, Theme};
 use super::focus_navigation::{handle_tab_navigation, with_focus_actions, EnabledCursorExt};
+use crate::theme::{get_theme_or, Theme};
 
 /// Events emitted by CheckboxGroup
 #[derive(Clone, Debug)]
@@ -161,116 +161,122 @@ impl Render for CheckboxGroup {
             cx,
         )
         .on_key_down(cx.listener(move |group, event: &KeyDownEvent, window, cx| {
-                if !group.enabled {
-                    return;
-                }
-                if handle_tab_navigation(event, window) {
-                    return;
-                }
-                match event.keystroke.key.as_str() {
-                    "up" => {
-                        if group.highlight_index > 0 {
-                            group.highlight_index -= 1;
-                        } else if num_choices > 0 {
-                            group.highlight_index = num_choices - 1;
-                        }
-                        cx.notify();
+            if !group.enabled {
+                return;
+            }
+            if handle_tab_navigation(event, window) {
+                return;
+            }
+            match event.keystroke.key.as_str() {
+                "up" => {
+                    if group.highlight_index > 0 {
+                        group.highlight_index -= 1;
+                    } else if num_choices > 0 {
+                        group.highlight_index = num_choices - 1;
                     }
-                    "down" => {
-                        if group.highlight_index < num_choices.saturating_sub(1) {
-                            group.highlight_index += 1;
-                        } else {
-                            group.highlight_index = 0;
-                        }
-                        cx.notify();
-                    }
-                    "space" => {
-                        if let Some(choice) = group.choices.get(group.highlight_index).cloned() {
-                            group.toggle_choice(choice, cx);
-                        }
-                        cx.notify();
-                    }
-                    _ => {}
+                    cx.notify();
                 }
-            }))
-            .flex()
-            .flex_col()
-            .gap_1()
-            .p_2()
-            .when(enabled, |d| d.bg(rgb(theme.bg_input)))
-            .when(!enabled, |d| d.bg(rgb(theme.disabled_bg)))
-            .border_1()
-            .when(enabled, |d| {
-                d.border_color(if is_focused { rgb(theme.border_focus) } else { rgb(theme.border_input) })
+                "down" => {
+                    if group.highlight_index < num_choices.saturating_sub(1) {
+                        group.highlight_index += 1;
+                    } else {
+                        group.highlight_index = 0;
+                    }
+                    cx.notify();
+                }
+                "space" => {
+                    if let Some(choice) = group.choices.get(group.highlight_index).cloned() {
+                        group.toggle_choice(choice, cx);
+                    }
+                    cx.notify();
+                }
+                _ => {}
+            }
+        }))
+        .flex()
+        .flex_col()
+        .gap_1()
+        .p_2()
+        .when(enabled, |d| d.bg(rgb(theme.bg_input)))
+        .when(!enabled, |d| d.bg(rgb(theme.disabled_bg)))
+        .border_1()
+        .when(enabled, |d| {
+            d.border_color(if is_focused {
+                rgb(theme.border_focus)
+            } else {
+                rgb(theme.border_input)
             })
-            .when(!enabled, |d| d.border_color(rgb(theme.disabled_bg)))
-            .rounded_md()
-            .children(self.choices.iter().enumerate().map(|(idx, choice)| {
-                let choice_clone = choice.clone();
-                let is_selected = self.selected.contains(choice);
-                let is_highlighted = is_focused && idx == highlight_index && enabled;
+        })
+        .when(!enabled, |d| d.border_color(rgb(theme.disabled_bg)))
+        .rounded_md()
+        .children(self.choices.iter().enumerate().map(|(idx, choice)| {
+            let choice_clone = choice.clone();
+            let is_selected = self.selected.contains(choice);
+            let is_highlighted = is_focused && idx == highlight_index && enabled;
 
-                div()
-                    .id(("ccf_checkbox_group_choice", idx))
-                    .flex()
-                    .flex_row()
-                    .gap_2()
-                    .items_center()
-                    .py_1()
-                    .px_1()
-                    .cursor_for_enabled(enabled)
-                    .rounded_sm()
-                    .when(is_highlighted, |d| d.bg(rgb(theme.bg_input_hover)))
-                    .when(!is_highlighted && enabled, |d| d.hover(|d| d.bg(rgb(theme.bg_input_hover))))
-                    .when(enabled, |d| {
-                        d.on_click(cx.listener(move |group, _event, window, cx| {
-                            group.focus_handle.focus(window);
-                            group.highlight_index = idx;
-                            group.toggle_choice(choice_clone.clone(), cx);
-                            cx.notify();
-                        }))
-                    })
-                    .child({
-                        // Checkbox
-                        let (bg_color, border_color, check_color) = if enabled {
-                            if is_selected {
-                                (theme.accent, theme.border_checkbox, theme.bg_white)
-                            } else {
-                                (theme.bg_input, theme.border_checkbox, 0)
-                            }
-                        } else if is_selected {
-                            (theme.disabled_text, theme.disabled_text, theme.disabled_bg)
+            div()
+                .id(("ccf_checkbox_group_choice", idx))
+                .flex()
+                .flex_row()
+                .gap_2()
+                .items_center()
+                .py_1()
+                .px_1()
+                .cursor_for_enabled(enabled)
+                .rounded_sm()
+                .when(is_highlighted, |d| d.bg(rgb(theme.bg_input_hover)))
+                .when(!is_highlighted && enabled, |d| {
+                    d.hover(|d| d.bg(rgb(theme.bg_input_hover)))
+                })
+                .when(enabled, |d| {
+                    d.on_click(cx.listener(move |group, _event, window, cx| {
+                        group.focus_handle.focus(window);
+                        group.highlight_index = idx;
+                        group.toggle_choice(choice_clone.clone(), cx);
+                        cx.notify();
+                    }))
+                })
+                .child({
+                    // Checkbox
+                    let (bg_color, border_color, check_color) = if enabled {
+                        if is_selected {
+                            (theme.accent, theme.border_checkbox, theme.bg_white)
                         } else {
-                            (theme.disabled_bg, theme.disabled_text, 0)
-                        };
+                            (theme.bg_input, theme.border_checkbox, 0)
+                        }
+                    } else if is_selected {
+                        (theme.disabled_text, theme.disabled_text, theme.disabled_bg)
+                    } else {
+                        (theme.disabled_bg, theme.disabled_text, 0)
+                    };
 
-                        div()
-                            .w(px(16.))
-                            .h(px(16.))
-                            .border_1()
-                            .border_color(rgb(border_color))
-                            .bg(rgb(bg_color))
-                            .rounded(px(3.))
-                            .when(is_selected, |d| {
-                                d.child(
-                                    div()
-                                        .flex()
-                                        .items_center()
-                                        .justify_center()
-                                        .size_full()
-                                        .text_color(rgb(check_color))
-                                        .text_xs()
-                                        .child("✓")
-                                )
-                            })
-                    })
-                    .child(
-                        div()
-                            .text_sm()
-                            .when(enabled, |d| d.text_color(rgb(theme.text_value)))
-                            .when(!enabled, |d| d.text_color(rgb(theme.disabled_text)))
-                            .child(choice.clone())
-                    )
-            }))
+                    div()
+                        .w(px(16.))
+                        .h(px(16.))
+                        .border_1()
+                        .border_color(rgb(border_color))
+                        .bg(rgb(bg_color))
+                        .rounded(px(3.))
+                        .when(is_selected, |d| {
+                            d.child(
+                                div()
+                                    .flex()
+                                    .items_center()
+                                    .justify_center()
+                                    .size_full()
+                                    .text_color(rgb(check_color))
+                                    .text_xs()
+                                    .child("✓"),
+                            )
+                        })
+                })
+                .child(
+                    div()
+                        .text_sm()
+                        .when(enabled, |d| d.text_color(rgb(theme.text_value)))
+                        .when(!enabled, |d| d.text_color(rgb(theme.disabled_text)))
+                        .child(choice.clone()),
+                )
+        }))
     }
 }

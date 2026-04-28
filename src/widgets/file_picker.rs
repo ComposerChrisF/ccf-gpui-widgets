@@ -30,29 +30,23 @@ use gpui::prelude::*;
 #[cfg(feature = "file-picker")]
 use gpui::*;
 
+use super::focus_navigation::{EnabledCursorExt, FocusNext, FocusPrev};
+#[cfg(feature = "file-picker")]
+use super::path_display::PathDisplayInfo;
 #[cfg(feature = "file-picker")]
 use crate::theme::{get_theme_or, Theme};
-use super::focus_navigation::{FocusNext, FocusPrev, EnabledCursorExt};
 #[cfg(feature = "file-picker")]
 use crate::utils::path::{parse_path, PathInfo};
 #[cfg(feature = "file-picker")]
 use crate::widgets::{TextInput, TextInputEvent, Tooltip};
 #[cfg(feature = "file-picker")]
 use std::path::Path;
-#[cfg(feature = "file-picker")]
-use super::path_display::PathDisplayInfo;
 
 use std::str::FromStr;
 
 // Actions for keyboard handling
 #[cfg(feature = "file-picker")]
-actions!(
-    ccf_file_picker,
-    [
-        BrowseFile,
-        ActivateButton,
-    ]
-);
+actions!(ccf_file_picker, [BrowseFile, ActivateButton,]);
 
 /// Register key bindings for file picker
 ///
@@ -64,14 +58,10 @@ actions!(
 pub fn register_keybindings(cx: &mut App) {
     // Browse shortcut (Cmd+O / Ctrl+O)
     #[cfg(target_os = "macos")]
-    cx.bind_keys([
-        KeyBinding::new("cmd-o", BrowseFile, Some("CcfFilePicker")),
-    ]);
+    cx.bind_keys([KeyBinding::new("cmd-o", BrowseFile, Some("CcfFilePicker"))]);
 
     #[cfg(not(target_os = "macos"))]
-    cx.bind_keys([
-        KeyBinding::new("ctrl-o", BrowseFile, Some("CcfFilePicker")),
-    ]);
+    cx.bind_keys([KeyBinding::new("ctrl-o", BrowseFile, Some("CcfFilePicker"))]);
 
     // Button activation (Enter/Space when button is focused)
     cx.bind_keys([
@@ -189,7 +179,9 @@ pub fn validate_file_path(
                 FilePickerValidation::WillOverwrite
             } else {
                 // Check if parent directory exists
-                let parent_exists = path.parent().is_some_and(|p| p.exists() || p.as_os_str().is_empty());
+                let parent_exists = path
+                    .parent()
+                    .is_some_and(|p| p.exists() || p.as_os_str().is_empty());
 
                 if parent_exists {
                     FilePickerValidation::Valid
@@ -205,7 +197,6 @@ pub fn validate_file_path(
         }
     }
 }
-
 
 /// File picker widget
 #[cfg(feature = "file-picker")]
@@ -426,7 +417,12 @@ impl FilePicker {
         )
     }
 
-    fn compute_path_display(&self, path_info: &PathInfo, theme: &Theme, validation_display: &ValidationDisplay) -> PathDisplayInfo {
+    fn compute_path_display(
+        &self,
+        path_info: &PathInfo,
+        theme: &Theme,
+        validation_display: &ValidationDisplay,
+    ) -> PathDisplayInfo {
         let mut info = PathDisplayInfo::new();
 
         if path_info.full_path.as_os_str().is_empty() {
@@ -436,12 +432,22 @@ impl FilePicker {
         let full_path = &path_info.full_path;
 
         // Check if colors and/or messages should be shown
-        let show_colors = matches!(validation_display, ValidationDisplay::Full | ValidationDisplay::ColorsOnly);
-        let show_message = matches!(validation_display, ValidationDisplay::Full | ValidationDisplay::MessageOnly);
+        let show_colors = matches!(
+            validation_display,
+            ValidationDisplay::Full | ValidationDisplay::ColorsOnly
+        );
+        let show_message = matches!(
+            validation_display,
+            ValidationDisplay::Full | ValidationDisplay::MessageOnly
+        );
 
         // Helper to get the appropriate color (respects show_colors setting)
         let color_or_muted = |color: u32| -> u32 {
-            if show_colors { color } else { theme.text_muted }
+            if show_colors {
+                color
+            } else {
+                theme.text_muted
+            }
         };
 
         // Special case: path points to a directory instead of a file
@@ -463,9 +469,15 @@ impl FilePicker {
         match &self.mode {
             FileMode::Open => {
                 if path_info.fully_exists() {
-                    info.add_segment(&path_info.existing_canonical.to_string_lossy(), theme.text_muted);
+                    info.add_segment(
+                        &path_info.existing_canonical.to_string_lossy(),
+                        theme.text_muted,
+                    );
                 } else {
-                    info.add_segment(&path_info.existing_canonical.to_string_lossy(), theme.text_muted);
+                    info.add_segment(
+                        &path_info.existing_canonical.to_string_lossy(),
+                        theme.text_muted,
+                    );
                     let non_existing = path_info.non_existing_suffix.to_string_lossy();
                     if !non_existing.is_empty() {
                         info.add_path_prefix(&non_existing, color_or_muted(theme.error));
@@ -481,7 +493,10 @@ impl FilePicker {
                         info.add_segment(&parent.to_string_lossy(), theme.text_muted);
                     }
                     if let Some(filename) = full_path.file_name() {
-                        info.add_path_prefix(&filename.to_string_lossy(), color_or_muted(theme.warning));
+                        info.add_path_prefix(
+                            &filename.to_string_lossy(),
+                            color_or_muted(theme.warning),
+                        );
                     }
                     if show_message {
                         info.set_explanation("file exists and will be overwritten", theme.warning);
@@ -494,18 +509,28 @@ impl FilePicker {
                             info.add_segment(&parent.to_string_lossy(), theme.text_muted);
                         }
                         if let Some(filename) = full_path.file_name() {
-                            info.add_path_prefix(&filename.to_string_lossy(), color_or_muted(theme.success));
+                            info.add_path_prefix(
+                                &filename.to_string_lossy(),
+                                color_or_muted(theme.success),
+                            );
                         }
                         if show_message {
                             info.set_explanation("file will be created", theme.success);
                         }
                     } else {
-                        info.add_segment(&path_info.existing_canonical.to_string_lossy(), theme.text_muted);
+                        info.add_segment(
+                            &path_info.existing_canonical.to_string_lossy(),
+                            theme.text_muted,
+                        );
                         let non_existing = path_info.non_existing_suffix.to_string_lossy();
                         if !non_existing.is_empty() {
                             let (color, msg) = match &self.missing_directories {
-                                MissingDirectories::Create => (theme.success, "path will be created"),
-                                MissingDirectories::Okay => (theme.success, "path will be created by CLI"),
+                                MissingDirectories::Create => {
+                                    (theme.success, "path will be created")
+                                }
+                                MissingDirectories::Okay => {
+                                    (theme.success, "path will be created by CLI")
+                                }
                                 MissingDirectories::Error => (theme.error, "path does not exist"),
                             };
                             info.add_path_prefix(&non_existing, color_or_muted(color));
@@ -528,35 +553,35 @@ impl FilePicker {
         self.is_editing = true;
 
         let value = self.value.clone();
-        let edit_state = cx.new(|cx| {
-            TextInput::new(cx)
-                .with_value(value)
-                .select_on_focus(true)
-        });
+        let edit_state = cx.new(|cx| TextInput::new(cx).with_value(value).select_on_focus(true));
 
         // Subscribe to text input events
-        cx.subscribe(&edit_state, |this, edit_state, event: &TextInputEvent, cx| {
-            match event {
-                TextInputEvent::Enter | TextInputEvent::Blur => {
-                    this.is_editing = false;
-                    let text = edit_state.read(cx).content().to_string();
-                    let path_info = parse_path(&text);
-                    let new_value = path_info.full_path_string();
-                    if this.value != new_value {
-                        this.value = new_value;
-                        cx.emit(FilePickerEvent::Change(this.value.clone()));
+        cx.subscribe(
+            &edit_state,
+            |this, edit_state, event: &TextInputEvent, cx| {
+                match event {
+                    TextInputEvent::Enter | TextInputEvent::Blur => {
+                        this.is_editing = false;
+                        let text = edit_state.read(cx).content().to_string();
+                        let path_info = parse_path(&text);
+                        let new_value = path_info.full_path_string();
+                        if this.value != new_value {
+                            this.value = new_value;
+                            cx.emit(FilePickerEvent::Change(this.value.clone()));
+                        }
+                        cx.notify();
                     }
-                    cx.notify();
+                    TextInputEvent::Escape => {
+                        // Cancel editing and refocus the picker
+                        this.is_editing = false;
+                        this.pending_refocus = true;
+                        cx.notify();
+                    }
+                    _ => {}
                 }
-                TextInputEvent::Escape => {
-                    // Cancel editing and refocus the picker
-                    this.is_editing = false;
-                    this.pending_refocus = true;
-                    cx.notify();
-                }
-                _ => {}
-            }
-        }).detach();
+            },
+        )
+        .detach();
 
         self.edit_state = Some(edit_state.clone());
 
@@ -582,39 +607,46 @@ impl FilePicker {
             parent.filter(|p| p.exists())
         } else {
             None
-        }.or_else(|| std::env::current_dir().ok());
+        }
+        .or_else(|| std::env::current_dir().ok());
 
-        window.spawn(cx, async move |async_cx| {
-            let result = async_cx.background_executor().spawn(async move {
-                let mut dialog = rfd::AsyncFileDialog::new();
+        window
+            .spawn(cx, async move |async_cx| {
+                let result = async_cx
+                    .background_executor()
+                    .spawn(async move {
+                        let mut dialog = rfd::AsyncFileDialog::new();
 
-                if let Some(dir) = initial_dir {
-                    dialog = dialog.set_directory(&dir);
+                        if let Some(dir) = initial_dir {
+                            dialog = dialog.set_directory(&dir);
+                        }
+
+                        if !extensions.is_empty() {
+                            let ext_refs: Vec<&str> =
+                                extensions.iter().map(|s| s.as_str()).collect();
+                            dialog = dialog.add_filter("Files", &ext_refs);
+                        }
+
+                        if is_save_mode {
+                            dialog.save_file().await.map(|f| f.path().to_path_buf())
+                        } else {
+                            dialog.pick_file().await.map(|f| f.path().to_path_buf())
+                        }
+                    })
+                    .await;
+
+                if let Some(path) = result {
+                    let path_str = path.to_string_lossy().to_string();
+                    let _ = async_cx.update_entity(&entity, |this: &mut FilePicker, cx| {
+                        if this.value != path_str {
+                            this.value = path_str;
+                            cx.emit(FilePickerEvent::Change(this.value.clone()));
+                        }
+                        cx.notify();
+                    });
                 }
-
-                if !extensions.is_empty() {
-                    let ext_refs: Vec<&str> = extensions.iter().map(|s| s.as_str()).collect();
-                    dialog = dialog.add_filter("Files", &ext_refs);
-                }
-
-                if is_save_mode {
-                    dialog.save_file().await.map(|f| f.path().to_path_buf())
-                } else {
-                    dialog.pick_file().await.map(|f| f.path().to_path_buf())
-                }
-            }).await;
-
-            if let Some(path) = result {
-                let path_str = path.to_string_lossy().to_string();
-                let _ = async_cx.update_entity(&entity, |this: &mut FilePicker, cx| {
-                    if this.value != path_str {
-                        this.value = path_str;
-                        cx.emit(FilePickerEvent::Change(this.value.clone()));
-                    }
-                    cx.notify();
-                });
-            }
-        }).detach();
+            })
+            .detach();
     }
 }
 
@@ -664,7 +696,9 @@ impl Render for FilePicker {
             None
         };
 
-        let placeholder = self.placeholder.clone()
+        let placeholder = self
+            .placeholder
+            .clone()
             .unwrap_or_else(|| SharedString::from("Click to enter path, or drag & drop"));
 
         let browse_shortcut_enabled = self.browse_shortcut_enabled;
@@ -697,10 +731,7 @@ impl Render for FilePicker {
                 d.drag_over::<ExternalPaths>({
                     let bg_hover = theme.bg_input_hover;
                     let border = theme.border_focus;
-                    move |d, _, _, _| {
-                        d.bg(rgb(bg_hover))
-                            .border_color(rgb(border))
-                    }
+                    move |d, _, _, _| d.bg(rgb(bg_hover)).border_color(rgb(border))
                 })
             })
             .child(
@@ -741,7 +772,7 @@ impl Render for FilePicker {
                                 .text_sm()
                                 .italic()
                                 .text_color(rgb(theme.text_dimmed))
-                                .child("No file selected")
+                                .child("No file selected"),
                         )
                         .child(
                             div()
@@ -749,27 +780,27 @@ impl Render for FilePicker {
                                 .italic()
                                 .text_color(rgb(theme.text_dimmed))
                                 .line_height(relative(1.4))
-                                .child(placeholder.clone())
+                                .child(placeholder.clone()),
                         )
                     })
                     // Empty state (disabled)
                     .when(!self.is_editing && self.value.is_empty() && !enabled, |d| {
                         d.cursor_default()
-                        .child(
-                            div()
-                                .text_sm()
-                                .italic()
-                                .text_color(rgb(theme.disabled_text))
-                                .child("No file selected")
-                        )
-                        .child(
-                            div()
-                                .text_xs()
-                                .italic()
-                                .text_color(rgb(theme.disabled_text))
-                                .line_height(relative(1.4))
-                                .child(placeholder.clone())
-                        )
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .italic()
+                                    .text_color(rgb(theme.disabled_text))
+                                    .child("No file selected"),
+                            )
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .italic()
+                                    .text_color(rgb(theme.disabled_text))
+                                    .line_height(relative(1.4))
+                                    .child(placeholder.clone()),
+                            )
                     })
                     // Display mode (enabled)
                     .when(!self.is_editing && !self.value.is_empty() && enabled, |d| {
@@ -784,7 +815,7 @@ impl Render for FilePicker {
                                 .text_sm()
                                 .font_weight(FontWeight::SEMIBOLD)
                                 .text_color(rgb(theme.text_label))
-                                .child(basename.clone().unwrap_or_default())
+                                .child(basename.clone().unwrap_or_default()),
                         )
                         .when(!path_display.is_empty(), |d| {
                             d.child(
@@ -792,51 +823,63 @@ impl Render for FilePicker {
                                     .text_xs()
                                     .min_w_0()
                                     .line_height(relative(1.4))
-                                    .child(path_display.to_styled_text())
+                                    .child(path_display.to_styled_text()),
                             )
                         })
-                        .when_some(path_display.explanation.clone(), |d, (msg, color)| {
-                            d.child(
-                                div()
-                                    .text_xs()
-                                    .italic()
-                                    .text_color(rgb(color))
-                                    .mt_1()
-                                    .child(msg)
-                            )
-                        })
+                        .when_some(
+                            path_display.explanation.clone(),
+                            |d, (msg, color)| {
+                                d.child(
+                                    div()
+                                        .text_xs()
+                                        .italic()
+                                        .text_color(rgb(color))
+                                        .mt_1()
+                                        .child(msg),
+                                )
+                            },
+                        )
                     })
                     // Display mode (disabled)
-                    .when(!self.is_editing && !self.value.is_empty() && !enabled, |d| {
-                        d.cursor_default()
-                        .child(
-                            div()
-                                .text_sm()
-                                .font_weight(FontWeight::SEMIBOLD)
-                                .text_color(rgb(theme.disabled_text))
-                                .child(basename.clone().unwrap_or_default())
-                        )
-                        .when(!path_display.is_empty(), |d| {
-                            d.child(
-                                div()
-                                    .text_xs()
-                                    .min_w_0()
-                                    .text_color(rgb(theme.disabled_text))
-                                    .line_height(relative(1.4))
-                                    .child(path_display.full_text.clone())
-                            )
-                        })
-                    })
+                    .when(
+                        !self.is_editing && !self.value.is_empty() && !enabled,
+                        |d| {
+                            d.cursor_default()
+                                .child(
+                                    div()
+                                        .text_sm()
+                                        .font_weight(FontWeight::SEMIBOLD)
+                                        .text_color(rgb(theme.disabled_text))
+                                        .child(basename.clone().unwrap_or_default()),
+                                )
+                                .when(!path_display.is_empty(), |d| {
+                                    d.child(
+                                        div()
+                                            .text_xs()
+                                            .min_w_0()
+                                            .text_color(rgb(theme.disabled_text))
+                                            .line_height(relative(1.4))
+                                            .child(path_display.full_text.clone()),
+                                    )
+                                })
+                        },
+                    )
                     // Edit mode
                     .when(self.is_editing && self.edit_state.is_some(), |d| {
-                        let Some(edit_state) = self.edit_state.as_ref() else { return d };
+                        let Some(edit_state) = self.edit_state.as_ref() else {
+                            return d;
+                        };
                         let edit_text = edit_state.read(cx).content().to_string();
                         let edit_path_info = if edit_text.is_empty() {
                             PathInfo::empty()
                         } else {
                             parse_path(&edit_text)
                         };
-                        let edit_display = self.compute_path_display(&edit_path_info, &theme, &self.validation_display);
+                        let edit_display = self.compute_path_display(
+                            &edit_path_info,
+                            &theme,
+                            &self.validation_display,
+                        );
 
                         d.child(
                             div()
@@ -855,19 +898,15 @@ impl Render for FilePicker {
                                         .when(edit_display.is_empty(), |d| {
                                             d.text_color(rgb(theme.text_dimmed))
                                                 .child("(empty path)")
-                                        })
+                                        }),
                                 )
                                 .when_some(edit_display.explanation.clone(), |d, (msg, color)| {
                                     d.child(
-                                        div()
-                                            .text_xs()
-                                            .italic()
-                                            .text_color(rgb(color))
-                                            .child(msg)
+                                        div().text_xs().italic().text_color(rgb(color)).child(msg),
                                     )
-                                })
+                                }),
                         )
-                    })
+                    }),
             )
             .child(
                 // Icon buttons (Edit and Browse)
@@ -926,31 +965,33 @@ impl Render for FilePicker {
                             .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
                                 window.focus_prev();
                             }))
-                            .on_key_down(cx.listener(|_picker, event: &KeyDownEvent, window, _cx| {
-                                if event.keystroke.key == "tab" {
-                                    if event.keystroke.modifiers.shift {
-                                        window.focus_prev();
-                                    } else {
-                                        window.focus_next();
+                            .on_key_down(cx.listener(
+                                |_picker, event: &KeyDownEvent, window, _cx| {
+                                    if event.keystroke.key == "tab" {
+                                        if event.keystroke.modifiers.shift {
+                                            window.focus_prev();
+                                        } else {
+                                            window.focus_next();
+                                        }
                                     }
-                                }
-                            }))
+                                },
+                            ))
                             .when(enabled, |d| {
-                                d.tooltip(|_window, cx| cx.new(|_cx| Tooltip::new("Edit path")).into())
+                                d.tooltip(|_window, cx| {
+                                    cx.new(|_cx| Tooltip::new("Edit path")).into()
+                                })
                             })
                             .child(
                                 div()
                                     .text_sm()
                                     .when(enabled, |d| d.text_color(rgb(theme.text_label)))
                                     .when(!enabled, |d| d.text_color(rgb(theme.disabled_text)))
-                                    .child("✎")
-                            )
+                                    .child("✎"),
+                            ),
                     )
                     .child(
                         // Divider between buttons
-                        div()
-                            .h(px(1.))
-                            .bg(rgb(theme.border_default))
+                        div().h(px(1.)).bg(rgb(theme.border_default)),
                     )
                     .child(
                         // Browse button
@@ -990,18 +1031,27 @@ impl Render for FilePicker {
                             .on_action(cx.listener(|_this, _: &FocusPrev, window, _cx| {
                                 window.focus_prev();
                             }))
-                            .on_key_down(cx.listener(|_picker, event: &KeyDownEvent, window, _cx| {
-                                if event.keystroke.key == "tab" {
-                                    if event.keystroke.modifiers.shift {
-                                        window.focus_prev();
-                                    } else {
-                                        window.focus_next();
+                            .on_key_down(cx.listener(
+                                |_picker, event: &KeyDownEvent, window, _cx| {
+                                    if event.keystroke.key == "tab" {
+                                        if event.keystroke.modifiers.shift {
+                                            window.focus_prev();
+                                        } else {
+                                            window.focus_next();
+                                        }
                                     }
-                                }
-                            }))
+                                },
+                            ))
                             .when(enabled, |d| {
                                 d.tooltip(move |_window, cx| {
-                                    cx.new(|_cx| Tooltip::new(if is_save_mode { "Save as..." } else { "Select file..." })).into()
+                                    cx.new(|_cx| {
+                                        Tooltip::new(if is_save_mode {
+                                            "Save as..."
+                                        } else {
+                                            "Select file..."
+                                        })
+                                    })
+                                    .into()
                                 })
                             })
                             .child(
@@ -1009,16 +1059,16 @@ impl Render for FilePicker {
                                     .text_sm()
                                     .when(enabled, |d| d.text_color(rgb(theme.text_label)))
                                     .when(!enabled, |d| d.text_color(rgb(theme.disabled_text)))
-                                    .child(if is_save_mode { "💾" } else { "📂" })
-                            )
-                    )
+                                    .child(if is_save_mode { "💾" } else { "📂" }),
+                            ),
+                    ),
             )
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{validate_file_path, FilePickerValidation, FileMode, MissingDirectories};
+    use super::{validate_file_path, FileMode, FilePickerValidation, MissingDirectories};
     use std::fs::{self, File};
     use std::io::Write;
     use tempfile::TempDir;
@@ -1052,7 +1102,11 @@ mod tests {
         let file_path = dir.path().join("existing_file.txt");
 
         assert_eq!(
-            validate_file_path(file_path.to_str().unwrap(), &FileMode::Open, &MissingDirectories::Error),
+            validate_file_path(
+                file_path.to_str().unwrap(),
+                &FileMode::Open,
+                &MissingDirectories::Error
+            ),
             FilePickerValidation::Valid
         );
     }
@@ -1063,7 +1117,11 @@ mod tests {
         let file_path = dir.path().join("non_existing.txt");
 
         assert_eq!(
-            validate_file_path(file_path.to_str().unwrap(), &FileMode::Open, &MissingDirectories::Error),
+            validate_file_path(
+                file_path.to_str().unwrap(),
+                &FileMode::Open,
+                &MissingDirectories::Error
+            ),
             FilePickerValidation::PathDoesNotExist
         );
     }
@@ -1074,7 +1132,11 @@ mod tests {
         let subdir_path = dir.path().join("subdir");
 
         assert_eq!(
-            validate_file_path(subdir_path.to_str().unwrap(), &FileMode::Open, &MissingDirectories::Error),
+            validate_file_path(
+                subdir_path.to_str().unwrap(),
+                &FileMode::Open,
+                &MissingDirectories::Error
+            ),
             FilePickerValidation::IsDirectory
         );
     }
@@ -1085,7 +1147,11 @@ mod tests {
         let file_path = dir.path().join("existing_file.txt");
 
         assert_eq!(
-            validate_file_path(file_path.to_str().unwrap(), &FileMode::Save, &MissingDirectories::Error),
+            validate_file_path(
+                file_path.to_str().unwrap(),
+                &FileMode::Save,
+                &MissingDirectories::Error
+            ),
             FilePickerValidation::WillOverwrite
         );
     }
@@ -1096,7 +1162,11 @@ mod tests {
         let file_path = dir.path().join("new_file.txt");
 
         assert_eq!(
-            validate_file_path(file_path.to_str().unwrap(), &FileMode::Save, &MissingDirectories::Error),
+            validate_file_path(
+                file_path.to_str().unwrap(),
+                &FileMode::Save,
+                &MissingDirectories::Error
+            ),
             FilePickerValidation::Valid
         );
     }
@@ -1107,7 +1177,11 @@ mod tests {
         let file_path = dir.path().join("missing_dir/new_file.txt");
 
         assert_eq!(
-            validate_file_path(file_path.to_str().unwrap(), &FileMode::Save, &MissingDirectories::Error),
+            validate_file_path(
+                file_path.to_str().unwrap(),
+                &FileMode::Save,
+                &MissingDirectories::Error
+            ),
             FilePickerValidation::ParentDoesNotExist
         );
     }
@@ -1118,7 +1192,11 @@ mod tests {
         let file_path = dir.path().join("missing_dir/new_file.txt");
 
         assert_eq!(
-            validate_file_path(file_path.to_str().unwrap(), &FileMode::Save, &MissingDirectories::Create),
+            validate_file_path(
+                file_path.to_str().unwrap(),
+                &FileMode::Save,
+                &MissingDirectories::Create
+            ),
             FilePickerValidation::WillCreatePath
         );
     }
@@ -1129,7 +1207,11 @@ mod tests {
         let file_path = dir.path().join("missing_dir/new_file.txt");
 
         assert_eq!(
-            validate_file_path(file_path.to_str().unwrap(), &FileMode::Save, &MissingDirectories::Okay),
+            validate_file_path(
+                file_path.to_str().unwrap(),
+                &FileMode::Save,
+                &MissingDirectories::Okay
+            ),
             FilePickerValidation::WillCreatePath
         );
     }
@@ -1140,7 +1222,11 @@ mod tests {
         let subdir_path = dir.path().join("subdir");
 
         assert_eq!(
-            validate_file_path(subdir_path.to_str().unwrap(), &FileMode::Save, &MissingDirectories::Error),
+            validate_file_path(
+                subdir_path.to_str().unwrap(),
+                &FileMode::Save,
+                &MissingDirectories::Error
+            ),
             FilePickerValidation::IsDirectory
         );
     }

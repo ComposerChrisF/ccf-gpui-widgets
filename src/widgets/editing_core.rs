@@ -457,8 +457,7 @@ impl<S: ContentStorage> EditingCore<S> {
         if pos == 0 {
             return 0;
         }
-        self.content
-            .as_str()[..pos]
+        self.content.as_str()[..pos]
             .char_indices()
             .last()
             .map(|(i, _)| i)

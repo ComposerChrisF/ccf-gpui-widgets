@@ -66,11 +66,11 @@
 //! - Renamed event: `TabSelected(T)` → `Change(T)`
 //! - Note: Navigation widgets (TabBar, SidebarNav) do NOT emit events from set_* methods
 
-use gpui::prelude::*;
-use gpui::*;
-use crate::theme::{get_theme_or, Theme};
 use super::focus_navigation::{with_focus_actions, EnabledCursorExt};
 use super::selection::SelectionItem;
+use crate::theme::{get_theme_or, Theme};
+use gpui::prelude::*;
+use gpui::*;
 
 // Actions for keyboard navigation
 actions!(ccf_tab_bar, [SelectPreviousTab, SelectNextTab]);
@@ -170,7 +170,10 @@ impl<T: SelectionItem> TabBar<T> {
 
     /// Get the currently selected index
     pub fn selected_index(&self) -> usize {
-        self.tabs.iter().position(|t| *t == self.selected).unwrap_or(0)
+        self.tabs
+            .iter()
+            .position(|t| *t == self.selected)
+            .unwrap_or(0)
     }
 
     /// Set the selected tab
@@ -215,7 +218,11 @@ impl<T: SelectionItem> TabBar<T> {
         if self.tabs.is_empty() {
             return;
         }
-        let current_index = self.tabs.iter().position(|t| *t == self.selected).unwrap_or(0);
+        let current_index = self
+            .tabs
+            .iter()
+            .position(|t| *t == self.selected)
+            .unwrap_or(0);
         let new_index = if current_index == 0 {
             self.tabs.len() - 1
         } else {
@@ -233,7 +240,11 @@ impl<T: SelectionItem> TabBar<T> {
         if self.tabs.is_empty() {
             return;
         }
-        let current_index = self.tabs.iter().position(|t| *t == self.selected).unwrap_or(0);
+        let current_index = self
+            .tabs
+            .iter()
+            .position(|t| *t == self.selected)
+            .unwrap_or(0);
         let new_index = if current_index >= self.tabs.len() - 1 {
             0
         } else {
@@ -276,128 +287,20 @@ impl<T: SelectionItem> Render for TabBar<T> {
         .when(!enabled, |d| d.bg(rgb(theme.disabled_bg)))
         // Tab navigation (Left / Right arrows)
         .on_action(cx.listener(|this, _: &SelectPreviousTab, _window, cx| {
-                if this.enabled {
-                    this.select_previous(cx);
-                }
-            }))
-            .on_action(cx.listener(|this, _: &SelectNextTab, _window, cx| {
-                if this.enabled {
-                    this.select_next(cx);
-                }
-            }))
-            // Left filler area (draws bottom border for left padding area)
-            .when(self.tab_row_padding > px(0.0), |d| {
-                d.child(
-                    div()
-                        .w(self.tab_row_padding)
-                        .when(enabled, |d| {
-                            d.bg(rgb(theme.bg_secondary))
-                                .border_b_1()
-                                .border_color(rgb(theme.border_default))
-                        })
-                        .when(!enabled, |d| {
-                            d.bg(rgb(theme.disabled_bg))
-                                .border_b_1()
-                                .border_color(rgb(theme.disabled_bg))
-                        })
-                )
-            })
-            .children(self.tabs.iter().map(|tab| {
-                let tab = tab.clone();
-                let is_selected = tab == selected_tab;
-                let show_focus = is_selected && is_focused && enabled;
-
-                // Tab container - handles clicks and identification
+            if this.enabled {
+                this.select_previous(cx);
+            }
+        }))
+        .on_action(cx.listener(|this, _: &SelectNextTab, _window, cx| {
+            if this.enabled {
+                this.select_next(cx);
+            }
+        }))
+        // Left filler area (draws bottom border for left padding area)
+        .when(self.tab_row_padding > px(0.0), |d| {
+            d.child(
                 div()
-                    .id(tab.id())
-                    .cursor_for_enabled(enabled)
-                    .when(enabled, |d| {
-                        let tab_clone = tab.clone();
-                        d.on_mouse_down(MouseButton::Left, {
-                            cx.listener(move |this, _event: &MouseDownEvent, window, cx| {
-                                this.previous_focus = window.focused(cx);
-                                cx.notify();
-                            })
-                        })
-                        .on_click({
-                            let tab = tab.clone();
-                            cx.listener(move |this, _event: &ClickEvent, window, cx| {
-                                this.selected = tab.clone();
-                                cx.emit(TabBarEvent::Change(tab.clone()));
-                                if let Some(focus_handle) = this.previous_focus.take() {
-                                    focus_handle.focus(window);
-                                } else {
-                                    window.blur();
-                                }
-                                cx.notify();
-                            })
-                        })
-                        .on_mouse_down(MouseButton::Right, {
-                            cx.listener(move |_this, event: &MouseDownEvent, _window, cx| {
-                                cx.emit(TabBarEvent::ContextMenu {
-                                    tab: tab_clone.clone(),
-                                    position: event.position,
-                                });
-                            })
-                        })
-                    })
-                    // Tab content
-                    .child(
-                        div()
-                            .px_4()
-                            .pb_2()
-                            // Active tab: py_2 top + border_t_2 (always accent), no other borders
-                            .when(is_selected, |d| {
-                                d.pt_2() // Standard top padding
-                                    .border_t_2()
-                            })
-                            // Inactive tabs: pt = py_2 + 2px to match active height
-                            .when(!is_selected, |d| {
-                                d.pt(px(10.0)) // 8px (py_2) + 2px (border_t_2)
-                                    .border_r_1()
-                                    .border_b_1()
-                            })
-                            // Colors based on active/enabled state
-                            .when(is_selected && enabled, |d| {
-                                d.bg(rgb(theme.bg_primary))
-                                    .text_color(rgb(theme.text_primary))
-                                    .border_color(rgb(theme.border_focus)) // Always accent for active tab
-                            })
-                            .when(is_selected && !enabled, |d| {
-                                d.bg(rgb(theme.disabled_bg))
-                                    .text_color(rgb(theme.disabled_text))
-                                    .border_color(rgb(theme.disabled_bg))
-                            })
-                            .when(!is_selected && enabled, |d| {
-                                d.bg(rgb(theme.bg_input))
-                                    .text_color(rgb(theme.text_dimmed))
-                                    .border_color(rgb(theme.border_default))
-                                    .hover(|d| {
-                                        d.bg(rgb(theme.bg_tab_hover))
-                                            .text_color(rgb(theme.text_muted))
-                                    })
-                            })
-                            .when(!is_selected && !enabled, |d| {
-                                d.bg(rgb(theme.disabled_bg))
-                                    .text_color(rgb(theme.disabled_text))
-                                    .border_color(rgb(theme.disabled_bg))
-                            })
-                            // Text with focus ring (border always present to prevent layout shift)
-                            .child(
-                                div()
-                                    .px_1()
-                                    .border_1()
-                                    .rounded_sm()
-                                    .when(show_focus, |d| d.border_color(rgb(theme.border_focus)))
-                                    .when(!show_focus, |d| d.border_color(rgba(0x00000000)))
-                                    .child(tab.label())
-                            )
-                    )
-            }))
-            // Filler area to the right of tabs (draws its own bottom border)
-            .child(
-                div()
-                    .flex_1()
+                    .w(self.tab_row_padding)
                     .when(enabled, |d| {
                         d.bg(rgb(theme.bg_secondary))
                             .border_b_1()
@@ -407,24 +310,132 @@ impl<T: SelectionItem> Render for TabBar<T> {
                         d.bg(rgb(theme.disabled_bg))
                             .border_b_1()
                             .border_color(rgb(theme.disabled_bg))
-                    })
+                    }),
             )
-            // Right filler area (draws bottom border for right padding area)
-            .when(self.tab_row_padding > px(0.0), |d| {
-                d.child(
-                    div()
-                        .w(self.tab_row_padding)
-                        .when(enabled, |d| {
-                            d.bg(rgb(theme.bg_secondary))
-                                .border_b_1()
-                                .border_color(rgb(theme.border_default))
+        })
+        .children(self.tabs.iter().map(|tab| {
+            let tab = tab.clone();
+            let is_selected = tab == selected_tab;
+            let show_focus = is_selected && is_focused && enabled;
+
+            // Tab container - handles clicks and identification
+            div()
+                .id(tab.id())
+                .cursor_for_enabled(enabled)
+                .when(enabled, |d| {
+                    let tab_clone = tab.clone();
+                    d.on_mouse_down(MouseButton::Left, {
+                        cx.listener(move |this, _event: &MouseDownEvent, window, cx| {
+                            this.previous_focus = window.focused(cx);
+                            cx.notify();
                         })
-                        .when(!enabled, |d| {
-                            d.bg(rgb(theme.disabled_bg))
+                    })
+                    .on_click({
+                        let tab = tab.clone();
+                        cx.listener(move |this, _event: &ClickEvent, window, cx| {
+                            this.selected = tab.clone();
+                            cx.emit(TabBarEvent::Change(tab.clone()));
+                            if let Some(focus_handle) = this.previous_focus.take() {
+                                focus_handle.focus(window);
+                            } else {
+                                window.blur();
+                            }
+                            cx.notify();
+                        })
+                    })
+                    .on_mouse_down(MouseButton::Right, {
+                        cx.listener(move |_this, event: &MouseDownEvent, _window, cx| {
+                            cx.emit(TabBarEvent::ContextMenu {
+                                tab: tab_clone.clone(),
+                                position: event.position,
+                            });
+                        })
+                    })
+                })
+                // Tab content
+                .child(
+                    div()
+                        .px_4()
+                        .pb_2()
+                        // Active tab: py_2 top + border_t_2 (always accent), no other borders
+                        .when(is_selected, |d| {
+                            d.pt_2() // Standard top padding
+                                .border_t_2()
+                        })
+                        // Inactive tabs: pt = py_2 + 2px to match active height
+                        .when(!is_selected, |d| {
+                            d.pt(px(10.0)) // 8px (py_2) + 2px (border_t_2)
+                                .border_r_1()
                                 .border_b_1()
+                        })
+                        // Colors based on active/enabled state
+                        .when(is_selected && enabled, |d| {
+                            d.bg(rgb(theme.bg_primary))
+                                .text_color(rgb(theme.text_primary))
+                                .border_color(rgb(theme.border_focus)) // Always accent for active tab
+                        })
+                        .when(is_selected && !enabled, |d| {
+                            d.bg(rgb(theme.disabled_bg))
+                                .text_color(rgb(theme.disabled_text))
                                 .border_color(rgb(theme.disabled_bg))
                         })
+                        .when(!is_selected && enabled, |d| {
+                            d.bg(rgb(theme.bg_input))
+                                .text_color(rgb(theme.text_dimmed))
+                                .border_color(rgb(theme.border_default))
+                                .hover(|d| {
+                                    d.bg(rgb(theme.bg_tab_hover))
+                                        .text_color(rgb(theme.text_muted))
+                                })
+                        })
+                        .when(!is_selected && !enabled, |d| {
+                            d.bg(rgb(theme.disabled_bg))
+                                .text_color(rgb(theme.disabled_text))
+                                .border_color(rgb(theme.disabled_bg))
+                        })
+                        // Text with focus ring (border always present to prevent layout shift)
+                        .child(
+                            div()
+                                .px_1()
+                                .border_1()
+                                .rounded_sm()
+                                .when(show_focus, |d| d.border_color(rgb(theme.border_focus)))
+                                .when(!show_focus, |d| d.border_color(rgba(0x00000000)))
+                                .child(tab.label()),
+                        ),
                 )
-            })
+        }))
+        // Filler area to the right of tabs (draws its own bottom border)
+        .child(
+            div()
+                .flex_1()
+                .when(enabled, |d| {
+                    d.bg(rgb(theme.bg_secondary))
+                        .border_b_1()
+                        .border_color(rgb(theme.border_default))
+                })
+                .when(!enabled, |d| {
+                    d.bg(rgb(theme.disabled_bg))
+                        .border_b_1()
+                        .border_color(rgb(theme.disabled_bg))
+                }),
+        )
+        // Right filler area (draws bottom border for right padding area)
+        .when(self.tab_row_padding > px(0.0), |d| {
+            d.child(
+                div()
+                    .w(self.tab_row_padding)
+                    .when(enabled, |d| {
+                        d.bg(rgb(theme.bg_secondary))
+                            .border_b_1()
+                            .border_color(rgb(theme.border_default))
+                    })
+                    .when(!enabled, |d| {
+                        d.bg(rgb(theme.disabled_bg))
+                            .border_b_1()
+                            .border_color(rgb(theme.disabled_bg))
+                    }),
+            )
+        })
     }
 }

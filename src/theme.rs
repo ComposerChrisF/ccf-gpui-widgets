@@ -44,7 +44,7 @@
 //! cx.set_global(theme);
 //! ```
 
-use crate::utils::{is_dark, lighten, darken, mix};
+use crate::utils::{darken, is_dark, lighten, mix};
 
 /// Minimal color palette for generating a full Theme
 ///

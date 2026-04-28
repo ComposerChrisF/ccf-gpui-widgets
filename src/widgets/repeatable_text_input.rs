@@ -30,11 +30,11 @@
 //! }).detach();
 //! ```
 
+use super::focus_navigation::{repeatable_add_button, repeatable_remove_button};
+use super::text_input::{TextInput, TextInputEvent};
+use crate::theme::{get_theme, Theme};
 use gpui::prelude::*;
 use gpui::*;
-use crate::theme::{get_theme, Theme};
-use super::text_input::{TextInput, TextInputEvent};
-use super::focus_navigation::{repeatable_add_button, repeatable_remove_button};
 
 // Actions for button activation
 actions!(ccf_repeatable_text_input, [ActivateButton]);
@@ -193,7 +193,8 @@ impl RepeatableTextInput {
                 let values = this.values(cx);
                 cx.emit(RepeatableTextInputEvent::Change(values));
             }
-        }).detach();
+        })
+        .detach();
 
         entry
     }
@@ -221,7 +222,8 @@ impl RepeatableTextInput {
             let entry = self.create_entry(Some(&value), cx);
             self.entries.push(entry);
             // Create a focus handle for the remove button
-            self.remove_focus_handles.push(cx.focus_handle().tab_stop(true));
+            self.remove_focus_handles
+                .push(cx.focus_handle().tab_stop(true));
         }
     }
 
@@ -230,7 +232,8 @@ impl RepeatableTextInput {
         let entry = self.create_entry(None, cx);
         self.entries.push(entry);
         // Create a focus handle for the new remove button
-        self.remove_focus_handles.push(cx.focus_handle().tab_stop(true));
+        self.remove_focus_handles
+            .push(cx.focus_handle().tab_stop(true));
         cx.emit(RepeatableTextInputEvent::EntryAdded(index));
         cx.emit(RepeatableTextInputEvent::Change(self.values(cx)));
         cx.notify();
@@ -283,7 +286,9 @@ impl Render for RepeatableTextInput {
         let enabled = self.enabled;
 
         // Collect entries with their remove button focus handles
-        let entry_data: Vec<_> = self.entries.iter()
+        let entry_data: Vec<_> = self
+            .entries
+            .iter()
             .zip(self.remove_focus_handles.iter())
             .enumerate()
             .map(|(index, (entry, focus_handle))| {
@@ -302,71 +307,66 @@ impl Render for RepeatableTextInput {
                     .flex()
                     .flex_col()
                     .gap_2()
-                    .children(entry_data.into_iter().map(|(index, entry, focus_handle, is_focused)| {
-                        let remove_button = repeatable_remove_button(
-                            format!("repeatable_remove_{}", index),
-                            &focus_handle,
-                            &theme,
-                            enabled,
-                            is_focused,
-                            // on_action: set flag, then perform action
-                            move |this: &mut Self, window, cx| {
-                                this.action_just_handled = true;
-                                this.remove_entry(index, window, cx);
-                            },
-                            // on_click: skip if action just handled, otherwise perform action
-                            move |this: &mut Self, window, cx| {
-                                if this.action_just_handled {
-                                    this.action_just_handled = false;
-                                    return;
-                                }
-                                this.remove_entry(index, window, cx);
-                            },
-                            cx,
-                        );
+                    .children(entry_data.into_iter().map(
+                        |(index, entry, focus_handle, is_focused)| {
+                            let remove_button = repeatable_remove_button(
+                                format!("repeatable_remove_{}", index),
+                                &focus_handle,
+                                &theme,
+                                enabled,
+                                is_focused,
+                                // on_action: set flag, then perform action
+                                move |this: &mut Self, window, cx| {
+                                    this.action_just_handled = true;
+                                    this.remove_entry(index, window, cx);
+                                },
+                                // on_click: skip if action just handled, otherwise perform action
+                                move |this: &mut Self, window, cx| {
+                                    if this.action_just_handled {
+                                        this.action_just_handled = false;
+                                        return;
+                                    }
+                                    this.remove_entry(index, window, cx);
+                                },
+                                cx,
+                            );
 
-                        div()
-                            .flex()
-                            .flex_row()
-                            .items_center()
-                            .gap_2()
-                            .child(
-                                // Input field
-                                div()
-                                    .flex_1()
-                                    .child(entry)
-                            )
-                            .when(can_remove, |d| d.child(remove_button))
-                    }))
+                            div()
+                                .flex()
+                                .flex_row()
+                                .items_center()
+                                .gap_2()
+                                .child(
+                                    // Input field
+                                    div().flex_1().child(entry),
+                                )
+                                .when(can_remove, |d| d.child(remove_button))
+                        },
+                    )),
             )
             .child(
                 // Add button row - use flex to align left
-                div()
-                    .flex()
-                    .flex_row()
-                    .child(
-                        repeatable_add_button(
-                            "repeatable_add_button",
-                            &self.add_focus_handle,
-                            &theme,
-                            enabled,
-                            add_focused,
-                            // on_action: set flag, then perform action
-                            |this: &mut Self, _window, cx| {
-                                this.action_just_handled = true;
-                                this.add_entry(cx);
-                            },
-                            // on_click: skip if action just handled, otherwise perform action
-                            |this: &mut Self, _window, cx| {
-                                if this.action_just_handled {
-                                    this.action_just_handled = false;
-                                    return;
-                                }
-                                this.add_entry(cx);
-                            },
-                            cx,
-                        )
-                    )
+                div().flex().flex_row().child(repeatable_add_button(
+                    "repeatable_add_button",
+                    &self.add_focus_handle,
+                    &theme,
+                    enabled,
+                    add_focused,
+                    // on_action: set flag, then perform action
+                    |this: &mut Self, _window, cx| {
+                        this.action_just_handled = true;
+                        this.add_entry(cx);
+                    },
+                    // on_click: skip if action just handled, otherwise perform action
+                    |this: &mut Self, _window, cx| {
+                        if this.action_just_handled {
+                            this.action_just_handled = false;
+                            return;
+                        }
+                        this.add_entry(cx);
+                    },
+                    cx,
+                )),
             )
     }
 }

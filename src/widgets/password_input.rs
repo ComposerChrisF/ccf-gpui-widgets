@@ -36,16 +36,15 @@ use gpui::*;
 #[cfg(feature = "secure-password")]
 use secrecy::SecretString;
 
-use crate::theme::{get_theme_or, Theme};
 use super::cursor_blink::CursorBlink;
 use super::editing_core::EditingCore;
-use super::focus_navigation::{FocusNext, FocusPrev, handle_tab_navigation, EnabledCursorExt};
+use super::focus_navigation::{handle_tab_navigation, EnabledCursorExt, FocusNext, FocusPrev};
 use super::text_input::{
-    MoveLeft, MoveRight, MoveWordLeft, MoveWordRight, MoveToStart, MoveToEnd,
-    SelectLeft, SelectRight, SelectWordLeft, SelectWordRight, SelectToStart, SelectToEnd, SelectAll,
-    DeleteBackward, DeleteForward, DeleteWordBackward, DeleteWordForward,
-    Cut, Copy, Paste, Enter, Escape,
+    Copy, Cut, DeleteBackward, DeleteForward, DeleteWordBackward, DeleteWordForward, Enter, Escape,
+    MoveLeft, MoveRight, MoveToEnd, MoveToStart, MoveWordLeft, MoveWordRight, Paste, SelectAll,
+    SelectLeft, SelectRight, SelectToEnd, SelectToStart, SelectWordLeft, SelectWordRight,
 };
+use crate::theme::{get_theme_or, Theme};
 
 #[cfg(feature = "secure-password")]
 use super::sensitive_string::SensitiveString;
@@ -263,7 +262,9 @@ impl PasswordInput {
 
     fn emit_change(&self, cx: &mut Context<Self>) {
         #[cfg(feature = "secure-password")]
-        cx.emit(PasswordInputEvent::Change(self.create_secret_from_content()));
+        cx.emit(PasswordInputEvent::Change(
+            self.create_secret_from_content(),
+        ));
         #[cfg(not(feature = "secure-password"))]
         cx.emit(PasswordInputEvent::Change(self.core.content().to_string()));
     }
@@ -299,7 +300,8 @@ impl PasswordInput {
         }
         let mask_char_len = MASK_CHAR.len();
         let char_index = display_pos / mask_char_len;
-        self.core.content()
+        self.core
+            .content()
             .char_indices()
             .nth(char_index)
             .map(|(i, _)| i)
@@ -328,12 +330,11 @@ impl PasswordInput {
             strikethrough: None,
         };
 
-        Some(window.text_system().shape_line(
-            SharedString::from(display),
-            font_size,
-            &[run],
-            None,
-        ))
+        Some(
+            window
+                .text_system()
+                .shape_line(SharedString::from(display), font_size, &[run], None),
+        )
     }
 
     fn cursor_at_x(&self, x: f32, window: &Window) -> usize {
@@ -455,13 +456,18 @@ impl PasswordInput {
         self.auto_scroll_speed = 0.0;
     }
 
-    fn spawn_auto_scroll_timer_if_needed(&mut self, scroll_speed: f32, window: &mut Window, cx: &mut Context<Self>) {
+    fn spawn_auto_scroll_timer_if_needed(
+        &mut self,
+        scroll_speed: f32,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.auto_scroll_speed = scroll_speed;
         if scroll_speed != 0.0 && !self.auto_scroll_active {
             self.auto_scroll_active = true;
             let entity = cx.entity();
-            window.spawn(cx, async move |async_cx| {
-                loop {
+            window
+                .spawn(cx, async move |async_cx| loop {
                     smol::Timer::after(Duration::from_millis(32)).await;
                     let should_continue = async_cx
                         .update_entity(&entity, |this, cx| {
@@ -476,8 +482,8 @@ impl PasswordInput {
                     if !should_continue {
                         break;
                     }
-                }
-            }).detach();
+                })
+                .detach();
         }
     }
 
@@ -652,10 +658,13 @@ impl Render for PasswordInput {
             let input_fh = self.input_focus_handle.clone();
             cx.on_focus_out(&input_fh, window, |this: &mut Self, _event, window, cx| {
                 // Only blur if neither input nor toggle has focus
-                if !this.input_focus_handle.is_focused(window) && !this.toggle_focus_handle.is_focused(window) {
+                if !this.input_focus_handle.is_focused(window)
+                    && !this.toggle_focus_handle.is_focused(window)
+                {
                     this.on_blur(cx);
                 }
-            }).detach();
+            })
+            .detach();
         }
 
         // Detect focus-in
@@ -664,15 +673,19 @@ impl Render for PasswordInput {
         }
         self.was_focused = input_is_focused;
 
-        let render_scroll_offset = if input_is_focused { self.scroll_offset } else { 0.0 };
+        let render_scroll_offset = if input_is_focused {
+            self.scroll_offset
+        } else {
+            0.0
+        };
 
         // Set up blink timer when focused
         if input_is_focused && !self.blink_timer_active {
             self.blink_timer_active = true;
             let entity = cx.entity();
             let blink_period = CursorBlink::blink_period();
-            window.spawn(cx, async move |async_cx| {
-                loop {
+            window
+                .spawn(cx, async move |async_cx| loop {
                     smol::Timer::after(blink_period).await;
                     let should_continue = async_cx
                         .update_entity(&entity, |this, cx| {
@@ -686,8 +699,8 @@ impl Render for PasswordInput {
                     if !should_continue {
                         break;
                     }
-                }
-            }).detach();
+                })
+                .detach();
         }
 
         if !input_is_focused {
@@ -730,26 +743,39 @@ impl Render for PasswordInput {
         let scroll_offset = render_scroll_offset;
 
         // Colors
-        let bg_color = if enabled { theme.bg_input } else { theme.disabled_bg };
+        let bg_color = if enabled {
+            theme.bg_input
+        } else {
+            theme.disabled_bg
+        };
         let border_color = if either_focused && enabled {
             theme.border_focus
         } else {
             theme.border_input
         };
         let separator_color = theme.text_muted;
-        let button_text_color = if enabled { theme.text_muted } else { theme.disabled_text };
+        let button_text_color = if enabled {
+            theme.text_muted
+        } else {
+            theme.disabled_text
+        };
         let selection_color = theme.selection;
-        let text_color = if enabled { theme.text_primary } else { theme.disabled_text };
+        let text_color = if enabled {
+            theme.text_primary
+        } else {
+            theme.disabled_text
+        };
         let text_placeholder = theme.text_placeholder;
 
         // Eye icons
-        let eye_icon = if self.show_password { "\u{2296}" } else { "\u{25CE}" }; // ⊖ / ◎
+        let eye_icon = if self.show_password {
+            "\u{2296}"
+        } else {
+            "\u{25CE}"
+        }; // ⊖ / ◎
 
         // Vertical separator
-        let separator = div()
-            .w(px(1.0))
-            .h_full()
-            .bg(rgb(separator_color));
+        let separator = div().w(px(1.0)).h_full().bg(rgb(separator_color));
 
         // Main container
         div()

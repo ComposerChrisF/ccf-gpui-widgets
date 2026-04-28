@@ -150,11 +150,11 @@ impl Render for Spinner {
                             .bg(rgb(theme.primary))
                             .with_animation(
                                 ElementId::Name(format!("spinner_dot_{}", i).into()),
-                                Animation::new(Duration::from_millis(1000))
-                                    .repeat(),
+                                Animation::new(Duration::from_millis(1000)).repeat(),
                                 move |el, delta| {
                                     // Create a "chasing" effect by offsetting each dot's animation phase
-                                    let phase = (delta + (dot_index as f32 / dot_count as f32)) % 1.0;
+                                    let phase =
+                                        (delta + (dot_index as f32 / dot_count as f32)) % 1.0;
                                     // Opacity varies: high when "active", low otherwise
                                     let opacity = if phase < 0.125 {
                                         1.0
@@ -164,7 +164,7 @@ impl Render for Spinner {
                                     el.opacity(opacity)
                                 },
                             )
-                    }))
+                    })),
             )
             // Optional label
             .when_some(label, |d, text| {
@@ -172,7 +172,7 @@ impl Render for Spinner {
                     div()
                         .text_sm()
                         .text_color(rgb(theme.text_muted))
-                        .child(text)
+                        .child(text),
                 )
             })
     }

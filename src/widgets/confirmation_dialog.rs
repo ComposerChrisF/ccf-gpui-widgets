@@ -66,9 +66,9 @@ use std::collections::HashMap;
 use gpui::prelude::*;
 use gpui::*;
 
-use crate::theme::{get_theme_or, Theme};
-use super::button::{primary_button, secondary_button, danger_button};
+use super::button::{danger_button, primary_button, secondary_button};
 use super::focus_navigation::with_focus_actions;
+use crate::theme::{get_theme_or, Theme};
 
 /// Dialog style/severity (controls primary button color)
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -251,46 +251,36 @@ impl Render for ConfirmationDialog {
 
         // Build primary button based on style
         let primary_button_element = match style {
-            DialogStyle::Danger => {
-                danger_button("dialog_primary", &primary_label, true, cx)
-                    .on_click(cx.listener(|dialog, _event: &ClickEvent, window, cx| {
-                        dialog.emit_button(DialogButton::Primary, window, cx);
-                    }))
-            }
-            _ => {
-                primary_button("dialog_primary", &primary_label, true, cx)
-                    .on_click(cx.listener(|dialog, _event: &ClickEvent, window, cx| {
-                        dialog.emit_button(DialogButton::Primary, window, cx);
-                    }))
-            }
+            DialogStyle::Danger => danger_button("dialog_primary", &primary_label, true, cx)
+                .on_click(cx.listener(|dialog, _event: &ClickEvent, window, cx| {
+                    dialog.emit_button(DialogButton::Primary, window, cx);
+                })),
+            _ => primary_button("dialog_primary", &primary_label, true, cx).on_click(cx.listener(
+                |dialog, _event: &ClickEvent, window, cx| {
+                    dialog.emit_button(DialogButton::Primary, window, cx);
+                },
+            )),
         };
 
         // Build buttons container
-        let mut buttons = div()
-            .w_full()
-            .flex()
-            .flex_row()
-            .gap_3()
-            .justify_end();
+        let mut buttons = div().w_full().flex().flex_row().gap_3().justify_end();
 
         // Add tertiary button (leftmost of the optional buttons)
         if let Some(label) = &tertiary_label {
-            buttons = buttons.child(
-                secondary_button("dialog_tertiary", label, cx)
-                    .on_click(cx.listener(|dialog, _event: &ClickEvent, window, cx| {
-                        dialog.emit_button(DialogButton::Tertiary, window, cx);
-                    }))
-            );
+            buttons = buttons.child(secondary_button("dialog_tertiary", label, cx).on_click(
+                cx.listener(|dialog, _event: &ClickEvent, window, cx| {
+                    dialog.emit_button(DialogButton::Tertiary, window, cx);
+                }),
+            ));
         }
 
         // Add secondary button
         if let Some(label) = &secondary_label {
-            buttons = buttons.child(
-                secondary_button("dialog_secondary", label, cx)
-                    .on_click(cx.listener(|dialog, _event: &ClickEvent, window, cx| {
-                        dialog.emit_button(DialogButton::Secondary, window, cx);
-                    }))
-            );
+            buttons = buttons.child(secondary_button("dialog_secondary", label, cx).on_click(
+                cx.listener(|dialog, _event: &ClickEvent, window, cx| {
+                    dialog.emit_button(DialogButton::Secondary, window, cx);
+                }),
+            ));
         }
 
         // Add primary button (rightmost)
@@ -307,81 +297,75 @@ impl Render for ConfirmationDialog {
         )
         // Tab navigation responds on keydown for immediate feedback
         .on_key_down(cx.listener(|_dialog, event: &KeyDownEvent, window, _cx| {
-                if event.keystroke.key.as_str() == "tab" {
-                    if event.keystroke.modifiers.shift {
-                        window.focus_prev();
+            if event.keystroke.key.as_str() == "tab" {
+                if event.keystroke.modifiers.shift {
+                    window.focus_prev();
+                } else {
+                    window.focus_next();
+                }
+            }
+        }))
+        // Dismissal actions respond on keyup to avoid race conditions when
+        // the dialog is launched by a keydown - if we dismissed on keydown,
+        // the keyup would fire on the restored-focus element and potentially
+        // re-launch the dialog
+        .on_key_up(cx.listener(move |dialog, event: &KeyUpEvent, window, cx| {
+            let key = event.keystroke.key.as_str().to_lowercase();
+
+            // Check custom key mappings first
+            if let Some(&button) = key_mappings.get(&key) {
+                // Only trigger if the button exists
+                let can_trigger = match button {
+                    DialogButton::Primary => true,
+                    DialogButton::Secondary => has_secondary,
+                    DialogButton::Tertiary => has_tertiary,
+                };
+                if can_trigger {
+                    dialog.emit_button(button, window, cx);
+                    return;
+                }
+            }
+
+            // Default key behaviors
+            match key.as_str() {
+                "escape" => {
+                    // Escape: triggers secondary if exists, otherwise primary (for Info)
+                    if has_secondary {
+                        dialog.emit_button(DialogButton::Secondary, window, cx);
                     } else {
-                        window.focus_next();
+                        dialog.emit_button(DialogButton::Primary, window, cx);
                     }
                 }
-            }))
-            // Dismissal actions respond on keyup to avoid race conditions when
-            // the dialog is launched by a keydown - if we dismissed on keydown,
-            // the keyup would fire on the restored-focus element and potentially
-            // re-launch the dialog
-            .on_key_up(cx.listener(move |dialog, event: &KeyUpEvent, window, cx| {
-                let key = event.keystroke.key.as_str().to_lowercase();
-
-                // Check custom key mappings first
-                if let Some(&button) = key_mappings.get(&key) {
-                    // Only trigger if the button exists
-                    let can_trigger = match button {
-                        DialogButton::Primary => true,
-                        DialogButton::Secondary => has_secondary,
-                        DialogButton::Tertiary => has_tertiary,
-                    };
-                    if can_trigger {
-                        dialog.emit_button(button, window, cx);
-                        return;
-                    }
+                "enter" if !is_danger => {
+                    // Enter: triggers primary (except for Danger style)
+                    dialog.emit_button(DialogButton::Primary, window, cx);
                 }
-
-                // Default key behaviors
-                match key.as_str() {
-                    "escape" => {
-                        // Escape: triggers secondary if exists, otherwise primary (for Info)
-                        if has_secondary {
-                            dialog.emit_button(DialogButton::Secondary, window, cx);
-                        } else {
-                            dialog.emit_button(DialogButton::Primary, window, cx);
-                        }
-                    }
-                    "enter" => {
-                        // Enter: triggers primary (except for Danger style)
-                        if !is_danger {
-                            dialog.emit_button(DialogButton::Primary, window, cx);
-                        }
-                    }
-                    _ => {}
-                }
-            }))
-            .bg(rgb(theme.bg_secondary))
-            .border_1()
-            .border_color(rgb(theme.border_default))
-            .rounded_lg()
-            .shadow_lg()
-            .min_w(px(320.0))
-            .max_w(px(480.0))
-            .p(px(24.0))
-            .child(
-                div()
-                    .text_lg()
-                    .font_weight(FontWeight::BOLD)
-                    .text_color(rgb(title_color))
-                    .child(title)
-            )
-            .child(
-                div()
-                    .mt_4()
-                    .text_sm()
-                    .text_color(rgb(theme.text_muted))
-                    .child(message)
-            )
-            .child(
-                div()
-                    .mt_4()
-                    .child(buttons)
-            );
+                _ => {}
+            }
+        }))
+        .bg(rgb(theme.bg_secondary))
+        .border_1()
+        .border_color(rgb(theme.border_default))
+        .rounded_lg()
+        .shadow_lg()
+        .min_w(px(320.0))
+        .max_w(px(480.0))
+        .p(px(24.0))
+        .child(
+            div()
+                .text_lg()
+                .font_weight(FontWeight::BOLD)
+                .text_color(rgb(title_color))
+                .child(title),
+        )
+        .child(
+            div()
+                .mt_4()
+                .text_sm()
+                .text_color(rgb(theme.text_muted))
+                .child(message),
+        )
+        .child(div().mt_4().child(buttons));
 
         // Use deferred for proper overlay behavior
         deferred(
@@ -394,18 +378,21 @@ impl Render for ConfirmationDialog {
                 .items_center()
                 .justify_center()
                 .bg(rgba(0x000000aa))
-                .on_mouse_down(MouseButton::Left, cx.listener(move |dialog, _event, window, cx| {
-                    // Click-outside behavior
-                    if is_info {
-                        // Info: click-outside dismisses (Primary)
-                        dialog.emit_button(DialogButton::Primary, window, cx);
-                    } else if !is_danger && has_secondary {
-                        // Default/Warning with secondary: click-outside triggers Secondary
-                        dialog.emit_button(DialogButton::Secondary, window, cx);
-                    }
-                    // Danger: click-outside does nothing
-                }))
-                .child(dialog_box)
+                .on_mouse_down(
+                    MouseButton::Left,
+                    cx.listener(move |dialog, _event, window, cx| {
+                        // Click-outside behavior
+                        if is_info {
+                            // Info: click-outside dismisses (Primary)
+                            dialog.emit_button(DialogButton::Primary, window, cx);
+                        } else if !is_danger && has_secondary {
+                            // Default/Warning with secondary: click-outside triggers Secondary
+                            dialog.emit_button(DialogButton::Secondary, window, cx);
+                        }
+                        // Danger: click-outside does nothing
+                    }),
+                )
+                .child(dialog_box),
         )
     }
 }

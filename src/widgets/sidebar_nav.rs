@@ -60,11 +60,11 @@
 //! - Renamed event: `Select(T)` → `Change(T)`
 //! - Note: Navigation widgets (TabBar, SidebarNav) do NOT emit events from set_* methods
 
-use gpui::prelude::*;
-use gpui::*;
-use crate::theme::{get_theme_or, Theme};
 use super::focus_navigation::{with_focus_actions, EnabledCursorExt};
 use super::selection::SelectionItem;
+use crate::theme::{get_theme_or, Theme};
+use gpui::prelude::*;
+use gpui::*;
 
 // Actions for keyboard navigation
 actions!(ccf_sidebar_nav, [SelectPrevious, SelectNext]);
@@ -154,7 +154,10 @@ impl<T: SelectionItem> SidebarNav<T> {
 
     /// Get the currently selected index
     pub fn selected_index(&self) -> usize {
-        self.items.iter().position(|i| *i == self.selected).unwrap_or(0)
+        self.items
+            .iter()
+            .position(|i| *i == self.selected)
+            .unwrap_or(0)
     }
 
     /// Set the selected item
@@ -199,7 +202,11 @@ impl<T: SelectionItem> SidebarNav<T> {
         if self.items.is_empty() {
             return;
         }
-        let current_index = self.items.iter().position(|t| *t == self.selected).unwrap_or(0);
+        let current_index = self
+            .items
+            .iter()
+            .position(|t| *t == self.selected)
+            .unwrap_or(0);
         let new_index = if current_index == 0 {
             self.items.len() - 1
         } else {
@@ -217,7 +224,11 @@ impl<T: SelectionItem> SidebarNav<T> {
         if self.items.is_empty() {
             return;
         }
-        let current_index = self.items.iter().position(|t| *t == self.selected).unwrap_or(0);
+        let current_index = self
+            .items
+            .iter()
+            .position(|t| *t == self.selected)
+            .unwrap_or(0);
         let new_index = if current_index >= self.items.len() - 1 {
             0
         } else {
@@ -297,16 +308,13 @@ impl<T: SelectionItem> Render for SidebarNav<T> {
                 })
                 // Selected state
                 .when(is_selected && enabled, |d| {
-                    d.bg(rgb(theme.bg_hover))
-                        .text_color(rgb(theme.accent))
+                    d.bg(rgb(theme.bg_hover)).text_color(rgb(theme.accent))
                 })
                 // Unselected state
                 .when(!is_selected && enabled, |d| {
                     d.bg(rgb(theme.bg_input))
                         .text_color(rgb(theme.text_primary))
-                        .hover(|d| {
-                            d.bg(rgb(theme.bg_secondary))
-                        })
+                        .hover(|d| d.bg(rgb(theme.bg_secondary)))
                 })
                 // Disabled states
                 .when(is_selected && !enabled, |d| {
@@ -325,7 +333,7 @@ impl<T: SelectionItem> Render for SidebarNav<T> {
                         .rounded_sm()
                         .when(show_focus, |d| d.border_color(rgb(theme.border_focus)))
                         .when(!show_focus, |d| d.border_color(rgba(0x00000000)))
-                        .child(item.label())
+                        .child(item.label()),
                 )
         }))
     }

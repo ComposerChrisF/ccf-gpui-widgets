@@ -3,9 +3,9 @@
 pub mod color;
 pub mod path;
 
-pub use color::{Rgb, Rgba, Hsl, Hsv, named_color_to_rgb, parse_color, parse_color_alpha};
-pub use color::{luminance, is_dark, lighten, darken, mix};
-pub use path::{parse_path, expand_tilde, PathInfo};
+pub use color::{darken, is_dark, lighten, luminance, mix};
+pub use color::{named_color_to_rgb, parse_color, parse_color_alpha, Hsl, Hsv, Rgb, Rgba};
+pub use path::{expand_tilde, parse_path, PathInfo};
 
 /// Format a floating-point value for display with optional precision
 ///

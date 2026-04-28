@@ -147,7 +147,12 @@ impl Rgba {
             }
             3 | 6 => {
                 let rgb = Rgb::from_hex(hex)?;
-                Some(Self { r: rgb.r, g: rgb.g, b: rgb.b, a: 255 })
+                Some(Self {
+                    r: rgb.r,
+                    g: rgb.g,
+                    b: rgb.b,
+                    a: 255,
+                })
             }
             _ => None,
         }
@@ -231,8 +236,12 @@ impl Hsl {
         let p = 2.0 * l - q;
 
         fn hue_to_rgb(p: f32, q: f32, mut t: f32) -> f32 {
-            if t < 0.0 { t += 1.0; }
-            if t > 1.0 { t -= 1.0; }
+            if t < 0.0 {
+                t += 1.0;
+            }
+            if t > 1.0 {
+                t -= 1.0;
+            }
             if t < 1.0 / 6.0 {
                 return p + (q - p) * 6.0 * t;
             }
@@ -559,7 +568,8 @@ pub fn parse_color(s: &str) -> Option<Rgb> {
 
 /// Parse a color string (hex or named color) to RGBA
 pub fn parse_color_alpha(s: &str) -> Option<Rgba> {
-    Rgba::from_hex(s).or_else(|| named_color_to_rgb(s).map(|rgb| Rgba::new(rgb.r, rgb.g, rgb.b, 255)))
+    Rgba::from_hex(s)
+        .or_else(|| named_color_to_rgb(s).map(|rgb| Rgba::new(rgb.r, rgb.g, rgb.b, 255)))
 }
 
 /// Calculate perceived luminance (0.0-1.0) using sRGB coefficients

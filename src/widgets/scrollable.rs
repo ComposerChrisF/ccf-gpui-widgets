@@ -141,7 +141,11 @@ where
     E: Element,
 {
     /// Internal constructor that uses the provided location for ID generation
-    fn new_with_location(axis: ScrollbarAxis, element: E, location: &'static Location<'static>) -> Self {
+    fn new_with_location(
+        axis: ScrollbarAxis,
+        element: E,
+        location: &'static Location<'static>,
+    ) -> Self {
         // Generate a stable ID based on call site location
         // This ensures the same scrollable gets the same ID across renders
         let id = ElementId::Name(SharedString::from(format!(
@@ -215,11 +219,14 @@ where
         cx: &mut App,
         f: impl FnOnce(&mut Self, &mut ScrollViewState, &mut Window, &mut App) -> R,
     ) -> R {
-        window.with_optional_element_state::<ScrollViewState, _>(Some(id), |element_state, window| {
-            let mut element_state = element_state.unwrap().unwrap_or_default();
-            let result = f(self, &mut element_state, window, cx);
-            (result, Some(element_state))
-        })
+        window.with_optional_element_state::<ScrollViewState, _>(
+            Some(id),
+            |element_state, window| {
+                let mut element_state = element_state.unwrap().unwrap_or_default();
+                let result = f(self, &mut element_state, window, cx);
+                (result, Some(element_state))
+            },
+        )
     }
 }
 
@@ -328,13 +335,12 @@ where
             window,
             cx,
             |scrollable, element_state, window, cx| {
-                let scroll_handle = if let Some(ref external_handle) =
-                    scrollable.external_scroll_handle
-                {
-                    external_handle
-                } else {
-                    &element_state.handle
-                };
+                let scroll_handle =
+                    if let Some(ref external_handle) = scrollable.external_scroll_handle {
+                        external_handle
+                    } else {
+                        &element_state.handle
+                    };
 
                 let mut scrollbar = Scrollbar::new(axis, &element_state.state, scroll_handle);
                 if always_show {

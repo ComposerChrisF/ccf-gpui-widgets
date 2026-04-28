@@ -28,11 +28,20 @@
 use gpui::prelude::*;
 use gpui::*;
 
-use crate::theme::{get_theme_or, Theme};
 use super::focus_navigation::{handle_tab_navigation, with_focus_actions};
+use crate::theme::{get_theme_or, Theme};
 
 // Actions for keyboard navigation
-actions!(ccf_dropdown, [CloseDropdown, SelectPrevious, SelectNext, ConfirmSelection, ToggleDropdown]);
+actions!(
+    ccf_dropdown,
+    [
+        CloseDropdown,
+        SelectPrevious,
+        SelectNext,
+        ConfirmSelection,
+        ToggleDropdown
+    ]
+);
 
 /// Register key bindings for dropdown components
 ///
@@ -135,7 +144,9 @@ impl Dropdown {
 
     /// Get the currently selected value
     pub fn selected(&self) -> &str {
-        self.choices.get(self.selected_index).map_or("", |s| s.as_str())
+        self.choices
+            .get(self.selected_index)
+            .map_or("", |s| s.as_str())
     }
 
     /// Get the currently selected index
@@ -185,7 +196,8 @@ impl Dropdown {
 
     fn select_by_offset(&mut self, offset: isize, cx: &mut Context<Self>) {
         let new_index = (self.selected_index as isize + offset)
-            .clamp(0, self.choices.len().saturating_sub(1) as isize) as usize;
+            .clamp(0, self.choices.len().saturating_sub(1) as isize)
+            as usize;
         if new_index != self.selected_index {
             self.selected_index = new_index;
             if let Some(choice) = self.choices.get(self.selected_index) {
@@ -232,16 +244,22 @@ impl Render for Dropdown {
         if !self.focus_out_subscribed {
             self.focus_out_subscribed = true;
             let focus_handle = self.focus_handle.clone();
-            cx.on_focus_out(&focus_handle, window, |this: &mut Self, _event, _window, cx| {
-                if this.is_open {
-                    this.is_open = false;
-                    cx.emit(DropdownEvent::Close);
-                    cx.notify();
-                }
-            }).detach();
+            cx.on_focus_out(
+                &focus_handle,
+                window,
+                |this: &mut Self, _event, _window, cx| {
+                    if this.is_open {
+                        this.is_open = false;
+                        cx.emit(DropdownEvent::Close);
+                        cx.notify();
+                    }
+                },
+            )
+            .detach();
         }
 
-        let selected = self.choices
+        let selected = self
+            .choices
             .get(self.selected_index)
             .cloned()
             .unwrap_or_default();
@@ -269,77 +287,87 @@ impl Render for Dropdown {
             cx,
         )
         .on_action(cx.listener(|dropdown, _: &CloseDropdown, _window, cx| {
-                if dropdown.enabled {
-                    dropdown.close(cx);
-                }
-            }))
-            .on_action(cx.listener(|dropdown, _: &SelectPrevious, _window, cx| {
-                if dropdown.enabled {
-                    dropdown.select_previous(cx);
-                }
-            }))
-            .on_action(cx.listener(|dropdown, _: &SelectNext, _window, cx| {
-                if dropdown.enabled {
-                    dropdown.select_next(cx);
-                }
-            }))
-            .on_action(cx.listener(|dropdown, _: &ConfirmSelection, _window, cx| {
-                if dropdown.enabled {
-                    dropdown.close(cx);
-                }
-            }))
-            .on_action(cx.listener(|dropdown, _: &ToggleDropdown, window, cx| {
-                if dropdown.enabled {
-                    dropdown.toggle(cx);
-                    dropdown.focus_handle.focus(window);
-                }
-            }))
-            .on_key_down(cx.listener(|_dropdown, event: &KeyDownEvent, window, _cx| {
-                handle_tab_navigation(event, window);
-            }))
-            .child(
-                // Dropdown button
-                div()
-                    .id("ccf_dropdown_button")
-                    .flex()
-                    .flex_row()
-                    .justify_between()
-                    .items_center()
-                    .w_full()
-                    .h(px(32.))
-                    .px_3()
-                    .border_1()
-                    .when(enabled, |d| {
-                        d.border_color(if is_focused { rgb(border_focus) } else { rgb(border_input) })
-                            .bg(rgb(bg_input))
-                            .text_color(rgb(text_primary))
-                            .cursor_pointer()
-                            .hover(|d| d.bg(rgb(bg_input_hover)))
-                            .on_click(cx.listener(move |dropdown, _event, window, cx| {
-                                dropdown.toggle(cx);
-                                dropdown.focus_handle.focus(window);
-                            }))
+            if dropdown.enabled {
+                dropdown.close(cx);
+            }
+        }))
+        .on_action(cx.listener(|dropdown, _: &SelectPrevious, _window, cx| {
+            if dropdown.enabled {
+                dropdown.select_previous(cx);
+            }
+        }))
+        .on_action(cx.listener(|dropdown, _: &SelectNext, _window, cx| {
+            if dropdown.enabled {
+                dropdown.select_next(cx);
+            }
+        }))
+        .on_action(cx.listener(|dropdown, _: &ConfirmSelection, _window, cx| {
+            if dropdown.enabled {
+                dropdown.close(cx);
+            }
+        }))
+        .on_action(cx.listener(|dropdown, _: &ToggleDropdown, window, cx| {
+            if dropdown.enabled {
+                dropdown.toggle(cx);
+                dropdown.focus_handle.focus(window);
+            }
+        }))
+        .on_key_down(cx.listener(|_dropdown, event: &KeyDownEvent, window, _cx| {
+            handle_tab_navigation(event, window);
+        }))
+        .child(
+            // Dropdown button
+            div()
+                .id("ccf_dropdown_button")
+                .flex()
+                .flex_row()
+                .justify_between()
+                .items_center()
+                .w_full()
+                .h(px(32.))
+                .px_3()
+                .border_1()
+                .when(enabled, |d| {
+                    d.border_color(if is_focused {
+                        rgb(border_focus)
+                    } else {
+                        rgb(border_input)
                     })
-                    .when(!enabled, |d| {
-                        d.border_color(rgb(disabled_bg))
-                            .bg(rgb(disabled_bg))
-                            .text_color(rgb(disabled_text))
-                            .cursor_default()
-                    })
-                    .rounded_md()
-                    .text_sm()
-                    .child(selected.clone())
-                    .child(
-                        div()
-                            .text_xs()
-                            .when(enabled, |d| d.text_color(rgb(text_muted)))
-                            .when(!enabled, |d| d.text_color(rgb(disabled_text)))
-                            .child("▼")
-                    )
-            )
-            .when(is_open, |parent| {
-                let selected_index = self.selected_index;
-                let choices_list: Vec<_> = self.choices.iter().enumerate().map(|(i, choice)| {
+                    .bg(rgb(bg_input))
+                    .text_color(rgb(text_primary))
+                    .cursor_pointer()
+                    .hover(|d| d.bg(rgb(bg_input_hover)))
+                    .on_click(cx.listener(
+                        move |dropdown, _event, window, cx| {
+                            dropdown.toggle(cx);
+                            dropdown.focus_handle.focus(window);
+                        },
+                    ))
+                })
+                .when(!enabled, |d| {
+                    d.border_color(rgb(disabled_bg))
+                        .bg(rgb(disabled_bg))
+                        .text_color(rgb(disabled_text))
+                        .cursor_default()
+                })
+                .rounded_md()
+                .text_sm()
+                .child(selected.clone())
+                .child(
+                    div()
+                        .text_xs()
+                        .when(enabled, |d| d.text_color(rgb(text_muted)))
+                        .when(!enabled, |d| d.text_color(rgb(disabled_text)))
+                        .child("▼"),
+                ),
+        )
+        .when(is_open, |parent| {
+            let selected_index = self.selected_index;
+            let choices_list: Vec<_> = self
+                .choices
+                .iter()
+                .enumerate()
+                .map(|(i, choice)| {
                     let is_selected = i == selected_index;
                     let choice_clone = choice.clone();
 
@@ -358,44 +386,44 @@ impl Render for Dropdown {
                         })
                         .child(choice.clone())
                         // Use on_mouse_down to handle selection immediately and prevent click-through
-                        .on_mouse_down(MouseButton::Left, cx.listener(move |dropdown, _event, _window, cx| {
-                            dropdown.selected_index = i;
+                        .on_mouse_down(
+                            MouseButton::Left,
+                            cx.listener(move |dropdown, _event, _window, cx| {
+                                dropdown.selected_index = i;
+                                dropdown.is_open = false;
+                                cx.emit(DropdownEvent::Change(choice_clone.clone()));
+                                cx.emit(DropdownEvent::Close);
+                                cx.notify();
+                            }),
+                        )
+                })
+                .collect();
+
+            parent.child(deferred(
+                anchored().anchor(Corner::TopLeft).child(
+                    div()
+                        .id("ccf_dropdown_menu")
+                        .occlude() // Block all mouse events from reaching elements below
+                        .absolute()
+                        .top(px(2.))
+                        .left_0()
+                        .w_full()
+                        .min_w(px(200.))
+                        .border_1()
+                        .border_color(rgb(border_input))
+                        .rounded_md()
+                        .bg(rgb(bg_input))
+                        .max_h(px(200.))
+                        .overflow_y_scroll()
+                        .shadow_lg()
+                        .children(choices_list)
+                        .on_mouse_down_out(cx.listener(|dropdown, _event, _window, cx| {
                             dropdown.is_open = false;
-                            cx.emit(DropdownEvent::Change(choice_clone.clone()));
                             cx.emit(DropdownEvent::Close);
                             cx.notify();
-                        }))
-                }).collect();
-
-                parent.child(
-                    deferred(
-                        anchored()
-                            .anchor(Corner::TopLeft)
-                            .child(
-                                div()
-                                    .id("ccf_dropdown_menu")
-                                    .occlude()  // Block all mouse events from reaching elements below
-                                    .absolute()
-                                    .top(px(2.))
-                                    .left_0()
-                                    .w_full()
-                                    .min_w(px(200.))
-                                    .border_1()
-                                    .border_color(rgb(border_input))
-                                    .rounded_md()
-                                    .bg(rgb(bg_input))
-                                    .max_h(px(200.))
-                                    .overflow_y_scroll()
-                                    .shadow_lg()
-                                    .children(choices_list)
-                                    .on_mouse_down_out(cx.listener(|dropdown, _event, _window, cx| {
-                                        dropdown.is_open = false;
-                                        cx.emit(DropdownEvent::Close);
-                                        cx.notify();
-                                    }))
-                            )
-                    )
-                )
-            })
+                        })),
+                ),
+            ))
+        })
     }
 }

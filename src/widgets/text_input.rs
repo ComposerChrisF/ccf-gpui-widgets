@@ -34,10 +34,10 @@ use std::time::Duration;
 use gpui::prelude::*;
 use gpui::*;
 
-use crate::theme::{get_theme_or, Theme};
 use super::cursor_blink::CursorBlink;
 use super::editing_core::EditingCore;
 use super::focus_navigation::{FocusNext, FocusPrev};
+use crate::theme::{get_theme_or, Theme};
 
 // Actions for keyboard handling
 actions!(
@@ -370,7 +370,8 @@ impl TextInput {
         let mask_char_len = MASK_CHAR.len();
         let char_index = display_pos / mask_char_len;
         // Convert char index to byte index in content
-        self.core.content()
+        self.core
+            .content()
             .char_indices()
             .nth(char_index)
             .map(|(i, _)| i)
@@ -493,12 +494,11 @@ impl TextInput {
             strikethrough: None,
         };
 
-        Some(window.text_system().shape_line(
-            SharedString::from(display),
-            font_size,
-            &[run],
-            None,
-        ))
+        Some(
+            window
+                .text_system()
+                .shape_line(SharedString::from(display), font_size, &[run], None),
+        )
     }
 
     /// Calculate cursor position from click x coordinate
@@ -639,29 +639,36 @@ impl TextInput {
     }
 
     /// Spawn auto-scroll timer if scrolling is needed and timer isn't already active
-    fn spawn_auto_scroll_timer_if_needed(&mut self, scroll_speed: f32, window: &mut Window, cx: &mut Context<Self>) {
+    fn spawn_auto_scroll_timer_if_needed(
+        &mut self,
+        scroll_speed: f32,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.auto_scroll_speed = scroll_speed;
         if scroll_speed != 0.0 && !self.auto_scroll_active {
             self.auto_scroll_active = true;
             let entity = cx.entity();
-            window.spawn(cx, async move |async_cx| {
-                loop {
-                    smol::Timer::after(Duration::from_millis(32)).await; // ~30fps
-                    let should_continue = async_cx
-                        .update_entity(&entity, |this, cx| {
-                            if !this.auto_scroll_active || !this.is_dragging {
-                                this.auto_scroll_active = false;
-                                return false;
-                            }
-                            cx.notify();
-                            true
-                        })
-                        .unwrap_or(false);
-                    if !should_continue {
-                        break;
+            window
+                .spawn(cx, async move |async_cx| {
+                    loop {
+                        smol::Timer::after(Duration::from_millis(32)).await; // ~30fps
+                        let should_continue = async_cx
+                            .update_entity(&entity, |this, cx| {
+                                if !this.auto_scroll_active || !this.is_dragging {
+                                    this.auto_scroll_active = false;
+                                    return false;
+                                }
+                                cx.notify();
+                                true
+                            })
+                            .unwrap_or(false);
+                        if !should_continue {
+                            break;
+                        }
                     }
-                }
-            }).detach();
+                })
+                .detach();
         }
     }
 
@@ -810,9 +817,14 @@ impl Render for TextInput {
         if !self.focus_out_subscribed {
             self.focus_out_subscribed = true;
             let focus_handle = self.focus_handle.clone();
-            cx.on_focus_out(&focus_handle, window, |this: &mut Self, _event, _window, cx| {
-                this.on_blur(cx);
-            }).detach();
+            cx.on_focus_out(
+                &focus_handle,
+                window,
+                |this: &mut Self, _event, _window, cx| {
+                    this.on_blur(cx);
+                },
+            )
+            .detach();
         }
 
         // Detect focus-in
@@ -829,8 +841,8 @@ impl Render for TextInput {
             self.blink_timer_active = true;
             let entity = cx.entity();
             let blink_period = CursorBlink::blink_period();
-            window.spawn(cx, async move |async_cx| {
-                loop {
+            window
+                .spawn(cx, async move |async_cx| loop {
                     smol::Timer::after(blink_period).await;
                     let should_continue = async_cx
                         .update_entity(&entity, |this, cx| {
@@ -844,8 +856,8 @@ impl Render for TextInput {
                     if !should_continue {
                         break;
                     }
-                }
-            }).detach();
+                })
+                .detach();
         }
 
         if !is_focused {
@@ -881,11 +893,19 @@ impl Render for TextInput {
         let scroll_offset = render_scroll_offset;
         let enabled = self.enabled;
         let selection_color = theme.selection;
-        let text_color = if enabled { theme.text_primary } else { theme.disabled_text };
+        let text_color = if enabled {
+            theme.text_primary
+        } else {
+            theme.disabled_text
+        };
         let text_placeholder = theme.text_placeholder;
         let border_focus = theme.border_focus;
         let border_input = theme.border_input;
-        let bg_input = if enabled { theme.bg_input } else { theme.disabled_bg };
+        let bg_input = if enabled {
+            theme.bg_input
+        } else {
+            theme.disabled_bg
+        };
         let disabled_bg = theme.disabled_bg;
 
         div()
@@ -895,109 +915,159 @@ impl Render for TextInput {
             .tab_stop(enabled)
             // Navigation actions
             .on_action(cx.listener(|this, _: &MoveLeft, _window, cx| {
-                if !this.enabled { return; }
+                if !this.enabled {
+                    return;
+                }
                 this.handle_move_left(cx);
             }))
             .on_action(cx.listener(|this, _: &MoveRight, _window, cx| {
-                if !this.enabled { return; }
+                if !this.enabled {
+                    return;
+                }
                 this.handle_move_right(cx);
             }))
             .on_action(cx.listener(|this, _: &MoveWordLeft, _window, cx| {
-                if !this.enabled { return; }
+                if !this.enabled {
+                    return;
+                }
                 this.handle_move_word_left(cx);
             }))
             .on_action(cx.listener(|this, _: &MoveWordRight, _window, cx| {
-                if !this.enabled { return; }
+                if !this.enabled {
+                    return;
+                }
                 this.handle_move_word_right(cx);
             }))
             .on_action(cx.listener(|this, _: &MoveToStart, _window, cx| {
-                if !this.enabled { return; }
+                if !this.enabled {
+                    return;
+                }
                 this.handle_move_to_start(cx);
             }))
             .on_action(cx.listener(|this, _: &MoveToEnd, _window, cx| {
-                if !this.enabled { return; }
+                if !this.enabled {
+                    return;
+                }
                 this.handle_move_to_end(cx);
             }))
             // Selection actions
             .on_action(cx.listener(|this, _: &SelectLeft, _window, cx| {
-                if !this.enabled { return; }
+                if !this.enabled {
+                    return;
+                }
                 this.handle_select_left(cx);
             }))
             .on_action(cx.listener(|this, _: &SelectRight, _window, cx| {
-                if !this.enabled { return; }
+                if !this.enabled {
+                    return;
+                }
                 this.handle_select_right(cx);
             }))
             .on_action(cx.listener(|this, _: &SelectWordLeft, _window, cx| {
-                if !this.enabled { return; }
+                if !this.enabled {
+                    return;
+                }
                 this.handle_select_word_left(cx);
             }))
             .on_action(cx.listener(|this, _: &SelectWordRight, _window, cx| {
-                if !this.enabled { return; }
+                if !this.enabled {
+                    return;
+                }
                 this.handle_select_word_right(cx);
             }))
             .on_action(cx.listener(|this, _: &SelectToStart, _window, cx| {
-                if !this.enabled { return; }
+                if !this.enabled {
+                    return;
+                }
                 this.handle_select_to_start(cx);
             }))
             .on_action(cx.listener(|this, _: &SelectToEnd, _window, cx| {
-                if !this.enabled { return; }
+                if !this.enabled {
+                    return;
+                }
                 this.handle_select_to_end(cx);
             }))
             .on_action(cx.listener(|this, _: &SelectAll, _window, cx| {
-                if !this.enabled { return; }
+                if !this.enabled {
+                    return;
+                }
                 this.handle_select_all(cx);
             }))
             // Delete actions
             .on_action(cx.listener(|this, _: &DeleteBackward, _window, cx| {
-                if !this.enabled { return; }
+                if !this.enabled {
+                    return;
+                }
                 this.handle_delete_backward(cx);
             }))
             .on_action(cx.listener(|this, _: &DeleteForward, _window, cx| {
-                if !this.enabled { return; }
+                if !this.enabled {
+                    return;
+                }
                 this.handle_delete_forward(cx);
             }))
             .on_action(cx.listener(|this, _: &DeleteWordBackward, _window, cx| {
-                if !this.enabled { return; }
+                if !this.enabled {
+                    return;
+                }
                 this.handle_delete_word_backward(cx);
             }))
             .on_action(cx.listener(|this, _: &DeleteWordForward, _window, cx| {
-                if !this.enabled { return; }
+                if !this.enabled {
+                    return;
+                }
                 this.handle_delete_word_forward(cx);
             }))
             // Clipboard actions
             .on_action(cx.listener(|this, _: &Cut, _window, cx| {
-                if !this.enabled { return; }
+                if !this.enabled {
+                    return;
+                }
                 this.cut(cx);
             }))
             .on_action(cx.listener(|this, _: &Copy, _window, cx| {
-                if !this.enabled { return; }
+                if !this.enabled {
+                    return;
+                }
                 this.copy(cx);
             }))
             .on_action(cx.listener(|this, _: &Paste, _window, cx| {
-                if !this.enabled { return; }
+                if !this.enabled {
+                    return;
+                }
                 this.paste(cx);
             }))
             // Enter/Escape
             .on_action(cx.listener(|this, _: &Enter, _window, cx| {
-                if !this.enabled { return; }
+                if !this.enabled {
+                    return;
+                }
                 cx.emit(TextInputEvent::Enter);
             }))
             .on_action(cx.listener(|this, _: &Escape, _window, cx| {
-                if !this.enabled { return; }
+                if !this.enabled {
+                    return;
+                }
                 cx.emit(TextInputEvent::Escape);
             }))
             // Focus navigation (Tab / Shift+Tab)
             .on_action(cx.listener(|this, _: &FocusNext, window, _cx| {
-                if !this.enabled { return; }
+                if !this.enabled {
+                    return;
+                }
                 window.focus_next();
             }))
             .on_action(cx.listener(|this, _: &FocusPrev, window, _cx| {
-                if !this.enabled { return; }
+                if !this.enabled {
+                    return;
+                }
                 window.focus_prev();
             }))
             // Character input (Tab handled separately for focus navigation)
             .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
-                if !this.enabled { return; }
+                if !this.enabled {
+                    return;
+                }
                 // Handle Tab for focus navigation
                 if event.keystroke.key == "tab" {
                     if this.emit_tab_events {
@@ -1028,39 +1098,42 @@ impl Render for TextInput {
             }))
             // Click to focus and position cursor, start drag (only when enabled)
             .when(enabled, |d| {
-                d.on_mouse_down(MouseButton::Left, cx.listener(|this, event: &MouseDownEvent, window, cx| {
-                    let was_focused = this.focus_handle.is_focused(window);
-                    this.focus_handle.focus(window);
+                d.on_mouse_down(
+                    MouseButton::Left,
+                    cx.listener(|this, event: &MouseDownEvent, window, cx| {
+                        let was_focused = this.focus_handle.is_focused(window);
+                        this.focus_handle.focus(window);
 
-                    // If clicking to restore focus and there's a selection to restore,
-                    // just restore focus without changing cursor/selection
-                    if !was_focused && this.core.selection().is_some() {
+                        // If clicking to restore focus and there's a selection to restore,
+                        // just restore focus without changing cursor/selection
+                        if !was_focused && this.core.selection().is_some() {
+                            this.reset_cursor_blink();
+                            cx.notify();
+                            return;
+                        }
+
+                        let click_x: f32 = event.position.x.into();
+                        let relative_x = (click_x - this.content_origin_x).max(0.0);
+                        let new_cursor = this.cursor_at_x(relative_x, window);
+
+                        if event.modifiers.shift {
+                            // Shift+click extends selection
+                            this.core.start_selection_from_cursor();
+                            this.core.extend_selection_to(new_cursor);
+                        } else {
+                            // Regular click starts a new selection
+                            this.core.clear_selection();
+                            this.core.set_cursor(new_cursor);
+                            // Set anchor for potential drag selection
+                            this.core.start_selection_from_cursor();
+                        }
+
+                        // Start drag operation
+                        this.is_dragging = true;
                         this.reset_cursor_blink();
                         cx.notify();
-                        return;
-                    }
-
-                    let click_x: f32 = event.position.x.into();
-                    let relative_x = (click_x - this.content_origin_x).max(0.0);
-                    let new_cursor = this.cursor_at_x(relative_x, window);
-
-                    if event.modifiers.shift {
-                        // Shift+click extends selection
-                        this.core.start_selection_from_cursor();
-                        this.core.extend_selection_to(new_cursor);
-                    } else {
-                        // Regular click starts a new selection
-                        this.core.clear_selection();
-                        this.core.set_cursor(new_cursor);
-                        // Set anchor for potential drag selection
-                        this.core.start_selection_from_cursor();
-                    }
-
-                    // Start drag operation
-                    this.is_dragging = true;
-                    this.reset_cursor_blink();
-                    cx.notify();
-                }))
+                    }),
+                )
                 // Drag to select text
                 .on_mouse_move(cx.listener(|this, event: &MouseMoveEvent, window, cx| {
                     if !this.is_dragging {
@@ -1073,10 +1146,13 @@ impl Render for TextInput {
                     cx.notify();
                 }))
                 // Mouse up ends drag
-                .on_mouse_up(MouseButton::Left, cx.listener(|this, _event: &MouseUpEvent, _window, cx| {
-                    this.stop_drag();
-                    cx.notify();
-                }))
+                .on_mouse_up(
+                    MouseButton::Left,
+                    cx.listener(|this, _event: &MouseUpEvent, _window, cx| {
+                        this.stop_drag();
+                        cx.notify();
+                    }),
+                )
             })
             // Styling
             .w_full()
@@ -1085,14 +1161,16 @@ impl Render for TextInput {
             // Only apply border/background/rounded corners when not borderless
             .when(!self.borderless, |d| {
                 d.border_1()
-                    .border_color(if is_focused { rgb(border_focus) } else { rgb(border_input) })
+                    .border_color(if is_focused {
+                        rgb(border_focus)
+                    } else {
+                        rgb(border_input)
+                    })
                     .rounded_md()
                     .bg(rgb(bg_input))
             })
             // Borderless disabled styling
-            .when(self.borderless && !enabled, |d| {
-                d.bg(rgb(disabled_bg))
-            })
+            .when(self.borderless && !enabled, |d| d.bg(rgb(disabled_bg)))
             .when(enabled, |d| d.cursor_text())
             .when(!enabled, |d| d.cursor_default())
             .relative()
@@ -1128,35 +1206,47 @@ impl Render for TextInput {
                                     if is_dragging {
                                         // Mouse move handler for drag selection
                                         let entity_move = entity.clone();
-                                        window.on_mouse_event(move |event: &MouseMoveEvent, phase, window, cx| {
-                                            if phase != DispatchPhase::Capture {
-                                                return;
-                                            }
-                                            let mouse_x: f32 = event.position.x.into();
-                                            entity_move.update(cx, |this: &mut TextInput, cx| {
-                                                let scroll_speed = this.handle_drag_move(mouse_x, window);
-                                                this.spawn_auto_scroll_timer_if_needed(scroll_speed, window, cx);
-                                                cx.notify();
-                                            });
-                                        });
+                                        window.on_mouse_event(
+                                            move |event: &MouseMoveEvent, phase, window, cx| {
+                                                if phase != DispatchPhase::Capture {
+                                                    return;
+                                                }
+                                                let mouse_x: f32 = event.position.x.into();
+                                                entity_move.update(
+                                                    cx,
+                                                    |this: &mut TextInput, cx| {
+                                                        let scroll_speed =
+                                                            this.handle_drag_move(mouse_x, window);
+                                                        this.spawn_auto_scroll_timer_if_needed(
+                                                            scroll_speed,
+                                                            window,
+                                                            cx,
+                                                        );
+                                                        cx.notify();
+                                                    },
+                                                );
+                                            },
+                                        );
 
                                         // Mouse up handler to end drag
                                         let entity_up = entity.clone();
-                                        window.on_mouse_event(move |_event: &MouseUpEvent, phase, _window, cx| {
-                                            if phase != DispatchPhase::Capture {
-                                                return;
-                                            }
-                                            entity_up.update(cx, |this: &mut TextInput, cx| {
-                                                this.stop_drag();
-                                                cx.notify();
-                                            });
-                                        });
+                                        window.on_mouse_event(
+                                            move |_event: &MouseUpEvent, phase, _window, cx| {
+                                                if phase != DispatchPhase::Capture {
+                                                    return;
+                                                }
+                                                entity_up.update(cx, |this: &mut TextInput, cx| {
+                                                    this.stop_drag();
+                                                    cx.notify();
+                                                });
+                                            },
+                                        );
                                     }
                                 }
                             },
                         )
                         .size_full()
-                        .absolute()
+                        .absolute(),
                     )
                     // Content layer
                     .child(
@@ -1175,7 +1265,7 @@ impl Render for TextInput {
                                         .bottom_0()
                                         .left(px(start_x))
                                         .w(px(width))
-                                        .bg(rgb(selection_color))
+                                        .bg(rgb(selection_color)),
                                 )
                             })
                             // Text content
@@ -1186,7 +1276,7 @@ impl Render for TextInput {
                                     .text_sm()
                                     .text_color(rgb(text_color))
                                     .whitespace_nowrap()
-                                    .child(display_content.clone())
+                                    .child(display_content.clone()),
                             )
                             // Cursor
                             .when(cursor_visible, |d| {
@@ -1197,9 +1287,9 @@ impl Render for TextInput {
                                         .bottom(px(4.))
                                         .left(px(cursor_x))
                                         .w(px(1.))
-                                        .bg(rgb(text_color))
+                                        .bg(rgb(text_color)),
                                 )
-                            })
+                            }),
                     )
                     // Placeholder
                     .when(!has_content, |d| {
@@ -1210,7 +1300,7 @@ impl Render for TextInput {
                                     .left_0()
                                     .text_sm()
                                     .text_color(rgb(text_placeholder))
-                                    .child(ph)
+                                    .child(ph),
                             )
                         } else {
                             d

@@ -60,8 +60,8 @@
 use gpui::prelude::*;
 use gpui::*;
 
-use crate::theme::{get_theme_or, Theme};
 use super::focus_navigation::{handle_tab_navigation, with_focus_actions, EnabledCursorExt};
+use crate::theme::{get_theme_or, Theme};
 
 /// Events emitted by Collapsible
 #[derive(Clone, Debug)]
@@ -221,7 +221,7 @@ impl Render for Collapsible {
                         .text_sm()
                         .font_weight(FontWeight::SEMIBOLD)
                         .text_color(rgb(theme.text_section_header))
-                        .child(title)
+                        .child(title),
                 );
         }
 
@@ -265,13 +265,20 @@ impl Render for Collapsible {
         .when(!collapsed, |d| d.rounded_t_md())
         .cursor_for_enabled(interactive)
         .border_2()
-        .border_color(if is_focused && enabled { rgb(theme.border_focus) } else { rgba(0x00000000) })
+        .border_color(if is_focused && enabled {
+            rgb(theme.border_focus)
+        } else {
+            rgba(0x00000000)
+        })
         .when(interactive, |d| {
             d.hover(|d| d.bg(rgb(theme.bg_section_header_hover)))
-                .on_mouse_down(MouseButton::Left, cx.listener(|this, _event, window, cx| {
-                    this.focus_handle.focus(window);
-                    this.toggle(cx);
-                }))
+                .on_mouse_down(
+                    MouseButton::Left,
+                    cx.listener(|this, _event, window, cx| {
+                        this.focus_handle.focus(window);
+                        this.toggle(cx);
+                    }),
+                )
         })
         .child(
             // Chevron icon
@@ -280,7 +287,7 @@ impl Render for Collapsible {
                 .when(enabled, |d| d.text_color(rgb(theme.text_dimmed)))
                 .when(!enabled, |d| d.text_color(rgb(theme.disabled_text)))
                 .w(px(16.))
-                .child(chevron)
+                .child(chevron),
         )
         .child(
             // Section title
@@ -289,7 +296,7 @@ impl Render for Collapsible {
                 .font_weight(FontWeight::SEMIBOLD)
                 .when(enabled, |d| d.text_color(rgb(theme.text_section_header)))
                 .when(!enabled, |d| d.text_color(rgb(theme.disabled_text)))
-                .child(title)
+                .child(title),
         )
     }
 }

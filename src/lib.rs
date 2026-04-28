@@ -70,12 +70,27 @@
 //!
 //! - [`RepeatableTextInput`](widgets::RepeatableTextInput) - Text input with add/remove for lists
 //!
-#![cfg_attr(feature = "file-picker", doc = "## File Widgets (requires `file-picker` feature)")]
+#![cfg_attr(
+    feature = "file-picker",
+    doc = "## File Widgets (requires `file-picker` feature)"
+)]
 #![cfg_attr(feature = "file-picker", doc = "")]
-#![cfg_attr(feature = "file-picker", doc = "- [`FilePicker`](widgets::FilePicker) - File selection with native dialog")]
-#![cfg_attr(feature = "file-picker", doc = "- [`DirectoryPicker`](widgets::DirectoryPicker) - Directory selection with native dialog")]
-#![cfg_attr(feature = "file-picker", doc = "- [`RepeatableFilePicker`](widgets::RepeatableFilePicker) - File picker with add/remove for lists")]
-#![cfg_attr(feature = "file-picker", doc = "- [`RepeatableDirectoryPicker`](widgets::RepeatableDirectoryPicker) - Directory picker with add/remove for lists")]
+#![cfg_attr(
+    feature = "file-picker",
+    doc = "- [`FilePicker`](widgets::FilePicker) - File selection with native dialog"
+)]
+#![cfg_attr(
+    feature = "file-picker",
+    doc = "- [`DirectoryPicker`](widgets::DirectoryPicker) - Directory selection with native dialog"
+)]
+#![cfg_attr(
+    feature = "file-picker",
+    doc = "- [`RepeatableFilePicker`](widgets::RepeatableFilePicker) - File picker with add/remove for lists"
+)]
+#![cfg_attr(
+    feature = "file-picker",
+    doc = "- [`RepeatableDirectoryPicker`](widgets::RepeatableDirectoryPicker) - Directory picker with add/remove for lists"
+)]
 //!
 //! ## Utilities
 //!
@@ -119,46 +134,31 @@ pub mod utils;
 pub mod widgets;
 
 // Convenient re-exports
-pub use theme::{Theme, Palette};
+pub use theme::{Palette, Theme};
 pub use widgets::register_all_keybindings;
 
 /// Prelude for convenient imports
 pub mod prelude {
-    pub use crate::theme::{get_theme, get_theme_or, Theme, Palette};
+    pub use crate::theme::{get_theme, get_theme_or, Palette, Theme};
     pub use crate::widgets::{
-        register_all_keybindings,
-        TextInput, TextInputEvent,
-        Checkbox, CheckboxEvent,
-        Dropdown, DropdownEvent,
-        NumberStepper, NumberStepperEvent,
-        RadioGroup, RadioGroupEvent,
-        CheckboxGroup, CheckboxGroupEvent,
-        ColorSwatch, ColorSwatchEvent,
-        Collapsible, CollapsibleEvent,
-        Tooltip,
-        primary_button, secondary_button, danger_button,
-        PasswordInput, PasswordInputEvent,
-        TabBar, TabBarEvent,
-        RepeatableTextInput, RepeatableTextInputEvent,
-        ToggleSwitch, ToggleSwitchEvent, LabelPosition,
-        Slider, SliderEvent,
-        ProgressBar, ProgressBarEvent,
-        Spinner, SpinnerSize,
-        ConfirmationDialog, ConfirmationDialogEvent, DialogStyle, DialogButton,
-        Scrollable, scrollable_vertical, scrollable_horizontal, scrollable_both,
-        ScrollbarAxis,
-        SegmentedControl, SegmentedControlEvent, SegmentOption,
-        SidebarNav, SidebarNavEvent,
-        SelectionItem, StringItem,
+        danger_button, primary_button, register_all_keybindings, scrollable_both,
+        scrollable_horizontal, scrollable_vertical, secondary_button, Checkbox, CheckboxEvent,
+        CheckboxGroup, CheckboxGroupEvent, Collapsible, CollapsibleEvent, ColorSwatch,
+        ColorSwatchEvent, ConfirmationDialog, ConfirmationDialogEvent, DialogButton, DialogStyle,
+        Dropdown, DropdownEvent, LabelPosition, NumberStepper, NumberStepperEvent, PasswordInput,
+        PasswordInputEvent, ProgressBar, ProgressBarEvent, RadioGroup, RadioGroupEvent,
+        RepeatableTextInput, RepeatableTextInputEvent, Scrollable, ScrollbarAxis, SegmentOption,
+        SegmentedControl, SegmentedControlEvent, SelectionItem, SidebarNav, SidebarNavEvent,
+        Slider, SliderEvent, Spinner, SpinnerSize, StringItem, TabBar, TabBarEvent, TextInput,
+        TextInputEvent, ToggleSwitch, ToggleSwitchEvent, Tooltip,
     };
 
     #[cfg(feature = "file-picker")]
     pub use crate::widgets::{
-        FilePicker, FilePickerEvent, FileMode, MissingDirectories,
-        DirectoryPicker, DirectoryPickerEvent,
+        DirectoryPicker, DirectoryPickerEvent, FileMode, FilePicker, FilePickerEvent,
+        MissingDirectories, RepeatableDirectoryPicker, RepeatableDirectoryPickerEvent,
         RepeatableFilePicker, RepeatableFilePickerEvent,
-        RepeatableDirectoryPicker, RepeatableDirectoryPickerEvent,
     };
 
-    pub use crate::utils::{parse_path, expand_tilde, PathInfo};
+    pub use crate::utils::{expand_tilde, parse_path, PathInfo};
 }

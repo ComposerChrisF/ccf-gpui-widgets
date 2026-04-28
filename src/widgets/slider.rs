@@ -41,9 +41,9 @@ use std::rc::Rc;
 use gpui::prelude::*;
 use gpui::*;
 
+use super::focus_navigation::{handle_tab_navigation, with_focus_actions, EnabledCursorExt};
 use crate::theme::{get_theme_or, Theme};
 use crate::utils::format_display_value;
-use super::focus_navigation::{handle_tab_navigation, with_focus_actions, EnabledCursorExt};
 
 /// Events emitted by Slider
 #[derive(Clone, Debug)]
@@ -335,10 +335,26 @@ impl Render for Slider {
         let track_width = self.track_width.clone();
 
         // Colors based on enabled state
-        let track_bg = if enabled { theme.bg_input } else { theme.disabled_bg };
-        let filled_bg = if enabled { theme.primary } else { theme.disabled_text };
-        let thumb_border = if enabled { theme.primary } else { theme.disabled_text };
-        let value_color = if enabled { theme.text_value } else { theme.disabled_text };
+        let track_bg = if enabled {
+            theme.bg_input
+        } else {
+            theme.disabled_bg
+        };
+        let filled_bg = if enabled {
+            theme.primary
+        } else {
+            theme.disabled_text
+        };
+        let thumb_border = if enabled {
+            theme.primary
+        } else {
+            theme.disabled_text
+        };
+        let value_color = if enabled {
+            theme.text_value
+        } else {
+            theme.disabled_text
+        };
 
         // Build track element with filled portion and thumb
         let mut track_element = div()
@@ -362,7 +378,7 @@ impl Render for Slider {
                     |_, _, _, _| {},
                 )
                 .size_full()
-                .absolute()
+                .absolute(),
             )
             // Track background (centered vertically)
             .child(
@@ -373,7 +389,7 @@ impl Render for Slider {
                     .right_0()
                     .h(px(track_height))
                     .rounded_full()
-                    .bg(rgb(track_bg))
+                    .bg(rgb(track_bg)),
             )
             // Filled portion
             .child(
@@ -384,7 +400,7 @@ impl Render for Slider {
                     .w(relative(percentage as f32))
                     .h(px(track_height))
                     .rounded_full()
-                    .bg(rgb(filled_bg))
+                    .bg(rgb(filled_bg)),
             )
             // Thumb
             .child(
@@ -400,43 +416,54 @@ impl Render for Slider {
                     .bg(rgb(theme.bg_white))
                     .border_2()
                     .border_color(rgb(thumb_border))
-                    .when(enabled, |d| d.shadow_sm())
+                    .when(enabled, |d| d.shadow_sm()),
             );
 
         // Only register interaction handlers when enabled
         if enabled {
             track_element = track_element
                 // Mouse down starts drag
-                .on_mouse_down(MouseButton::Left, cx.listener(|slider, event: &MouseDownEvent, window, cx| {
-                    if !slider.enabled {
-                        return;
-                    }
-                    slider.focus_handle.focus(window);
-                    slider.start_drag();
-                    let x: f32 = event.position.x.into();
-                    slider.set_value_from_position(x, cx);
-                }))
+                .on_mouse_down(
+                    MouseButton::Left,
+                    cx.listener(|slider, event: &MouseDownEvent, window, cx| {
+                        if !slider.enabled {
+                            return;
+                        }
+                        slider.focus_handle.focus(window);
+                        slider.start_drag();
+                        let x: f32 = event.position.x.into();
+                        slider.set_value_from_position(x, cx);
+                    }),
+                )
                 // Initiate drag
                 .on_drag(SliderDragState, |_state, _position, _window, cx| {
                     cx.new(|_| EmptyDragView)
                 })
                 // Track drag movement
-                .on_drag_move(cx.listener(|slider, event: &DragMoveEvent<SliderDragState>, _window, cx| {
-                    if !slider.enabled {
-                        return;
-                    }
-                    if slider.dragging {
-                        let x: f32 = event.event.position.x.into();
-                        slider.set_value_from_position(x, cx);
-                    }
-                }))
+                .on_drag_move(cx.listener(
+                    |slider, event: &DragMoveEvent<SliderDragState>, _window, cx| {
+                        if !slider.enabled {
+                            return;
+                        }
+                        if slider.dragging {
+                            let x: f32 = event.event.position.x.into();
+                            slider.set_value_from_position(x, cx);
+                        }
+                    },
+                ))
                 // End drag on mouse up
-                .on_mouse_up(MouseButton::Left, cx.listener(|slider, _event: &MouseUpEvent, _window, cx| {
-                    slider.end_drag(cx);
-                }))
-                .on_mouse_up_out(MouseButton::Left, cx.listener(|slider, _event: &MouseUpEvent, _window, cx| {
-                    slider.end_drag(cx);
-                }));
+                .on_mouse_up(
+                    MouseButton::Left,
+                    cx.listener(|slider, _event: &MouseUpEvent, _window, cx| {
+                        slider.end_drag(cx);
+                    }),
+                )
+                .on_mouse_up_out(
+                    MouseButton::Left,
+                    cx.listener(|slider, _event: &MouseUpEvent, _window, cx| {
+                        slider.end_drag(cx);
+                    }),
+                );
         }
 
         with_focus_actions(
@@ -447,41 +474,49 @@ impl Render for Slider {
             cx,
         )
         .on_key_down(cx.listener(|slider, event: &KeyDownEvent, window, cx| {
-                if !slider.enabled {
-                    return;
-                }
-                if handle_tab_navigation(event, window) {
-                    return;
-                }
-                let multiplier = if event.keystroke.modifiers.shift { 10.0 } else { 1.0 };
-                match event.keystroke.key.as_str() {
-                    "left" => slider.decrement(multiplier, cx),
-                    "right" => slider.increment(multiplier, cx),
-                    "home" => slider.go_to_min(cx),
-                    "end" => slider.go_to_max(cx),
-                    _ => {}
-                }
-            }))
-            .flex()
-            .flex_row()
-            .gap_3()
-            .items_center()
-            .w_full()
-            .py_1()
-            .px_1()
-            .rounded_sm()
-            .border_2()
-            .border_color(if is_focused && enabled { rgb(theme.border_focus) } else { rgba(0x00000000) })
-            .child(track_element)
-            .when(show_value, |d| {
-                d.child(
-                    div()
-                        .min_w(px(40.0))
-                        .text_sm()
-                        .text_color(rgb(value_color))
-                        .text_right()
-                        .child(display_value)
-                )
-            })
+            if !slider.enabled {
+                return;
+            }
+            if handle_tab_navigation(event, window) {
+                return;
+            }
+            let multiplier = if event.keystroke.modifiers.shift {
+                10.0
+            } else {
+                1.0
+            };
+            match event.keystroke.key.as_str() {
+                "left" => slider.decrement(multiplier, cx),
+                "right" => slider.increment(multiplier, cx),
+                "home" => slider.go_to_min(cx),
+                "end" => slider.go_to_max(cx),
+                _ => {}
+            }
+        }))
+        .flex()
+        .flex_row()
+        .gap_3()
+        .items_center()
+        .w_full()
+        .py_1()
+        .px_1()
+        .rounded_sm()
+        .border_2()
+        .border_color(if is_focused && enabled {
+            rgb(theme.border_focus)
+        } else {
+            rgba(0x00000000)
+        })
+        .child(track_element)
+        .when(show_value, |d| {
+            d.child(
+                div()
+                    .min_w(px(40.0))
+                    .text_sm()
+                    .text_color(rgb(value_color))
+                    .text_right()
+                    .child(display_value),
+            )
+        })
     }
 }

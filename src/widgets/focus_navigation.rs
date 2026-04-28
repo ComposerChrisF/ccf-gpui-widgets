@@ -94,8 +94,8 @@ pub trait EnabledCursorExt: Styled + Sized + FluentBuilder {
 
 impl<E: Styled + Sized + FluentBuilder> EnabledCursorExt for E {}
 
-use crate::theme::Theme;
 use super::repeatable_text_input::ActivateButton as RepeatableActivateButton;
+use crate::theme::Theme;
 
 // ============================================================================
 // CRITICAL BUG WARNING - DO NOT REMOVE action_just_handled MECHANISM
@@ -154,7 +154,11 @@ pub fn repeatable_remove_button<V: 'static>(
     on_click_activate: impl Fn(&mut V, &mut Window, &mut Context<V>) + 'static,
     cx: &mut Context<V>,
 ) -> Stateful<Div> {
-    let line_color = if enabled { theme.text_label } else { theme.disabled_text };
+    let line_color = if enabled {
+        theme.text_label
+    } else {
+        theme.disabled_text
+    };
 
     let mut button = with_focus_actions(
         div()
@@ -175,26 +179,25 @@ pub fn repeatable_remove_button<V: 'static>(
     .when(enabled, |d| {
         d.bg(rgb(theme.delete_bg))
             .hover(|d| d.bg(rgb(theme.delete_bg_hover)))
-            .border_color(if is_focused { rgb(theme.border_focus) } else { rgba(0x00000000) })
+            .border_color(if is_focused {
+                rgb(theme.border_focus)
+            } else {
+                rgba(0x00000000)
+            })
     })
     .when(!enabled, |d| {
-        d.bg(rgb(theme.disabled_bg))
-            .border_color(rgba(0x00000000))
+        d.bg(rgb(theme.disabled_bg)).border_color(rgba(0x00000000))
     })
     // Draw minus sign with a horizontal line
-    .child(
-        div()
-            .w(px(10.))
-            .h(px(2.))
-            .rounded_sm()
-            .bg(rgb(line_color))
-    );
+    .child(div().w(px(10.)).h(px(2.)).rounded_sm().bg(rgb(line_color)));
 
     if enabled {
         button = button
-            .on_action(cx.listener(move |this, _: &RepeatableActivateButton, window, cx| {
-                on_action_activate(this, window, cx);
-            }))
+            .on_action(
+                cx.listener(move |this, _: &RepeatableActivateButton, window, cx| {
+                    on_action_activate(this, window, cx);
+                }),
+            )
             .on_click(cx.listener(move |this, _event, window, cx| {
                 on_click_activate(this, window, cx);
             }));
@@ -232,7 +235,11 @@ pub fn repeatable_add_button<V: 'static>(
     on_click_activate: impl Fn(&mut V, &mut Window, &mut Context<V>) + 'static,
     cx: &mut Context<V>,
 ) -> Stateful<Div> {
-    let line_color = if enabled { theme.text_label } else { theme.disabled_text };
+    let line_color = if enabled {
+        theme.text_label
+    } else {
+        theme.disabled_text
+    };
 
     let mut button = with_focus_actions(
         div()
@@ -253,11 +260,14 @@ pub fn repeatable_add_button<V: 'static>(
     .when(enabled, |d| {
         d.bg(rgb(theme.bg_input_hover))
             .hover(|d| d.bg(rgb(theme.bg_hover)))
-            .border_color(if is_focused { rgb(theme.border_focus) } else { rgba(0x00000000) })
+            .border_color(if is_focused {
+                rgb(theme.border_focus)
+            } else {
+                rgba(0x00000000)
+            })
     })
     .when(!enabled, |d| {
-        d.bg(rgb(theme.disabled_bg))
-            .border_color(rgba(0x00000000))
+        d.bg(rgb(theme.disabled_bg)).border_color(rgba(0x00000000))
     })
     // Draw plus sign with crossed lines
     .child(
@@ -274,7 +284,7 @@ pub fn repeatable_add_button<V: 'static>(
                     .w(px(10.))
                     .h(px(2.))
                     .rounded_sm()
-                    .bg(rgb(line_color))
+                    .bg(rgb(line_color)),
             )
             // Vertical line
             .child(
@@ -285,15 +295,17 @@ pub fn repeatable_add_button<V: 'static>(
                     .w(px(2.))
                     .h(px(10.))
                     .rounded_sm()
-                    .bg(rgb(line_color))
-            )
+                    .bg(rgb(line_color)),
+            ),
     );
 
     if enabled {
         button = button
-            .on_action(cx.listener(move |this, _: &RepeatableActivateButton, window, cx| {
-                on_action_activate(this, window, cx);
-            }))
+            .on_action(
+                cx.listener(move |this, _: &RepeatableActivateButton, window, cx| {
+                    on_action_activate(this, window, cx);
+                }),
+            )
             .on_click(cx.listener(move |this, _event, window, cx| {
                 on_click_activate(this, window, cx);
             }));

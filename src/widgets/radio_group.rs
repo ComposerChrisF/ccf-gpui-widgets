@@ -61,9 +61,9 @@
 use gpui::prelude::*;
 use gpui::*;
 
-use crate::theme::{get_theme_or, Theme};
 use super::focus_navigation::{handle_tab_navigation, with_focus_actions, EnabledCursorExt};
 use super::selection::{SelectionItem, StringItem};
+use crate::theme::{get_theme_or, Theme};
 
 /// Events emitted by RadioGroup
 #[derive(Clone, Debug)]
@@ -221,7 +221,10 @@ impl<T: SelectionItem> RadioGroup<T> {
 
     /// Get the currently selected index
     pub fn selected_index(&self) -> usize {
-        self.items.iter().position(|i| *i == self.selected).unwrap_or(0)
+        self.items
+            .iter()
+            .position(|i| *i == self.selected)
+            .unwrap_or(0)
     }
 
     /// Set selected item programmatically
@@ -296,7 +299,8 @@ impl<T: SelectionItem> Render for RadioGroup<T> {
                 .tab_stop(enabled),
             cx,
         )
-        .on_key_down(cx.listener(move |radio_group, event: &KeyDownEvent, window, cx| {
+        .on_key_down(
+            cx.listener(move |radio_group, event: &KeyDownEvent, window, cx| {
                 if !radio_group.enabled {
                     return;
                 }
@@ -328,80 +332,95 @@ impl<T: SelectionItem> Render for RadioGroup<T> {
                     }
                     _ => {}
                 }
-            }))
-            .flex()
-            .flex_col()
-            .gap_1()
-            .p_2()
-            .when(enabled, |d| d.bg(rgb(theme.bg_input)))
-            .when(!enabled, |d| d.bg(rgb(theme.disabled_bg)))
-            .border_1()
-            .when(enabled, |d| {
-                d.border_color(if is_focused { rgb(theme.border_focus) } else { rgb(theme.border_input) })
+            }),
+        )
+        .flex()
+        .flex_col()
+        .gap_1()
+        .p_2()
+        .when(enabled, |d| d.bg(rgb(theme.bg_input)))
+        .when(!enabled, |d| d.bg(rgb(theme.disabled_bg)))
+        .border_1()
+        .when(enabled, |d| {
+            d.border_color(if is_focused {
+                rgb(theme.border_focus)
+            } else {
+                rgb(theme.border_input)
             })
-            .when(!enabled, |d| d.border_color(rgb(theme.disabled_bg)))
-            .rounded_md()
-            .children(self.items.iter().enumerate().map(|(idx, item)| {
-                let item_clone = item.clone();
-                let is_selected = self.selected == *item;
-                let is_highlighted = is_focused && idx == highlight_index && enabled;
+        })
+        .when(!enabled, |d| d.border_color(rgb(theme.disabled_bg)))
+        .rounded_md()
+        .children(self.items.iter().enumerate().map(|(idx, item)| {
+            let item_clone = item.clone();
+            let is_selected = self.selected == *item;
+            let is_highlighted = is_focused && idx == highlight_index && enabled;
 
-                div()
-                    .id(item.id())
-                    .flex()
-                    .flex_row()
-                    .gap_2()
-                    .items_center()
-                    .py_1()
-                    .px_1()
-                    .cursor_for_enabled(enabled)
-                    .rounded_sm()
-                    .when(is_highlighted, |d| d.bg(rgb(theme.bg_input_hover)))
-                    .when(!is_highlighted && enabled, |d| d.hover(|d| d.bg(rgb(theme.bg_input_hover))))
-                    .when(enabled, |d| {
-                        d.on_click(cx.listener(move |radio_group, _event, window, cx| {
-                            radio_group.focus_handle.focus(window);
-                            radio_group.selected = item_clone.clone();
-                            radio_group.highlight_index = idx;
-                            cx.emit(RadioGroupEvent::Change(item_clone.clone()));
-                            cx.notify();
-                        }))
-                    })
-                    .child({
-                        // Radio button (circle)
-                        let border_color = if enabled { theme.border_checkbox } else { theme.disabled_text };
-                        let inner_color = if enabled { theme.accent } else { theme.disabled_text };
+            div()
+                .id(item.id())
+                .flex()
+                .flex_row()
+                .gap_2()
+                .items_center()
+                .py_1()
+                .px_1()
+                .cursor_for_enabled(enabled)
+                .rounded_sm()
+                .when(is_highlighted, |d| d.bg(rgb(theme.bg_input_hover)))
+                .when(!is_highlighted && enabled, |d| {
+                    d.hover(|d| d.bg(rgb(theme.bg_input_hover)))
+                })
+                .when(enabled, |d| {
+                    d.on_click(cx.listener(move |radio_group, _event, window, cx| {
+                        radio_group.focus_handle.focus(window);
+                        radio_group.selected = item_clone.clone();
+                        radio_group.highlight_index = idx;
+                        cx.emit(RadioGroupEvent::Change(item_clone.clone()));
+                        cx.notify();
+                    }))
+                })
+                .child({
+                    // Radio button (circle)
+                    let border_color = if enabled {
+                        theme.border_checkbox
+                    } else {
+                        theme.disabled_text
+                    };
+                    let inner_color = if enabled {
+                        theme.accent
+                    } else {
+                        theme.disabled_text
+                    };
 
-                        div()
-                            .w(px(16.))
-                            .h(px(16.))
-                            .border_1()
-                            .border_color(rgb(border_color))
-                            .rounded(px(8.))
-                            .when(is_selected, |d| {
-                                d.child(
-                                    div()
-                                        .flex()
-                                        .items_center()
-                                        .justify_center()
-                                        .size_full()
-                                        .child(
-                                            div()
-                                                .w(px(8.))
-                                                .h(px(8.))
-                                                .bg(rgb(inner_color))
-                                                .rounded(px(4.))
-                                        )
-                                )
-                            })
-                    })
-                    .child(
-                        div()
-                            .text_sm()
-                            .when(enabled, |d| d.text_color(rgb(theme.text_value)))
-                            .when(!enabled, |d| d.text_color(rgb(theme.disabled_text)))
-                            .child(item.label())
-                    )
-            }))
+                    div()
+                        .w(px(16.))
+                        .h(px(16.))
+                        .border_1()
+                        .border_color(rgb(border_color))
+                        .rounded(px(8.))
+                        .when(is_selected, |d| {
+                            d.child(
+                                div()
+                                    .flex()
+                                    .items_center()
+                                    .justify_center()
+                                    .size_full()
+                                    .child(
+                                        div()
+                                            .w(px(8.))
+                                            .h(px(8.))
+                                            .bg(rgb(inner_color))
+                                            .rounded(px(4.)),
+                                    ),
+                            )
+                        })
+                })
+                .child(
+                    div()
+                        .text_sm()
+                        .when(enabled, |d| d.text_color(rgb(theme.text_value)))
+                        .when(!enabled, |d| d.text_color(rgb(theme.disabled_text)))
+                        .child(item.label()),
+                )
+        }))
     }
 }

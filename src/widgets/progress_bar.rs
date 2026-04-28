@@ -146,7 +146,8 @@ impl ProgressBar {
 
     /// Check if progress is complete
     pub fn is_complete(&self) -> bool {
-        self.value.is_some_and(|v| (v - self.max).abs() < f64::EPSILON)
+        self.value
+            .is_some_and(|v| (v - self.max).abs() < f64::EPSILON)
     }
 
     /// Check if in indeterminate mode
@@ -227,14 +228,13 @@ impl Render for ProgressBar {
                         .bg(rgb(theme.primary))
                         .with_animation(
                             "indeterminate_slide",
-                            Animation::new(Duration::from_millis(1500))
-                                .repeat(),
+                            Animation::new(Duration::from_millis(1500)).repeat(),
                             move |el, delta| {
                                 // Move from -30% to 100%
                                 let position = -0.3 + delta * 1.3;
                                 el.left(relative(position))
                             },
-                        )
+                        ),
                 )
         } else {
             // Determinate: filled bar based on percentage
@@ -252,7 +252,7 @@ impl Render for ProgressBar {
                         .h_full()
                         .w(relative(fill_width))
                         .rounded_full()
-                        .bg(rgb(theme.primary))
+                        .bg(rgb(theme.primary)),
                 )
         };
 
@@ -273,30 +273,32 @@ impl Render for ProgressBar {
                             div()
                                 .text_sm()
                                 .text_color(rgb(theme.text_label))
-                                .child(text)
+                                .child(text),
                         )
                         .when(show_percentage && percentage_text.is_some(), |d| {
                             d.child(
                                 div()
                                     .text_sm()
                                     .text_color(rgb(theme.text_muted))
-                                    .child(percentage_text.clone().unwrap_or_default())
+                                    .child(percentage_text.clone().unwrap_or_default()),
                             )
-                        })
+                        }),
                 )
             })
             // Track
             .child(track_element)
             // Percentage below (if no label)
-            .when(show_percentage && label.is_none() && percentage_text.is_some(), |d| {
-                d.child(
-                    div()
-                        .text_sm()
-                        .text_color(rgb(theme.text_muted))
-                        .text_right()
-                        .child(percentage_text.unwrap_or_default())
-                )
-            })
+            .when(
+                show_percentage && label.is_none() && percentage_text.is_some(),
+                |d| {
+                    d.child(
+                        div()
+                            .text_sm()
+                            .text_color(rgb(theme.text_muted))
+                            .text_right()
+                            .child(percentage_text.unwrap_or_default()),
+                    )
+                },
+            )
     }
 }
-

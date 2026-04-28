@@ -97,7 +97,10 @@ pub fn parse_path(input: &str) -> PathInfo {
         std::env::current_dir()
             .map(|cwd| cwd.join(path))
             .unwrap_or_else(|err| {
-                log::warn!("Could not determine current directory: {}. Using relative path.", err);
+                log::warn!(
+                    "Could not determine current directory: {}. Using relative path.",
+                    err
+                );
                 path.to_path_buf()
             })
     };
@@ -106,12 +109,10 @@ pub fn parse_path(input: &str) -> PathInfo {
     let (existing, suffix) = find_existing_prefix(&absolute);
 
     // Try to canonicalize the existing portion
-    let canonical = existing
-        .canonicalize()
-        .unwrap_or_else(|err| {
-            log::warn!("Could not canonicalize path {:?}: {}", existing, err);
-            existing.clone()
-        });
+    let canonical = existing.canonicalize().unwrap_or_else(|err| {
+        log::warn!("Could not canonicalize path {:?}: {}", existing, err);
+        existing.clone()
+    });
 
     // Reconstruct full path
     let full = if suffix.as_os_str().is_empty() {
@@ -224,7 +225,10 @@ mod tests {
         let info = parse_path(non_existing.to_str().unwrap());
 
         assert!(!info.fully_exists());
-        assert_eq!(info.non_existing_suffix, PathBuf::from("this_file_should_not_exist_12345.txt"));
+        assert_eq!(
+            info.non_existing_suffix,
+            PathBuf::from("this_file_should_not_exist_12345.txt")
+        );
     }
 
     #[test]
