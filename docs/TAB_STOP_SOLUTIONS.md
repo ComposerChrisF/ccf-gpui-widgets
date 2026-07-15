@@ -16,17 +16,17 @@ Tab key navigation between widgets was not working in the widget gallery example
 
 1. User presses Tab
 2. GPUI dispatches `FocusNext` action to the focused widget
-3. Widget's `.on_action()` handler calls `window.focus_next()`
+3. Widget’s `.on_action()` handler calls `window.focus_next()`
 4. `window.focus_next()` uses `TabStopMap::next()` to find the next focusable element
 5. Focus moves to the next widget
 
 ### What Was Actually Happening
 
-Step 4 was failing because `TabStopMap::next()` skips entries where `tab_stop == false`. All widgets were being registered with `tab_stop: false` despite calling `.tab_stop(true)` on the div element.
+Step 4 was failing because `TabStopMap::next()` skips entries where `tab_stop == false`.  All widgets were being registered with `tab_stop: false` despite calling `.tab_stop(true)` on the div element.
 
 ## Root Cause Analysis
 
-The bug is in the interaction between GPUI's `.track_focus()` and `.tab_stop()` methods on div elements.
+The bug is in the interaction between GPUI’s `.track_focus()` and `.tab_stop()` methods on div elements.
 
 ### The Widget Pattern (Before Fix)
 
@@ -50,9 +50,9 @@ impl Render for TextInput {
 }
 ```
 
-### Why This Doesn't Work
+### Why This Doesn’t Work
 
-Looking at GPUI's `div.rs` (lines 1584-1599):
+Looking at GPUI’s `div.rs` (lines 1584-1599):
 
 ```rust
 if self.focusable
@@ -85,7 +85,7 @@ When you call `.track_focus(&focus_handle)`, it sets `tracked_focus_handle = Som
 
 ## Failed/Ineffective Solutions
 
-### 1. Calling `.tab_stop(true)` on the Div
+### 1.  Calling `.tab_stop(true)` on the Div
 
 ```rust
 div()
@@ -93,9 +93,9 @@ div()
     .tab_stop(true)  // Does NOT work with track_focus()
 ```
 
-This doesn't work because the div's `tab_stop` setting is only applied to handles created by the div itself, not to externally-tracked handles.
+This doesn’t work because the div’s `tab_stop` setting is only applied to handles created by the div itself, not to externally-tracked handles.
 
-### 2. Handling Tab in `on_key_down`
+### 2.  Handling Tab in `on_key_down`
 
 The widgets also had fallback Tab handling:
 
@@ -109,11 +109,11 @@ The widgets also had fallback Tab handling:
 }))
 ```
 
-This doesn't help because `window.focus_next()` still uses `TabStopMap`, which has the same problem.
+This doesn’t help because `window.focus_next()` still uses `TabStopMap`, which has the same problem.
 
-### 3. Using Both Action and KeyDown Handlers
+### 3.  Using Both Action and KeyDown Handlers
 
-Having both `.on_action()` for `FocusNext` and `.on_key_down()` for Tab key doesn't help because:
+Having both `.on_action()` for `FocusNext` and `.on_key_down()` for Tab key doesn’t help because:
 - When the action is handled, GPUI sets `propagate_event = false`
 - The `on_key_down` handler is never called
 - Both ultimately call `window.focus_next()` which has the same `TabStopMap` issue
@@ -133,7 +133,7 @@ impl TextInput {
 }
 ```
 
-This ensures the `FocusHandle` has `tab_stop: true` from the start, so when it's registered in `TabStopMap`, it's correctly marked as a tab stop.
+This ensures the `FocusHandle` has `tab_stop: true` from the start, so when it’s registered in `TabStopMap`, it’s correctly marked as a tab stop.
 
 ### Files Modified
 
@@ -151,7 +151,7 @@ All widget files needed this fix:
 
 ## Key Takeaways
 
-1. **GPUI's `.tab_stop(true)` on divs only works for auto-created focus handles**, not for handles provided via `.track_focus()`.
+1. **GPUI’s `.tab_stop(true)` on divs only works for auto-created focus handles**, not for handles provided via `.track_focus()`.
 
 2. **When using `.track_focus()`, you must set `tab_stop(true)` on the `FocusHandle` itself**, not on the div element.
 
@@ -169,7 +169,7 @@ div()
 
 ## GPUI Version
 
-This behavior was observed in GPUI 0.2.2. Future versions may change how `.track_focus()` and `.tab_stop()` interact.
+This behavior was observed in GPUI 0.2.2.  Future versions may change how `.track_focus()` and `.tab_stop()` interact.
 
 ## Date
 

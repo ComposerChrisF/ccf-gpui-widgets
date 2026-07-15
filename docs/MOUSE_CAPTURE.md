@@ -1,18 +1,18 @@
 # Mouse Capture in GPUI
 
-This document explains how mouse capture works in GPUI and how it's used in the `NumberStepper` widget for drag-to-scrub functionality.
+This document explains how mouse capture works in GPUI and how it’s used in the `NumberStepper` widget for drag-to-scrub functionality.
 
 ## The Problem
 
-By default, mouse events in GPUI only fire when the mouse is within an element's bounds. This is problematic for drag operations like value scrubbing, where users expect to:
+By default, mouse events in GPUI only fire when the mouse is within an element’s bounds.  This is problematic for drag operations like value scrubbing, where users expect to:
 1. Click and hold on a control
 2. Drag the mouse (potentially far outside the control)
 3. Have the value continue updating based on mouse movement
 4. Release the mouse anywhere to end the drag
 
-## GPUI's Drag System
+## GPUI’s Drag System
 
-GPUI provides a drag-and-drop system that solves this problem. When a drag is initiated, GPUI tracks the mouse globally until the drag ends.
+GPUI provides a drag-and-drop system that solves this problem.  When a drag is initiated, GPUI tracks the mouse globally until the drag ends.
 
 ### Key APIs
 
@@ -21,7 +21,7 @@ GPUI provides a drag-and-drop system that solves this problem. When a drag is in
 Initiates a drag operation when the user clicks and drags on an element.
 
 - `value: T` - A value of any type that identifies this drag operation
-- `constructor` - Creates a view to render as the "drag ghost" (visual feedback)
+- `constructor` - Creates a view to render as the “drag ghost” (visual feedback)
 
 ```rust
 .on_drag(MyDragState, |_state, _position, _window, cx| {
@@ -31,7 +31,7 @@ Initiates a drag operation when the user clicks and drags on an element.
 
 #### `on_drag_move<T>(listener: Fn(&DragMoveEvent<T>)) -> Self`
 
-Called for **all** mouse move events while a drag of type `T` is active, even when the mouse is outside the element's bounds.
+Called for **all** mouse move events while a drag of type `T` is active, even when the mouse is outside the element’s bounds.
 
 ```rust
 .on_drag_move(cx.listener(|this, event: &DragMoveEvent<MyDragState>, _window, cx| {
@@ -43,7 +43,7 @@ Called for **all** mouse move events while a drag of type `T` is active, even wh
 
 #### `on_mouse_up_out(button, listener) -> Self`
 
-Called when the mouse button is released outside the element's bounds. Essential for ending drag operations cleanly.
+Called when the mouse button is released outside the element’s bounds.  Essential for ending drag operations cleanly.
 
 ```rust
 .on_mouse_up_out(MouseButton::Left, cx.listener(|this, _event, _window, _cx| {
@@ -78,7 +78,7 @@ struct NumberDragState;
 
 ### Empty Drag View
 
-Since we don't want a visible "drag ghost", we use an invisible view:
+Since we don’t want a visible “drag ghost”, we use an invisible view:
 
 ```rust
 struct EmptyDragView;
@@ -163,10 +163,10 @@ let new_value = start_value + value_change;
 
 1. **Always pair `on_mouse_up` with `on_mouse_up_out`** to ensure drags end cleanly regardless of where the mouse is released.
 
-2. **Use a marker type for simple drags** when you don't need to pass data through the drag system.
+2. **Use a marker type for simple drags** when you don’t need to pass data through the drag system.
 
-3. **Keep drag views minimal** if you don't need visual feedback during the drag.
+3. **Keep drag views minimal** if you don’t need visual feedback during the drag.
 
-4. **Check `dragging` state in `on_drag_move`** since the callback may fire even after you've logically ended the drag.
+4. **Check `dragging` state in `on_drag_move`** since the callback may fire even after you’ve logically ended the drag.
 
 5. **Access modifiers from the event** to support modifier-based behavior changes during drag.

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-`ccf-gpui-widgets` is a reusable GPUI widget library for building desktop applications. It provides themeable, accessible UI components with a consistent builder-pattern API.
+`ccf-gpui-widgets` is a reusable GPUI widget library for building desktop applications.  It provides themeable, accessible UI components with a consistent builder-pattern API.
 
 **Key Features:**
 - Themeable widgets via global context or per-widget override
@@ -98,7 +98,7 @@ full = ["file-picker", "secure-password"]   # All features
 
 ## GPUI Patterns
 
-This library uses GPUI 0.2.2. Key patterns:
+This library uses GPUI 0.2.2.  Key patterns:
 
 ### Views and Rendering
 ```rust
@@ -206,8 +206,8 @@ impl MyWidget {
 - Setters: `set_*` (e.g., `set_value()`, `set_checked()`)
 
 **Event Emission from Setters:**
-- **Form widgets** (RadioGroup, SegmentedControl, Checkbox, etc.): `set_*` methods emit events. These widgets represent data-bound form fields where programmatic changes should trigger the same event flow as user interaction.
-- **Navigation widgets** (TabBar, SidebarNav): `set_*` methods do NOT emit events. These widgets represent UI navigation state where the consumer typically controls transitions and doesn't need redundant event notifications from their own calls.
+- **Form widgets** (RadioGroup, SegmentedControl, Checkbox, etc.): `set_*` methods emit events.  These widgets represent data-bound form fields where programmatic changes should trigger the same event flow as user interaction.
+- **Navigation widgets** (TabBar, SidebarNav): `set_*` methods do NOT emit events.  These widgets represent UI navigation state where the consumer typically controls transitions and doesn’t need redundant event notifications from their own calls.
 
 ## Widget Quick Reference
 
@@ -298,12 +298,12 @@ Application::new().run(|cx: &mut App| {
 
 ## Testing
 
-Tests are in `src/utils/path.rs` for path utilities. Run with:
+Tests are in `src/utils/path.rs` for path utilities.  Run with:
 ```bash
 cargo test
 ```
 
-Widget testing requires GPUI test support which is complex to set up. Most widget behavior is verified through integration with consumer applications.
+Widget testing requires GPUI test support which is complex to set up.  Most widget behavior is verified through integration with consumer applications.
 
 ## Consumer Projects
 
@@ -317,10 +317,10 @@ cd ../clui && cargo check && cargo test
 
 ## Known Limitations
 
-1. **TextInput key context**: Uses "CcfTextInput" context, not "TextInput" (to avoid conflicts)
+1. **TextInput key context**: Uses “CcfTextInput” context, not “TextInput” (to avoid conflicts)
 2. **FilePicker/DirectoryPicker**: Require `file-picker` feature flag
 3. **No built-in validation**: Consumers handle validation logic
-4. **Single-line text input only**: TextInput doesn't support multi-line
+4. **Single-line text input only**: TextInput doesn’t support multi-line
 
 ## Code Style
 

@@ -7,7 +7,7 @@ This document describes the implementation details, design decisions, and lesson
 The ColorSwatch widget provides a full-featured color picker with:
 - Clickable color preview swatch
 - Hex text input (supports #RGB, #RRGGBB, #RRGGBBAA formats)
-- CSS named color support (140 colors: "red", "coral", "darkblue", etc.)
+- CSS named color support (140 colors: “red”, “coral”, “darkblue”, etc.)
 - Popup color picker with:
   - 2D saturation/brightness canvas (HSV model)
   - Hue slider (0-359°)
@@ -40,7 +40,7 @@ The `src/utils/color.rs` module provides:
 
 ## GPUI Drag System for Sliders
 
-All sliders use GPUI's drag system for proper mouse capture during drag operations.
+All sliders use GPUI’s drag system for proper mouse capture during drag operations.
 
 ### The Problem with `on_mouse_event`
 
@@ -55,7 +55,7 @@ window.on_mouse_event(move |event: &MouseMoveEvent, phase, cx| {
 
 **This caused crashes** because each render frame added a new handler, eventually exhausting resources.
 
-### The Solution: GPUI's Drag API
+### The Solution: GPUI’s Drag API
 
 Use `on_drag()` and `on_drag_move()` instead:
 
@@ -94,7 +94,7 @@ div()
 
 ### The Measurement Problem
 
-Slider widths need to be measured at runtime because they use `flex_1()` for responsive layout. However, `Rc<Cell<>>` values created during render don't persist between frames:
+Slider widths need to be measured at runtime because they use `flex_1()` for responsive layout.  However, `Rc<Cell<>>` values created during render don’t persist between frames:
 
 ```rust
 // DON'T DO THIS - creates new Cell every frame!
@@ -134,7 +134,7 @@ canvas(
 
 ### Handle Width Calculation
 
-In GPUI, `.border_1()` does **not** add to the element's layout width. Only the content width matters for positioning:
+In GPUI, `.border_1()` does **not** add to the element’s layout width.  Only the content width matters for positioning:
 
 ```rust
 let handle_width = 4.0f32;  // Content width only, NOT 4 + 2 for border
@@ -205,7 +205,7 @@ Used for:
 
 ## Popup Positioning
 
-The popup uses GPUI's `deferred()` + `anchored()` pattern for correct z-ordering:
+The popup uses GPUI’s `deferred()` + `anchored()` pattern for correct z-ordering:
 
 ```rust
 deferred(

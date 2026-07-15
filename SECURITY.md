@@ -4,7 +4,7 @@ This document describes the security model and considerations for `ccf-gpui-widg
 
 ## Overview
 
-This is a pure UI widget library with no network I/O, no command execution, and no unsafe code. All memory safety is guaranteed by Rust's type system.
+This is a pure UI widget library with no network I/O, no command execution, and no unsafe code.  All memory safety is guaranteed by Rust’s type system.
 
 ## Password Handling
 
@@ -47,7 +47,7 @@ The path utilities in this library are designed for **UI display purposes**:
 
 ### Consumer Responsibility
 
-**Important:** Path validation in this library does not constitute a security boundary. Consumers should:
+**Important:** Path validation in this library does not constitute a security boundary.  Consumers should:
 
 1. Perform their own path validation before file operations
 2. Validate paths against allowed directories if sandboxing is required

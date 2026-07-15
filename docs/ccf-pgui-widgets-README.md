@@ -106,7 +106,7 @@ Application::new().run(|cx: &mut App| {
 
 ## Theming
 
-Widgets use a `Theme` struct for colors. You can:
+Widgets use a `Theme` struct for colors.  You can:
 
 1. Set a global theme: `cx.set_global(Theme::dark())`
 2. Use per-widget themes: `TextInput::new(cx).theme(my_theme)`
@@ -306,7 +306,7 @@ let picker = cx.new(|cx| {
 
 ## Keybindings
 
-Some widgets require keybindings to be registered at startup. Call `register_all_keybindings(cx)` once during app initialization:
+Some widgets require keybindings to be registered at startup.  Call `register_all_keybindings(cx)` once during app initialization:
 
 ```rust
 Application::new().run(|cx: &mut App| {

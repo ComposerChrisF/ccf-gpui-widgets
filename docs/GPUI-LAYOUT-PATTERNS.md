@@ -8,15 +8,15 @@ This document serves as a Claude skill for diagnosing and fixing common GPUI lay
 
 - Sibling elements unexpectedly shrink to minimum width when window is resized
 - Layout breaks at specific pixel thresholds (often when text is about to wrap)
-- Container backgrounds don't extend full width
-- Collapsing one section "fixes" the layout of other sections
+- Container backgrounds don’t extend full width
+- Collapsing one section “fixes” the layout of other sections
 - Problems appear/disappear based on content length
 
 ### Root Cause
 
-In GPUI's Taffy-based flexbox implementation, containers with `flex_1()` and scrolling behavior (`overflow_y_scroll()`) may not properly constrain their width. When nested content (especially text) triggers layout recalculation (e.g., at wrap boundaries), the lack of explicit width constraints causes layout instability that propagates to sibling elements.
+In GPUI’s Taffy-based flexbox implementation, containers with `flex_1()` and scrolling behavior (`overflow_y_scroll()`) may not properly constrain their width.  When nested content (especially text) triggers layout recalculation (e.g., at wrap boundaries), the lack of explicit width constraints causes layout instability that propagates to sibling elements.
 
-The issue stems from flexbox's default `min-width: auto` behavior, which sets an element's minimum width to its content's intrinsic width. Without explicit constraints, this can cause unexpected width expansion or collapse during layout recalculation.
+The issue stems from flexbox’s default `min-width: auto` behavior, which sets an element’s minimum width to its content’s intrinsic width.  Without explicit constraints, this can cause unexpected width expansion or collapse during layout recalculation.
 
 ### The Fix
 
@@ -43,7 +43,7 @@ div()
 ### Why It Works
 
 - **`w_full()`**: Sets width to 100% of parent, ensuring the container sizes based on its parent rather than its content
-- **`min_w_0()`**: Overrides the default `min-width: auto` behavior, allowing the element to shrink below its content's intrinsic minimum width
+- **`min_w_0()`**: Overrides the default `min-width: auto` behavior, allowing the element to shrink below its content’s intrinsic minimum width
 
 ### Best Practices for GPUI Layouts
 
@@ -154,5 +154,5 @@ div()
 
 ---
 
-*Document created: 2026-01-29*
-*Based on debugging session for FilePicker/DirectoryPicker layout issues in ccf-gpui-widgets*
+_Document created: 2026-01-29_
+_Based on debugging session for FilePicker/DirectoryPicker layout issues in ccf-gpui-widgets_
