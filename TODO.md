@@ -1,5 +1,55 @@
 # ccf-gpui-widgets - TODO
 
+## 🐛 OPEN BUGS — Deep Review 2026-07-15 — START HERE
+
+A deep code review (seven parallel reviewers, every finding verified against source, the vendored GPUI 0.2.2, or live execution) filed **80 bug reports** in `bugs/bug-NNNN-<slug>.md`.  Baseline at review time: all 63 tests pass, clippy clean — every one of these is latent, not caught by the suite.
+
+Each report is self-contained: description, test-ready repro, suggested fix, why the fix works, and ordering cross-references.  Three kinds, marked in each file’s `**Fix side:**` header:
+
+- **CODE** — the code is wrong; fix per the report.
+- **SPEC (docs)** — _the docs are wrong and the code is right_.  Do NOT “fix” the code to match the docs.
+- **DECISION REQUIRED (Chris)** — two legitimate resolutions exist; do not touch anything until Chris answers the question in the report.
+
+### Work these in phase order
+
+**Phase 0 — Get Chris’s decisions (blocks parts of every later phase).**  Nine reports pose a question and offer a recommendation.  Present them to Chris in one batch; record each answer in its bug file, which converts it to a CODE or SPEC fix:
+
+- bug-0079 (`ToggleSwitchEvent::Toggle` vs documented `Change` — recommend rename), bug-0055 (ProgressBar `Change(f64)` — recommend doc fix), bug-0050 (picker `Validated` event and payload type — recommend doc fix), bug-0042 (PasswordInput event surface + the double-`Blur` defect that must be fixed under any option), bug-0028 (`get_*` getter naming exception), bug-0066 (out-of-range semantics across the unified selection API), bug-0068 (SidebarNav vs TabBar focus policy — gates how 0073/0022 are implemented), bug-0025 (`extensions()`: dialog-only or validated), bug-0051 (dead `PickerMode` export — recommend delete).
+
+**Phase 1 — Spec repairs, so later code fixes are written against a correct spec.**  bug-0004 (CLAUDE.md widget table; four rows gated on Phase 0) and bug-0057 (README examples; one example gated on 0079) are the load-bearing ones — today they reliably produce non-compiling consumer code.  Then the independent doc fixes, any time: bug-0003, bug-0005, bug-0023, bug-0031, bug-0058, bug-0063 (wrong security-report URL — do not skip), bug-0069, bug-0078, bug-0080.
+
+**Phase 2 — Crashes, panics, and data corruption (high-severity CODE).**
+
+- bug-0029 — hex parse panics on multi-byte input; crashes the app from a keystroke.
+- bug-0039 + bug-0070 + bug-0038 + bug-0037 — one coordinated pass over NumberStepper/Slider/ProgressBar builder clamping and `normalize_value` (unordered-bounds panics, eager-clamp value loss, NaN poisoning/bricking).  The reports specify the shared lazy-clamp rework.
+- bug-0049 — picker ESC commits the abandoned edit instead of canceling.
+- bug-0027 — `Theme::from_palette` text hierarchy collapsed/inverted.
+- bug-0008 (+ enabler bug-0077) — ColorSwatch echo loop destroys HSV state; fix the reentrancy guard first, it is assumed by 0007/0011/0013.
+- bug-0075 — disabled TextInput traps keyboard focus.
+- bug-0045 — PasswordInput visibility toggle double-fires; keyboard-dead.
+- bug-0019 + bug-0016 — dialog focus-steal pair; **must land together** (fixing 0019 alone exposes 0016).
+
+**Phase 3 — Behavior correctness (medium CODE), in dependency-respecting clusters:**
+
+- Picker/path cluster: bug-0053 before bug-0048; then bug-0026, bug-0020, bug-0040, bug-0052.
+- Color cluster (after 0008): bug-0007, bug-0011, bug-0013, bug-0006, bug-0014.
+- Focus/disabled cluster (after the 0068 decision): bug-0073, bug-0022, bug-0021.
+- Dialog cluster: bug-0017, bug-0018.
+- Scrollbar cluster: bug-0061, bug-0062.
+- Text/password cluster: bug-0024, bug-0041, bug-0043, bug-0067, plus bug-0077 if not already fixed with 0008.
+- NumberStepper/ProgressBar UX: bug-0032, bug-0033, bug-0034, bug-0035, bug-0036, bug-0056.
+
+**Phase 4 — Low-severity cleanups (independent unless their report says otherwise):**  bug-0001, bug-0002, bug-0009, bug-0010, bug-0012, bug-0015, bug-0030, bug-0044, bug-0046, bug-0047, bug-0054, bug-0059, bug-0060, bug-0064, bug-0065, bug-0071, bug-0072, bug-0074, bug-0076.
+
+### Process rules for whoever picks this up
+
+1.  Every fix gets a test that fails when the fix is reverted (where the report marks the repro “needs GPUI test context”, a mechanism-level unit test of the pure logic plus a documented manual check is acceptable).
+2.  Fixing a bug: commit any report amendments first, then delete the `bugs/bug-NNNN-*.md` file in the commit that lands the fix, naming the ID in the commit message (per the portfolio bug-reports convention — git history is the archive).
+3.  After each cluster, run `cargo test --features full`, `cargo clippy --all-targets --features full`, and `cd ../clui && cargo check && cargo test` (clui is the live consumer).
+4.  Breaking API changes that come out of Phase 0 decisions (e.g. an event rename) get a semver-appropriate version bump and a migration note.
+
+---
+
 ## Current Status: Initial Release ✅
 
 The library is functional and being used by clui.
