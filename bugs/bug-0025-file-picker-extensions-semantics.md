@@ -1,11 +1,11 @@
 # bug-0025: `extensions()` is enforced only in the native dialog — typing, drag-drop, and `set_value` accept any extension
 
 **Severity:** low
-**Fix side:** DECISION REQUIRED (Chris)
+**Fix side:** SPEC (docs) (decided 2026-08-12; see Decision below)
 **Component:** `src/widgets/file_picker.rs:624-628` (sole use of `self.extensions`), vs `src/widgets/file_picker.rs:151-199` (`validate_file_path`, no extension parameter) and `src/widgets/file_picker.rs:749-760` (drop handler, no extension check)
 **Found:** 2026-07-15 deep review (verified against source; baseline: 63/63 tests pass, clippy clean)
 
-> **DO NOT FIX without Chris’s decision.  Both a code-side and a doc-side resolution exist; the sections below present the options and a recommendation.**
+> **Decision (Chris, 2026-08-12): option (a) — `extensions()` is a dialog-only convenience filter.**  Document that in the doc comment, the README, and the CLAUDE.md table; no behavior change.
 
 ## Description
 

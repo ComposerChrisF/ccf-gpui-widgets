@@ -1,11 +1,11 @@
 # bug-0051: `PickerMode` is publicly exported but wired to nothing — delete it, or implement the RGB/HSL mode switch it implies?
 
 **Severity:** low
-**Fix side:** DECISION REQUIRED (Chris)
+**Fix side:** CODE (feature) (decided 2026-08-12; see Decision below)
 **Component:** src/widgets/color_swatch.rs:117-122 (definition); src/widgets/mod.rs:53-56 (public export)
 **Found:** 2026-07-15 deep review (verified against source; baseline: 63/63 tests pass, clippy clean)
 
-> **DO NOT FIX without Chris’s decision.  Both a code-side and a doc-side resolution exist; the sections below present the options and a recommendation.**
+> **Decision (Chris, 2026-08-12): Option 2 — implement the RGB/HSL slider-mode switch the enum implies.**  Real feature work: a mode field consuming `PickerMode`, a builder, an HSL slider row in the picker popup, and doc updates (docs/COLOR_PICKER.md).  This also settles bug-0080’s wording — the module-doc claim of RGB/HSL modes becomes true rather than deleted.
 
 ## Description
 

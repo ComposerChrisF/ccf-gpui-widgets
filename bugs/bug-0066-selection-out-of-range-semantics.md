@@ -1,11 +1,11 @@
 # bug-0066: Same-named selection setters have divergent out-of-range and membership semantics
 
 **Severity:** low
-**Fix side:** DECISION REQUIRED (Chris)
+**Fix side:** CODE (decided 2026-08-12; see Decision below)
 **Component:** `src/widgets/dropdown.rs:117-120` and `158-167`; `src/widgets/radio_group.rs:195-201` and `247-256`; `src/widgets/segmented_control.rs:249-255` and `310-319`; `src/widgets/tab_bar.rs:183-196`; `src/widgets/sidebar_nav.rs:167-180`
 **Found:** 2026-07-15 deep review (verified against source; baseline: 63/63 tests pass, clippy clean)
 
-> **DO NOT FIX without Chris’s decision.  Both a code-side and a doc-side resolution exist; the sections below present the options and a recommendation.**
+> **Decision (Chris, 2026-08-12): Option A — invalid input is ignored, in all five widgets.**  Dropdown stops clamping; `TabBar::set_selected` and `SidebarNav::set_selected` gain membership validation; the contract is documented on all the setters.
 
 ## Description
 

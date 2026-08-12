@@ -1,11 +1,11 @@
 # bug-0028: Getter naming — `get_*` prefix contradicts the documented convention, deliberately in two widgets, accidentally in one
 
 **Severity:** low
-**Fix side:** DECISION REQUIRED (Chris)
+**Fix side:** SPEC (docs) + minor CODE (CheckboxGroup rename) (decided 2026-08-12; see Decision below)
 **Component:** CLAUDE.md:202-206 (naming convention); src/widgets/number_stepper.rs:352-375; src/widgets/slider.rs:183-201; src/widgets/checkbox_group.rs:101-105
 **Found:** 2026-07-15 deep review (verified against source; baseline: 63/63 tests pass, clippy clean)
 
-> **DO NOT FIX without Chris’s decision.  Both a code-side and a doc-side resolution exist; the sections below present the options and a recommendation.**
+> **Decision (Chris, 2026-08-12): option (a) — amend the docs, minimal rename.**  CLAUDE.md documents the builder-collision exception (`get_*` when the direct name is taken by a builder); `CheckboxGroup::get_selected()` → `selected()` with a `#[deprecated]` alias for one release.
 
 ## Description
 

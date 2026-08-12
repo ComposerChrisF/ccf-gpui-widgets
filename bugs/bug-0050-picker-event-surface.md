@@ -1,11 +1,11 @@
 # bug-0050: Picker and repeatable-input event surfaces do not match the documented table — fix docs, or implement the documented events?
 
 **Severity:** medium
-**Fix side:** DECISION REQUIRED (Chris)
+**Fix side:** SPEC (docs) (decided 2026-08-12; see Decision below)
 **Component:** `CLAUDE.md:236-238` vs `src/widgets/file_picker.rs:119-123`, `src/widgets/directory_picker.rs:76-80`, `src/widgets/repeatable_text_input.rs:56-64`
 **Found:** 2026-07-15 deep review (verified against source; baseline: 63/63 tests pass, clippy clean)
 
-> **DO NOT FIX without Chris’s decision.  Both a code-side and a doc-side resolution exist; the sections below present the options and a recommendation.**
+> **Decision (Chris, 2026-08-12): option (a) — correct the docs to the code.**  Table rows become `Change(String)` with no `Validated` variant; repeatable-input events documented as `EntryAdded(usize)` / `EntryRemoved(usize)`.
 
 ## Description
 

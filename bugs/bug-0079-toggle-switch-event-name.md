@@ -1,11 +1,11 @@
 # bug-0079: ToggleSwitch emits `Toggle(bool)` while CLAUDE.md, README, and the unified convention say `Change(bool)`
 
 **Severity:** medium
-**Fix side:** DECISION REQUIRED (Chris)
+**Fix side:** CODE (decided 2026-08-12; see Decision below)
 **Component:** `src/widgets/toggle_switch.rs:43-47` (event enum), `toggle_switch.rs:126` and `151` (emit sites); vs `CLAUDE.md:223` and `README.md:249`
 **Found:** 2026-07-15 deep review (verified against source; baseline: 63/63 tests pass, clippy clean)
 
-> **DO NOT FIX without Chris’s decision.  Both a code-side and a doc-side resolution exist; the sections below present the options and a recommendation.**
+> **Decision (Chris, 2026-08-12): Option A — rename `ToggleSwitchEvent::Toggle` → `Change` in code.**  The doc surfaces stay as written; the bug-0004/bug-0057 rewrites document `Change(bool)`.
 
 ## Description
 

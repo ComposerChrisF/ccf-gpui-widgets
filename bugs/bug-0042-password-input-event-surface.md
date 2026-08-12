@@ -1,11 +1,11 @@
 # bug-0042: PasswordInput event surface — docs promise `Escape`/`Focus`/`select_on_focus()`, code has none, and Escape double-fires `Blur`
 
 **Severity:** medium
-**Fix side:** DECISION REQUIRED (Chris)
+**Fix side:** CODE (decided 2026-08-12; see Decision below)
 **Component:** `src/widgets/password_input.rs:52-65` (event enum), `490-499` (`on_focus`/`on_blur`), `893-896` (Escape handler), `163-189` (builders); doc side: `CLAUDE.md` Widget Quick Reference table, PasswordInput row
 **Found:** 2026-07-15 deep review (verified against source; baseline: 63/63 tests pass, clippy clean)
 
-> **DO NOT FIX without Chris’s decision.  Both a code-side and a doc-side resolution exist; the sections below present the options and a recommendation.**
+> **Decision (Chris, 2026-08-12): option (c) — full TextInput parity.**  Add `Escape` and `Focus` variants and a `select_on_focus()` builder, ported from `text_input.rs`; the double-`Blur` defect is fixed as part of this.
 
 ## Description
 

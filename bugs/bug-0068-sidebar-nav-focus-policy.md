@@ -1,11 +1,11 @@
 # bug-0068: SidebarNav focus policy contradicts TabBar — clicks focus the sidebar container
 
 **Severity:** low
-**Fix side:** DECISION REQUIRED (Chris)
+**Fix side:** CODE (decided 2026-08-12; see Decision below)
 **Component:** `src/widgets/sidebar_nav.rs:264` (`.track_focus`), `src/widgets/sidebar_nav.rs:301-307` (item click handler)
 **Found:** 2026-07-15 deep review (verified against source; baseline: 63/63 tests pass, clippy clean)
 
-> **DO NOT FIX without Chris’s decision.  Both a code-side and a doc-side resolution exist; the sections below present the options and a recommendation.**
+> **Decision (Chris, 2026-08-12): Option A — no-steal.**  Clicks never move focus; apply the `prevent_default` mouse-down suppression to SidebarNav — the same mechanism bug-0073 and bug-0022 use.
 
 ## Description
 

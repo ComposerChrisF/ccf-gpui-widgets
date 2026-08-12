@@ -1,11 +1,11 @@
 # bug-0055: ProgressBar never emits `Change(f64)`, contradicting the CLAUDE.md widget table
 
 **Severity:** medium
-**Fix side:** DECISION REQUIRED (Chris)
+**Fix side:** SPEC (docs) + minor CODE (notify guard) (decided 2026-08-12; see Decision below)
 **Component:** src/widgets/progress_bar.rs:41-45 and 158-174; CLAUDE.md:229
 **Found:** 2026-07-15 deep review (verified against source; baseline: 63/63 tests pass, clippy clean)
 
-> **DO NOT FIX without Chris’s decision.  Both a code-side and a doc-side resolution exist; the sections below present the options and a recommendation.**
+> **Decision (Chris, 2026-08-12): option (b) — ProgressBar is a display widget; correct the CLAUDE.md table row to `Complete`.**  The `cx.notify()` no-op guard in `set_value` is added either way.
 
 ## Description
 
