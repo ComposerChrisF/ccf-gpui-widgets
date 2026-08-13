@@ -2,6 +2,8 @@
 name = "ccf-gpui-widgets"
 version = "0.1.2"
 edition = "2021"
+# Never published: personal tool; tracked bugs//plans/ would otherwise ship in a crate tarball (bug-reports.md rule 3 mirror clause, 2026-08-12).
+publish = false
 description = "Reusable GPUI widgets for building desktop applications"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/ComposerChrisF/ccf-gpui-widgets"

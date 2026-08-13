@@ -1,1 +1,1 @@
-docs/ccf-pgui-widgets-README.md
+docs/ccf-gpui-widgets-README.md
