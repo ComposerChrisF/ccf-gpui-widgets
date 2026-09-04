@@ -11,7 +11,7 @@
 //! let group = cx.new(|cx| {
 //!     CheckboxGroup::new(cx)
 //!         .choices(vec!["Red".to_string(), "Green".to_string(), "Blue".to_string()])
-//!         .selected(vec!["Red".to_string(), "Blue".to_string()])
+//!         .with_selected(vec!["Red".to_string(), "Blue".to_string()])
 //! });
 //!
 //! // Subscribe to changes

@@ -122,7 +122,13 @@ impl RepeatableFilePicker {
         self
     }
 
-    /// Set file extension filters (e.g., ["txt", "md"])
+    /// Set the file extension filters for the native dialog (e.g., ["txt", "md"])
+    ///
+    /// **Dialog-only.**  Forwarded to each entry's [`FilePicker::extensions`], which
+    /// filters the native dialog only: typed, dropped, and programmatically set paths
+    /// are accepted whatever their extension, and neither
+    /// [`validate_all`](Self::validate_all) nor [`is_all_valid`](Self::is_all_valid)
+    /// considers it.
     #[must_use]
     pub fn extensions(mut self, exts: Vec<String>) -> Self {
         self.extensions = exts;

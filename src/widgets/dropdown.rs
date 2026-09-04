@@ -14,7 +14,7 @@
 //! let dropdown = cx.new(|cx| {
 //!     Dropdown::new(cx)
 //!         .choices(vec!["Option 1".to_string(), "Option 2".to_string()])
-//!         .selected_index(0)
+//!         .with_selected_index(0)
 //! });
 //!
 //! // Subscribe to changes

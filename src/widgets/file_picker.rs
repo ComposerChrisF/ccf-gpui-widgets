@@ -275,7 +275,13 @@ impl FilePicker {
         self
     }
 
-    /// Set file extensions filter (builder pattern)
+    /// Set the file extensions filter for the native dialog (builder pattern)
+    ///
+    /// **Dialog-only.**  This list is passed to the native file dialog as a filter and
+    /// is not a validation constraint: a path that arrives by typing, drag-and-drop, or
+    /// [`set_value`](Self::set_value) is accepted whatever its extension, and
+    /// [`validate`](Self::validate) / [`is_valid`](Self::is_valid) never consider it.
+    /// Enforce an extension policy in consumer code if one is needed.
     #[must_use]
     pub fn extensions(mut self, extensions: Vec<String>) -> Self {
         self.extensions = extensions;

@@ -54,6 +54,7 @@ src/
 ├── theme.rs                  # Theme struct with dark/light presets
 ├── utils/
 │   ├── mod.rs
+│   ├── color.rs              # Rgb/Rgba/Hsl/Hsv, hex parsing, NAMED_COLORS, luminance
 │   └── path.rs               # PathInfo, parse_path, expand_tilde
 └── widgets/
     ├── mod.rs                # Widget re-exports, register_all_keybindings()
@@ -80,6 +81,11 @@ src/
     ├── repeatable_text_input.rs # Text input with add/remove
     ├── button.rs             # Button factory functions
     ├── focus_navigation.rs   # Tab/Shift-Tab focus helpers
+    ├── cursor_blink.rs       # Shared text-cursor blink timer
+    ├── editing_core.rs       # Shared single-line editing/selection engine
+    ├── selection.rs          # SelectionItem trait, StringItem, shared selection state
+    ├── path_display.rs       # Path formatting/eliding shared by the pickers
+    ├── sensitive_string.rs   # Zeroizing string storage for PasswordInput
     ├── file_picker.rs        # File selection (requires file-picker feature)
     ├── directory_picker.rs   # Directory selection (requires file-picker feature)
     ├── repeatable_file_picker.rs      # (requires file-picker feature)
@@ -154,6 +160,7 @@ pub struct MyWidget {
     value: String,
     focus_handle: FocusHandle,
     custom_theme: Option<Theme>,
+    enabled: bool,
 }
 
 impl MyWidget {
@@ -161,26 +168,45 @@ impl MyWidget {
     pub fn new(cx: &mut Context<Self>) -> Self {
         Self {
             value: String::new(),
-            focus_handle: cx.focus_handle(),
+            // `tab_stop` MUST be set on the handle here.  Calling `.tab_stop(true)`
+            // on the div after `.track_focus()` silently does nothing, and the
+            // widget becomes invisible to Tab navigation.
+            // See docs/TAB_STOP_SOLUTIONS.md.
+            focus_handle: cx.focus_handle().tab_stop(true),
             custom_theme: None,
+            enabled: true,
         }
     }
 
     /// Builder: set initial value
+    #[must_use]
     pub fn with_value(mut self, value: impl Into<String>) -> Self {
         self.value = value.into();
         self
     }
 
     /// Builder: set custom theme
+    #[must_use]
     pub fn theme(mut self, theme: Theme) -> Self {
         self.custom_theme = Some(theme);
+        self
+    }
+
+    /// Builder: set enabled state
+    #[must_use]
+    pub fn with_enabled(mut self, enabled: bool) -> Self {
+        self.enabled = enabled;
         self
     }
 
     /// Getter: current value
     pub fn value(&self) -> &str {
         &self.value
+    }
+
+    /// Getter: enabled state
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
     }
 
     /// Setter: update value programmatically
@@ -192,12 +218,22 @@ impl MyWidget {
         }
     }
 
+    /// Setter: update enabled state programmatically (no event — see below)
+    pub fn set_enabled(&mut self, enabled: bool, cx: &mut Context<Self>) {
+        if self.enabled != enabled {
+            self.enabled = enabled;
+            cx.notify();
+        }
+    }
+
     /// Get focus handle
     pub fn focus_handle(&self) -> &FocusHandle {
         &self.focus_handle
     }
 }
 ```
+
+All 17 interactive widgets carry the `enabled` field and the `with_enabled()` / `is_enabled()` / `set_enabled()` trio; a new interactive widget should too.
 
 **Naming Convention:**
 - Builder methods that set initial state: `with_*` (e.g., `with_value`, `with_selected_index`)
@@ -211,31 +247,41 @@ impl MyWidget {
 
 ## Widget Quick Reference
 
-All widgets follow the pattern: `cx.new(|cx| Widget::new(cx).builder_methods())`
+Most widgets follow the pattern: `cx.new(|cx| Widget::new(cx).builder_methods())`.  Six do not: `ProgressBar::new()` and `Spinner::new()` take no `cx` at all, and `Collapsible::new(title, cx)`, `ConfirmationDialog::new(title, message, cx)`, `TabBar::new(tabs, selected, cx)`, and `SidebarNav::new(items, selected, cx)` take required arguments before `cx`.  The `Key Builder Methods` column below spells out each such constructor.
 
 | Widget | Event Type | Key Builder Methods |
 |--------|-----------|---------------------|
-| TextInput | Change, Enter, Escape, Blur, Focus | placeholder(), select_on_focus(), with_value() |
-| PasswordInput | Change, Enter, Escape, Blur, Focus | placeholder(), select_on_focus() |
-| NumberStepper | Change(f64) | with_value(), min(), max(), step() |
-| Slider | Change(f64), ChangeComplete | with_value(), min(), max(), step(), show_value() |
-| Checkbox | Change(bool) | checked(), label() |
-| ToggleSwitch | Change(bool) | with_on(), label(), label_position() |
-| Dropdown | Change(String), Open, Close | choices(), with_selected_index(), placeholder() |
-| RadioGroup | Change(T) | choices(), with_selected_index(), selected_index() |
-| CheckboxGroup | Change(Vec<usize>) | choices(), with_selected_indices() |
-| SegmentedControl | Change(T) | options(), with_selected_index(), selected_index() |
-| ColorSwatch | Change(String) | with_value(), with_alpha() |
-| ProgressBar | Change(f64) | with_value(), indeterminate() |
-| Spinner | (no events) | size() |
-| Collapsible | Change(bool) | with_expanded(), title() |
-| TabBar | Change(T), ContextMenu | new(tabs, selected, cx), selected_index() |
-| SidebarNav | Change(T) | new(items, selected, cx), selected_index() |
-| Scrollable | (no events) | scrollable_vertical(), scrollable_horizontal(), scrollable_both() |
-| ConfirmationDialog | Primary, Secondary, Tertiary | style(), primary_label(), secondary_label() |
-| FilePicker | Change(PathBuf), Validated | mode(), extensions(), placeholder() |
-| DirectoryPicker | Change(PathBuf), Validated | placeholder() |
-| RepeatableTextInput | Change(Vec<String>), Add, Remove | with_values(), placeholder() |
+| `TextInput` | `Change`, `Enter`, `Escape`, `Blur`, `Focus`, `Tab`, `ShiftTab` (last two only with `emit_tab_events(true)`) | `placeholder()`, `with_value()`, `select_on_focus()` |
+| `PasswordInput` | `Change`, `Enter`, `Escape`, `Blur`, `Focus` | `placeholder()`, `with_value()`, `select_on_focus()` |
+| `NumberStepper` | `Change(f64)` | `with_value()`, `min()`, `max()`, `step()` |
+| `Slider` | `Change(f64)`, `ChangeComplete` (no payload) | `with_value()`, `min()`, `max()`, `step()`, `show_value()` |
+| `Checkbox` | `Change(bool)` | `with_checked()`, `label()` |
+| `ToggleSwitch` | `Change(bool)` | `with_on()`, `label()`, `label_position()` |
+| `Dropdown` | `Change(String)`, `Open`, `Close` | `choices()`, `with_selected_index()`, `with_selected_value()` |
+| `RadioGroup` | `Change(T)` | `choices()`, `with_selected_index()`, `with_selected_value()` |
+| `CheckboxGroup` | `Change(Vec<String>)` | `choices()`, `with_selected()` |
+| `SegmentedControl` | `Change(T)` | `options()`, `with_selected_index()`, `with_selected_value()` |
+| `ColorSwatch` | `Change(String)` | `with_value()`, `with_alpha()` |
+| `Tooltip` | (no events) | `new(text)`, `theme()` |
+| `ProgressBar` | `Complete` | `with_value()`, `min()`, `max()`, `indeterminate()` |
+| `Spinner` | (no events) | `size()`, `label()` |
+| `Collapsible` | `Change(bool)` (payload = collapsed) | `new(title, cx)`, `with_collapsed()`, `collapsible()` |
+| `TabBar` | `Change(T)`, `ContextMenu { tab, position }` | `new(tabs, selected, cx)`, `with_enabled()`, `tab_row_padding()` |
+| `SidebarNav` | `Change(T)` | `new(items, selected, cx)`, `with_width()`, `with_enabled()` |
+| `Scrollable` | (no events) | free functions: `scrollable_vertical()`, `scrollable_horizontal()`, `scrollable_both()` |
+| `ConfirmationDialog` | `Primary`, `Secondary`, `Tertiary` | `new(title, message, cx)`, `style()`, `primary_label()`, `secondary_label()` |
+| `FilePicker` | `Change(String)` | `with_value()`, `placeholder()`, `mode()`, `extensions()` |
+| `DirectoryPicker` | `Change(String)` | `with_value()`, `placeholder()`, `browse_shortcut()` |
+| `RepeatableTextInput` | `Change(Vec<String>)`, `EntryAdded(usize)`, `EntryRemoved(usize)` | `with_values()`, `placeholder()`, `min_entries()` |
+| `RepeatableFilePicker` | `Change(Vec<String>)`, `EntryAdded(usize)`, `EntryRemoved(usize)` | `with_values()`, `placeholder()`, `extensions()`, `mode()` |
+| `RepeatableDirectoryPicker` | `Change(Vec<String>)`, `EntryAdded(usize)`, `EntryRemoved(usize)` | `with_values()`, `placeholder()`, `min_entries()` |
+
+**Notes on the table**
+
+- `T` in `Change(T)` is the widget’s `SelectionItem` type — use `StringItem` for plain string lists, or implement `SelectionItem` on your own enum.
+- The pickers emit **only** `Change(String)`; there is no `Validated` event.  Validation is pull-style: `validate()`, `is_valid()`, and the standalone `validate_file_path()` / `validate_directory_path()` functions.
+- `FilePicker::extensions()` (and `RepeatableFilePicker::extensions()`) filters the **native file dialog only**.  Paths that arrive by typing, drag-and-drop, or `set_value()` are not checked against it, and `validate()` / `is_valid()` never consider the extension.
+- The table is a faithful projection of the shipped enums and builders.  When a widget’s event enum or builders change, update this table in the same commit — `tests/doc_surface_consistency.rs` fails otherwise.
 
 ### Subscription Pattern
 ```rust
@@ -250,7 +296,7 @@ cx.subscribe(&widget, |this, _widget, event: &WidgetEvent, cx| {
 ## Theming System
 
 ### Theme Structure
-The `Theme` struct contains ~30 semantic color fields as u32 hex values:
+The `Theme` struct contains 49 semantic color fields as u32 hex values (as of v0.1.2; `tests/doc_claims_consistency.rs` keeps this number honest):
 - Background colors: `bg_primary`, `bg_input`, `bg_hover`, etc.
 - Text colors: `text_primary`, `text_muted`, `text_placeholder`, etc.
 - Border colors: `border_default`, `border_focus`, `border_error`, etc.
@@ -285,25 +331,32 @@ Application::new().run(|cx: &mut App| {
 ## Adding a New Widget
 
 1. Create `src/widgets/my_widget.rs`
-2. Define the widget struct with `focus_handle` and `custom_theme: Option<Theme>`
-3. Implement `EventEmitter<MyWidgetEvent>`
-4. Implement `Focusable` if the widget needs keyboard focus
-5. Implement `Render`
-6. Add to `src/widgets/mod.rs`:
+2. Define the widget struct with `focus_handle`, `custom_theme: Option<Theme>`, and — for any interactive widget — `enabled: bool` (default `true`)
+3. Create the focus handle as `cx.focus_handle().tab_stop(true)` in `new()`.  Setting `.tab_stop(true)` on the div after `.track_focus()` does nothing, and the widget silently drops out of Tab navigation — see `docs/TAB_STOP_SOLUTIONS.md`
+4. Add the enabled trio: `with_enabled()` (builder), `is_enabled()` (getter), `set_enabled()` (setter, `cx.notify()` only, no event), and make every interaction path return early when `!self.enabled`
+5. Implement `EventEmitter<MyWidgetEvent>`
+6. Implement `Focusable` if the widget needs keyboard focus
+7. Implement `Render`
+8. Add to `src/widgets/mod.rs`:
    - Add `mod my_widget;`
    - Add `pub use my_widget::{MyWidget, MyWidgetEvent};`
-7. If widget needs keybindings:
+9. If widget needs keybindings:
    - Add `register_keybindings` function
    - Update `register_all_keybindings` in mod.rs
+10. Add a row to the Widget Quick Reference table above — `tests/doc_surface_consistency.rs` fails if a widget module has no row
 
 ## Testing
 
-Tests are in `src/utils/path.rs` for path utilities.  Run with:
+Tests live in eight places, not one — `src/utils/path.rs`, `src/utils/mod.rs`, `src/utils/color.rs` (two modules, including a proptest), `src/widgets/sensitive_string.rs`, `src/widgets/editing_core.rs`, `src/widgets/file_picker.rs`, and `src/widgets/directory_picker.rs` — plus the doc-surface tests under `tests/`.
+
 ```bash
-cargo test
+cargo test                  # default features: skips the feature-gated tests
+cargo test --features full  # runs everything, including the doc-consistency tests under `tests/` — use this one
 ```
 
-Widget testing requires GPUI test support which is complex to set up.  Most widget behavior is verified through integration with consumer applications.
+The picker and sensitive-string tests are feature-gated (`file-picker`, `secure-password`), so a bare `cargo test` silently runs a subset.  Always use `--features full` before claiming the suite is green.
+
+Widget testing requires GPUI test support which is complex to set up, so widget _rendering_ and _interaction_ are still verified through the gallery example and integration with consumer applications.  Pure logic (editing, path parsing, color math, validation) is unit-tested directly.
 
 ## Consumer Projects
 
@@ -319,7 +372,7 @@ cd ../clui && cargo check && cargo test
 
 1. **TextInput key context**: Uses “CcfTextInput” context, not “TextInput” (to avoid conflicts)
 2. **FilePicker/DirectoryPicker**: Require `file-picker` feature flag
-3. **No built-in validation**: Consumers handle validation logic
+3. **No general validation framework**: There is no crate-wide validation layer, so consumers own their own validation logic.  Two narrower facilities do ship: the pickers provide path-validation UI feedback (`validate()`, `is_valid()`, `ValidationDisplay`, and the standalone `validate_file_path()` / `validate_directory_path()`), and `TextInput` has `input_filter()`.  Neither is a security boundary — see `SECURITY.md`.
 4. **Single-line text input only**: TextInput doesn’t support multi-line
 
 ## Code Style

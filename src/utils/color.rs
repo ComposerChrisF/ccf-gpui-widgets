@@ -572,10 +572,22 @@ pub fn parse_color_alpha(s: &str) -> Option<Rgba> {
         .or_else(|| named_color_to_rgb(s).map(|rgb| Rgba::new(rgb.r, rgb.g, rgb.b, 255)))
 }
 
-/// Calculate perceived luminance (0.0-1.0) using sRGB coefficients
+/// Calculate perceived brightness (0.0-1.0) as Rec. 709 *luma* (Y′)
 ///
-/// Uses the ITU-R BT.709 formula for relative luminance:
-/// L = 0.2126 * R + 0.7152 * G + 0.0722 * B
+/// Applies the ITU-R BT.709 coefficients directly to the **gamma-encoded** sRGB
+/// channels, without linearizing them first:
+///
+/// ```text
+/// Y′ = 0.2126 * R′ + 0.7152 * G′ + 0.0722 * B′
+/// ```
+///
+/// This is a cheap perceptual approximation, **not** WCAG relative luminance.  The
+/// two differ substantially: this function returns `0.502` for `#808080`, whereas
+/// the linearized (WCAG) relative luminance of that color is `0.216`.  Do not use
+/// it for WCAG contrast-ratio math — it will report wrong ratios.
+///
+/// Its intended use is theme-mode detection via [`is_dark`], whose `0.5` threshold
+/// is calibrated to *this* scale, where 0.5 sits at perceptual mid-gray.
 pub fn luminance(color: u32) -> f32 {
     let r = ((color >> 16) & 0xFF) as f32 / 255.0;
     let g = ((color >> 8) & 0xFF) as f32 / 255.0;
@@ -583,7 +595,10 @@ pub fn luminance(color: u32) -> f32 {
     0.2126 * r + 0.7152 * g + 0.0722 * b
 }
 
-/// Check if a color is dark (luminance < 0.5)
+/// Check if a color is dark ([`luminance`] < 0.5)
+///
+/// The threshold is calibrated to the gamma-encoded luma scale that [`luminance`]
+/// returns, where `0.5` is perceptual mid-gray — not to WCAG relative luminance.
 pub fn is_dark(color: u32) -> bool {
     luminance(color) < 0.5
 }
@@ -748,6 +763,70 @@ mod tests {
         assert!((luminance(0x00FF00) - 0.7152).abs() < 0.001);
         // Pure blue (using BT.709 coefficient 0.0722)
         assert!((luminance(0x0000FF) - 0.0722).abs() < 0.001);
+    }
+
+    /// bug-0031: `luminance()` computes Rec. 709 *luma* over gamma-encoded sRGB, and
+    /// its doc comment must say so rather than claiming WCAG relative luminance.
+    ///
+    /// This pins the mechanism the doc now describes.  Reverting the doc comment to
+    /// “Uses the ITU-R BT.709 formula for relative luminance” makes it contradict
+    /// these numbers; reverting the *code* to a linearized formula fails outright.
+    #[test]
+    fn test_luminance_is_gamma_encoded_luma_not_wcag() {
+        // Mid-gray #808080 is the discriminating input: luma vs. relative luminance
+        // disagree by more than a factor of two.
+        let luma = luminance(0x808080);
+        assert!(
+            (luma - 0.502).abs() < 0.001,
+            "expected gamma-encoded luma 0.502, got {luma}"
+        );
+
+        // The WCAG-correct value for the same color, computed the documented-elsewhere
+        // way (linearize each channel, then apply the same BT.709 coefficients).
+        fn wcag_relative_luminance(color: u32) -> f32 {
+            let linearize = |c: f32| {
+                if c <= 0.04045 {
+                    c / 12.92
+                } else {
+                    ((c + 0.055) / 1.055).powf(2.4)
+                }
+            };
+            let r = linearize(((color >> 16) & 0xFF) as f32 / 255.0);
+            let g = linearize(((color >> 8) & 0xFF) as f32 / 255.0);
+            let b = linearize((color & 0xFF) as f32 / 255.0);
+            0.2126 * r + 0.7152 * g + 0.0722 * b
+        }
+        let wcag = wcag_relative_luminance(0x808080);
+        assert!(
+            (wcag - 0.216).abs() < 0.005,
+            "reference WCAG luminance drifted: {wcag}"
+        );
+
+        // The two are far apart — which is exactly why the old doc comment was a
+        // trap for anyone doing contrast math.
+        assert!(
+            (luma - wcag).abs() > 0.25,
+            "luminance() appears to have been linearized; if that is intentional, \
+             re-tune the is_dark threshold and rewrite the doc comment (bug-0031)"
+        );
+
+        // And the threshold that consumes it sits on the luma scale: mid-gray reads
+        // as *light*, which is the calibration the doc comment now states.
+        assert!(!is_dark(0x808080));
+    }
+
+    /// bug-0023: the docs claim a named-color count; this is the count they must match.
+    #[test]
+    fn test_named_color_table_length() {
+        assert_eq!(
+            NAMED_COLORS.len(),
+            148,
+            "NAMED_COLORS changed length — update the '148 CSS named colors' claim in \
+             docs/COLOR_PICKER.md, docs/ccf-gpui-widgets-README.md, TODO.md, and the \
+             color_swatch module doc (bug-0023)"
+        );
+        // The table is binary-searched, so it must also stay sorted.
+        assert!(NAMED_COLORS.windows(2).all(|w| w[0].0 < w[1].0));
     }
 
     #[test]

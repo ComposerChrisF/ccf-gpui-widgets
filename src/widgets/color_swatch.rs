@@ -2,14 +2,14 @@
 //!
 //! A color preview with hex input and color picker. Displays a colored square alongside
 //! a text input for the hex color value. Clicking the swatch opens a full color picker
-//! with RGB/HSL sliders and a 2D saturation/lightness selector.
+//! with RGB/HSL sliders and a 2D saturation/brightness (HSV) selector.
 //!
 //! # Features
 //!
 //! - Hex color input (#RGB, #RRGGBB, #RRGGBBAA)
-//! - CSS named color support (140 colors: "red", "coral", "darkblue", etc.)
+//! - CSS named color support (148 colors: "red", "coral", "darkblue", etc.)
 //! - Color picker popup with RGB and HSL modes
-//! - 2D saturation/lightness selector canvas
+//! - 2D saturation/brightness (HSV) selector canvas
 //! - Hue rainbow slider
 //! - Optional alpha channel support
 //! - Old/new color preview
@@ -21,7 +21,7 @@
 //!
 //! let swatch = cx.new(|cx| {
 //!     ColorSwatch::new(cx)
-//!         .value("#3b82f6")
+//!         .with_value("#3b82f6")
 //!         .with_alpha(true)
 //! });
 //!

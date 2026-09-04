@@ -19,7 +19,7 @@
 //!     .with_accent(0x00ff00)
 //!     .with_border_focus(0x00ff00);
 //!
-//! // Create from minimal palette (derives all 52 colors from 7 seeds)
+//! // Create from minimal palette (derives all 49 colors from 7 seeds)
 //! let theme = Theme::from_palette(Palette::dark());
 //!
 //! // Customize brand colors with palette
@@ -48,7 +48,7 @@ use crate::utils::{darken, is_dark, lighten, mix};
 
 /// Minimal color palette for generating a full Theme
 ///
-/// Contains 7 seed colors that are used to derive all 52 theme colors.
+/// Contains 7 seed colors that are used to derive all 49 theme colors.
 /// This provides a simple way to create custom themes while maintaining
 /// visual consistency.
 ///
@@ -459,7 +459,7 @@ impl Theme {
 
     /// Create a theme from a minimal color palette
     ///
-    /// This derives all 52 theme colors from just 7 seed colors, making it
+    /// This derives all 49 theme colors from just 7 seed colors, making it
     /// easy to create cohesive custom themes.
     ///
     /// # Example

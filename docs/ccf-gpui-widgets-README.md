@@ -19,7 +19,19 @@ ccf-gpui-widgets = "0.1"
 
 # For file/directory pickers (adds rfd and dirs dependencies)
 # ccf-gpui-widgets = { version = "0.1", features = ["file-picker"] }
+
+# For zeroizing password storage (adds secrecy and zeroize dependencies)
+# ccf-gpui-widgets = { version = "0.1", features = ["secure-password"] }
+
+# Everything (file-picker + secure-password)
+# ccf-gpui-widgets = { version = "0.1", features = ["full"] }
 ```
+
+| Feature | Enables |
+|---------|---------|
+| `file-picker` | `FilePicker`, `DirectoryPicker`, and their repeatable variants (adds `rfd`, `dirs`) |
+| `secure-password` | `SecretString`-backed `PasswordInput` storage (adds `secrecy`, `zeroize`) — see `SECURITY.md` |
+| `full` | All of the above |
 
 ## Quick Start
 
@@ -62,6 +74,7 @@ Application::new().run(|cx: &mut App| {
 | `Dropdown` | Select/dropdown with keyboard navigation |
 | `RadioGroup` | Single-selection from multiple choices |
 | `CheckboxGroup` | Multi-selection from multiple choices |
+| `SegmentedControl` | Single selection as a horizontal row of buttons |
 | `ColorSwatch` | Color picker with hex input, HSV canvas |
 
 ### Display Widgets
@@ -78,6 +91,8 @@ Application::new().run(|cx: &mut App| {
 |--------|-------------|
 | `Collapsible` | Expandable/collapsible section |
 | `TabBar` | Tab navigation with keyboard support |
+| `SidebarNav` | Vertical sidebar navigation with keyboard support |
+| `Scrollable` | Scrollable container with overlay scrollbars |
 | `ConfirmationDialog` | Modal dialogs (Info/Default/Warning/Danger styles) |
 
 ### Repeatable Widgets
@@ -103,6 +118,9 @@ Application::new().run(|cx: &mut App| {
 | `secondary_button()` | Gray styled button |
 | `danger_button()` | Red styled button |
 | `with_focus_actions()` | Add Tab/Shift-Tab focus navigation to elements |
+| `scrollable_vertical()` | Wrap an element in a vertically scrollable container |
+| `scrollable_horizontal()` | Wrap an element in a horizontally scrollable container |
+| `scrollable_both()` | Wrap an element in a container scrollable on both axes |
 
 ## Theming
 
@@ -150,7 +168,7 @@ cx.subscribe(&input, |this, _input, event: &TextInputEvent, cx| {
 ```rust
 let checkbox = cx.new(|cx| {
     Checkbox::new(cx)
-        .checked(true)
+        .with_checked(true)
         .label("Enable feature")
 });
 
@@ -213,7 +231,7 @@ The color picker popup includes:
 - Old/New color comparison
 - Hex value display
 
-Supports hex input (#RGB, #RRGGBB, #RRGGBBAA) and all 140 CSS named colors.
+Supports hex input (#RGB, #RRGGBB, #RRGGBBAA) and all 148 CSS named colors.
 
 ### Slider
 
@@ -230,7 +248,7 @@ let slider = cx.new(|cx| {
 cx.subscribe(&slider, |this, _slider, event: &SliderEvent, cx| {
     match event {
         SliderEvent::Change(value) => { /* value changing */ }
-        SliderEvent::ChangeComplete(value) => { /* drag ended */ }
+        SliderEvent::ChangeComplete => { /* drag ended; read slider.value() for the final value */ }
     }
 }).detach();
 ```
@@ -254,34 +272,45 @@ cx.subscribe(&toggle, |this, _toggle, event: &ToggleSwitchEvent, cx| {
 
 ### TabBar
 
+Tabs are any type implementing `SelectionItem`.  `StringItem` covers simple string tabs; implement the trait on your own enum for typed tabs.
+
 ```rust
 let tabs = cx.new(|cx| {
-    TabBar::new(cx)
-        .tabs(vec![
-            TabItem::new("general", "General"),
-            TabItem::new("advanced", "Advanced"),
-            TabItem::new("about", "About"),
-        ])
-        .with_selected_index(0)
+    TabBar::new(
+        vec![
+            StringItem::new("General"),
+            StringItem::new("Advanced"),
+            StringItem::new("About"),
+        ],
+        StringItem::new("General"),
+        cx,
+    )
 });
 
-cx.subscribe(&tabs, |this, _tabs, event: &TabBarEvent, cx| {
-    if let TabBarEvent::Change(index) = event {
-        println!("Selected tab: {}", index);
+cx.subscribe(&tabs, |this, _tabs, event: &TabBarEvent<StringItem>, cx| {
+    match event {
+        TabBarEvent::Change(tab) => println!("Selected tab: {}", tab.value()),
+        TabBarEvent::ContextMenu { tab, position } => {
+            println!("Context menu for {} at {:?}", tab.value(), position);
+        }
     }
 }).detach();
 ```
 
 ### ConfirmationDialog
 
+Title and message are required constructor arguments — there are no `.title()` / `.message()` builders.
+
 ```rust
 let dialog = cx.new(|cx| {
-    ConfirmationDialog::new(cx)
-        .style(DialogStyle::Warning)
-        .title("Delete Item")
-        .message("Are you sure you want to delete this item? This action cannot be undone.")
-        .primary_label("Delete")
-        .secondary_label("Cancel")
+    ConfirmationDialog::new(
+        "Delete Item",
+        "Are you sure you want to delete this item? This action cannot be undone.",
+        cx,
+    )
+    .style(DialogStyle::Warning)
+    .primary_label("Delete")
+    .secondary_label("Cancel")
 });
 
 cx.subscribe(&dialog, |this, _dialog, event: &ConfirmationDialogEvent, cx| {
@@ -302,7 +331,17 @@ let picker = cx.new(|cx| {
         .extensions(vec!["json".into(), "yaml".into()])
         .placeholder("Select output file...")
 });
+
+cx.subscribe(&picker, |this, _picker, event: &FilePickerEvent, cx| {
+    if let FilePickerEvent::Change(path) = event {
+        println!("Path is now: {}", path);  // payload is a String, not a PathBuf
+    }
+}).detach();
 ```
+
+`Change(String)` is the only event a picker emits.  Validation is **pull**-style, not push: ask the widget with `validate()` (returning a `FilePickerValidation` / `DirectoryPickerValidation`) or `is_valid()`, or call the standalone `validate_file_path()` / `validate_directory_path()` functions.  There is no `Validated` event.
+
+`extensions()` filters the **native file dialog only**.  A path that arrives by typing, drag-and-drop, or `set_value()` is accepted whatever its extension, and `validate()` / `is_valid()` (and `RepeatableFilePicker::is_all_valid()`) never consider it.  Enforce an extension policy in your own code if you need one.
 
 ## Keybindings
 
@@ -315,11 +354,21 @@ Application::new().run(|cx: &mut App| {
 });
 ```
 
-Or register individual widgets:
+Or register individual widgets.  The widget modules themselves are private; use the public aliases re-exported from `ccf_gpui_widgets::widgets`:
 
 ```rust
-ccf_gpui_widgets::widgets::text_input::register_keybindings(cx);
-ccf_gpui_widgets::widgets::dropdown::register_keybindings(cx);
+ccf_gpui_widgets::widgets::register_text_input_keybindings(cx);
+ccf_gpui_widgets::widgets::register_dropdown_keybindings(cx);
+ccf_gpui_widgets::widgets::register_color_swatch_keybindings(cx);
+ccf_gpui_widgets::widgets::register_focus_navigation_keybindings(cx);
+ccf_gpui_widgets::widgets::register_tab_bar_keybindings(cx);
+ccf_gpui_widgets::widgets::register_sidebar_nav_keybindings(cx);
+ccf_gpui_widgets::widgets::register_repeatable_text_input_keybindings(cx);
+ccf_gpui_widgets::widgets::register_button_keybindings(cx);
+
+// With the `file-picker` feature:
+ccf_gpui_widgets::widgets::register_file_picker_keybindings(cx);
+ccf_gpui_widgets::widgets::register_directory_picker_keybindings(cx);
 ```
 
 ## License

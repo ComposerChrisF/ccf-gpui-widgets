@@ -64,7 +64,7 @@ The path utilities in this library are designed for **UI display purposes**:
 
 | Widget | Validation Approach |
 |--------|---------------------|
-| TextInput | Optional filter function via `filter()` builder |
+| TextInput | Optional filter function via `input_filter()` builder |
 | PasswordInput | None (accepts any input) |
 | NumberStepper | `parse::<f64>()` with fallback to previous value |
 | ColorSwatch | Hex/RGB parsing validation |
@@ -105,8 +105,7 @@ cargo audit
 ## Reporting Security Issues
 
 If you discover a security vulnerability, please report it via:
-- GitHub Issues: https://github.com/ccf-tools/ccf-gpui-widgets/issues
-- Email: (add contact email if applicable)
+- GitHub Issues: https://github.com/ComposerChrisF/ccf-gpui-widgets/issues
 
 Please include:
 - Description of the vulnerability

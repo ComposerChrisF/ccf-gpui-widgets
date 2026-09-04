@@ -1,8 +1,28 @@
 # ccf-gpui-widgets - TODO
 
+## ⏸️ PAUSED BUG-FIX WORKFLOW — READ FIRST
+
+A Claude Code workflow fixing all 80 bugs below was **paused mid-run on 2026-08-12** (Fable token budget at 81%).  Delete this section once the workflow has resumed.
+
+**State at pause:** Phase 0 decisions are recorded in the nine decision-gated bug reports (`5365242`).  **Phase 1 (all 13 SPEC/doc reports) landed on 2026-09-04** from a separate session: the doc fixes, the two guard suites `tests/doc_claims_consistency.rs` and `tests/doc_surface_consistency.rs`, and the deletion of bug-0003/0004/0005/0023/0025/0031/0050/0057/0058/0063/0069/0078/0080.  The working tree is clean; 67 reports remain in `bugs/`, all CODE-side (Phases 2–4).  Two doc surfaces are deliberately ahead of the code and are exempted in `PENDING_CODE_SURFACES` (`tests/doc_surface_consistency.rs`): `ToggleSwitchEvent::Change` (bug-0079) and PasswordInput `Escape` / `Focus` / `select_on_focus()` (bug-0042) — remove each exemption when its code fix lands.
+
+**To resume:**
+
+1. Reopen the paused Claude Code session in this directory: `claude --continue` (or `claude --resume` and pick the 2026-08-12 bug-fix session).
+2. Tell Claude: “resume the bug-fix workflow” — it has run ID `wf_863fee33-2dc` and the script path in its context.  Completed agents replay from cache at zero token cost; execution continues where it stopped.  The Phase 1 groups are already committed, so if the resume re-runs them it should find nothing to do; a fresh session should relaunch from the first Phase 2 group instead.
+3. Optional, decide at resume time: switch the ~80 verifier agents from Fable to Opus to spare the Fable pool, and/or give the resume a hard token ceiling (e.g. “+2000k”) so the workflow stops spawning agents at the target instead of overrunning.
+
+<!-- Resume details, in case the session context is lost:
+  Workflow run ID: wf_863fee33-2dc
+  Script: /Users/chris/.claude/projects/-Users-chris-Chris-App-Rust-ccf-gpui-widgets/907ca6ff-ed07-41fd-aa50-e9842af102ce/workflows/scripts/fix-filed-bugs-wf_863fee33-2dc.js
+  Resume call: Workflow({scriptPath: <script above>, resumeFromRunId: "wf_863fee33-2dc"})
+  If the session itself is unrecoverable, a fresh session cannot reuse the cache; it should instead
+  check which reports remain in bugs/, diff the working tree, and relaunch the script from the
+  first unfinished group (the script file lists the 22 groups in order). -->
+
 ## 🐛 OPEN BUGS — Deep Review 2026-07-15 — START HERE
 
-A deep code review (seven parallel reviewers, every finding verified against source, the vendored GPUI 0.2.2, or live execution) filed **80 bug reports** in `bugs/bug-NNNN-<slug>.md`.  Baseline at review time: all 63 tests pass, clippy clean — every one of these is latent, not caught by the suite.
+A deep code review (seven parallel reviewers, every finding verified against source, the vendored GPUI 0.2.2, or live execution) filed **80 bug reports** in `bugs/bug-NNNN-<slug>.md`.  Baseline at review time: all 63 tests pass, clippy clean — every one of these is latent, not caught by the suite.  **67 remain open** as of 2026-09-04: Phase 0 and Phase 1 below are done.
 
 Each report is self-contained: description, test-ready repro, suggested fix, why the fix works, and ordering cross-references.  Three kinds, marked in each file’s `**Fix side:**` header:
 
@@ -12,11 +32,11 @@ Each report is self-contained: description, test-ready repro, suggested fix, why
 
 ### Work these in phase order
 
-**Phase 0 — Get Chris’s decisions (blocks parts of every later phase).**  Nine reports pose a question and offer a recommendation.  Present them to Chris in one batch; record each answer in its bug file, which converts it to a CODE or SPEC fix:
+**Phase 0 — Get Chris’s decisions (blocks parts of every later phase).  ✅ Done 2026-08-12 (`5365242`).**  Nine reports pose a question and offer a recommendation.  Present them to Chris in one batch; record each answer in its bug file, which converts it to a CODE or SPEC fix:
 
 - bug-0079 (`ToggleSwitchEvent::Toggle` vs documented `Change` — recommend rename), bug-0055 (ProgressBar `Change(f64)` — recommend doc fix), bug-0050 (picker `Validated` event and payload type — recommend doc fix), bug-0042 (PasswordInput event surface + the double-`Blur` defect that must be fixed under any option), bug-0028 (`get_*` getter naming exception), bug-0066 (out-of-range semantics across the unified selection API), bug-0068 (SidebarNav vs TabBar focus policy — gates how 0073/0022 are implemented), bug-0025 (`extensions()`: dialog-only or validated), bug-0051 (dead `PickerMode` export — recommend delete).
 
-**Phase 1 — Spec repairs, so later code fixes are written against a correct spec.**  bug-0004 (CLAUDE.md widget table; four rows gated on Phase 0) and bug-0057 (README examples; one example gated on 0079) are the load-bearing ones — today they reliably produce non-compiling consumer code.  Then the independent doc fixes, any time: bug-0003, bug-0005, bug-0023, bug-0031, bug-0058, bug-0063 (wrong security-report URL — do not skip), bug-0069, bug-0078, bug-0080.
+**Phase 1 — Spec repairs, so later code fixes are written against a correct spec.  ✅ Done 2026-09-04; the 13 reports are deleted and `tests/doc_*_consistency.rs` guard the repairs.**  bug-0004 (CLAUDE.md widget table; four rows gated on Phase 0) and bug-0057 (README examples; one example gated on 0079) are the load-bearing ones — today they reliably produce non-compiling consumer code.  Then the independent doc fixes, any time: bug-0003, bug-0005, bug-0023, bug-0031, bug-0058, bug-0063 (wrong security-report URL — do not skip), bug-0069, bug-0078, bug-0080.
 
 **Phase 2 — Crashes, panics, and data corruption (high-severity CODE).**
 
@@ -107,7 +127,7 @@ The library is functional and being used by clui.
 - [x] Alpha slider with checkerboard visualization
 - [x] RGB component sliders (R, G, B)
 - [x] Old/New color comparison with hex values
-- [x] CSS named color support (140 colors)
+- [x] CSS named color support (148 colors)
 - [x] Proper drag support using GPUI’s drag API
 - [x] Persistent slider measurements across render frames
 - [x] Color utilities: Rgb, Rgba, Hsl, Hsv with conversions
@@ -124,7 +144,7 @@ The library is functional and being used by clui.
 - [x] Text selection: Darker color (`0x264F78`) for contrast with white text
 - [x] Light mode: `border_input` changed to `0x444444` for visible borders
 - [x] Light mode: Tooltip uses light background with dark text
-- [x] Theme: Added `with_*` builder methods for all 30+ fields
+- [x] Theme: Added `with_*` builder methods for all 49 fields
 
 ### ✅ FilePicker & DirectoryPicker Enhancements (2026-01-28)
 - [x] Focus indicator on outer control when widget has focus but TextInput is inactive
@@ -353,7 +373,7 @@ The library is functional and being used by clui.
 - [x] Created `Palette` struct with 7 seed colors: bg, text, primary, accent, success, error, warning
 - [x] `Palette::dark()` and `Palette::light()` preset constructors
 - [x] Builder methods: `with_bg()`, `with_text()`, `with_primary()`, `with_accent()`, etc.
-- [x] `Theme::from_palette(palette)` derives all 52 theme colors from 7 seeds
+- [x] `Theme::from_palette(palette)` derives all 49 theme colors from 7 seeds
 - [x] Exported `Palette` from crate root and prelude
 - [x] Refactored `button.rs` to use shared `darken()` utility (removed local duplicate)
 - [x] Added unit tests for all color math functions
@@ -409,7 +429,7 @@ The library is functional and being used by clui.
 
 ### 📦 Publishing
 - [ ] Publish to crates.io
-- [ ] Set up GitHub repository
+- [x] Set up GitHub repository
 - [x] Add CI/CD (GitHub Actions) - includes cargo audit for security scanning
 - [ ] Add more comprehensive tests
 
@@ -453,8 +473,8 @@ The library is functional and being used by clui.
 
 ### 📖 Documentation
 - [ ] API documentation (rustdoc)
-- [ ] Example application
-- [ ] Widget showcase/gallery
+- [x] Example application (`examples/widget_gallery.rs`)
+- [x] Widget showcase/gallery (`examples/widget_gallery.rs`)
 - [ ] Migration guide for consumers
 
 ### 🧪 Testing
@@ -468,11 +488,11 @@ The library is functional and being used by clui.
 
 1. **Key context naming**: TextInput uses “CcfTextInput” to avoid conflicts with consumers who might have their own “TextInput” context.
 
-2. **FilePicker/DirectoryPicker compilation**: These require the `file-picker` feature flag and won’t compile without it.
+2. **FilePicker/DirectoryPicker feature gate**: These widgets are gated behind the `file-picker` feature.  The library itself compiles cleanly without it — the widgets are simply `cfg`-gated out — but consumer code that names them requires the feature to be enabled.
 
 3. **Theme mismatch**: If consumer doesn’t set global theme, widgets use default dark theme which may not match consumer’s UI.
 
-4. **Flexbox layout instability**: Scrollable flex containers need `w_full()` and `min_w_0()` to prevent layout issues.  See `GPUI-LAYOUT-PATTERNS.md` for details.
+4. **Flexbox layout instability**: Scrollable flex containers need `w_full()` and `min_w_0()` to prevent layout issues.  See `docs/GPUI-LAYOUT-PATTERNS.md` for details.
 
 ---
 
@@ -489,7 +509,7 @@ The library is functional and being used by clui.
 focus_handle: cx.focus_handle().tab_stop(true),
 ```
 
-See `doc/TAB_STOP_SOLUTIONS.md` for full details.
+See `docs/TAB_STOP_SOLUTIONS.md` for full details.
 
 ---
 

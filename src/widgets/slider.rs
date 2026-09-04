@@ -7,9 +7,9 @@
 //!
 //! - **Click** anywhere on the track to set the value
 //! - **Click and drag** the thumb or track to adjust the value smoothly
-//!   - Hold **Shift** for fast adjustment (10x step)
-//!   - Hold **Alt/Option** for slow/fine adjustment (0.1x step)
+//!   (positional only — modifier keys do not change drag sensitivity)
 //! - **Arrow keys** to increment/decrement when focused
+//!   - Hold **Shift** for fast adjustment (10x step)
 //! - **Home/End** keys to jump to min/max values
 //!
 //! # Example

@@ -52,6 +52,7 @@
 //! - [`Dropdown`](widgets::Dropdown) - Select/dropdown with keyboard navigation
 //! - [`RadioGroup`](widgets::RadioGroup) - Single-selection from multiple choices
 //! - [`CheckboxGroup`](widgets::CheckboxGroup) - Multi-selection from multiple choices
+//! - [`SegmentedControl`](widgets::SegmentedControl) - Single selection as a horizontal row of buttons
 //! - [`ColorSwatch`](widgets::ColorSwatch) - Color picker with hex input, HSV canvas
 //!
 //! ## Display Widgets
@@ -64,6 +65,8 @@
 //!
 //! - [`Collapsible`](widgets::Collapsible) - Expandable/collapsible section
 //! - [`TabBar`](widgets::TabBar) - Tab navigation with keyboard support
+//! - [`SidebarNav`](widgets::SidebarNav) - Vertical sidebar navigation with keyboard support
+//! - [`Scrollable`](widgets::Scrollable) - Scrollable container with overlay scrollbars
 //! - [`ConfirmationDialog`](widgets::ConfirmationDialog) - Modal dialogs (Info/Default/Warning/Danger styles)
 //!
 //! ## Repeatable Widgets
@@ -102,6 +105,7 @@
 //! # Feature Flags
 //!
 //! - `file-picker` - Enables FilePicker and DirectoryPicker widgets (adds `rfd` and `dirs` dependencies)
+//! - `secure-password` - Stores PasswordInput contents in a zeroizing `SecretString` (adds `secrecy` and `zeroize` dependencies); see `SECURITY.md`
 //! - `full` - Enables all optional features
 //!
 //! # Theming
@@ -119,7 +123,7 @@
 //! let dark = Theme::dark();
 //! let light = Theme::light();
 //!
-//! // Customize with builder methods (all ~30 fields have with_* methods)
+//! // Customize with builder methods (all 49 fields have with_* methods)
 //! let custom = Theme::dark()
 //!     .with_accent(0x00ff00)
 //!     .with_primary(0xff0000)

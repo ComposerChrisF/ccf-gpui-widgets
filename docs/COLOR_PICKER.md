@@ -7,13 +7,18 @@ This document describes the implementation details, design decisions, and lesson
 The ColorSwatch widget provides a full-featured color picker with:
 - Clickable color preview swatch
 - Hex text input (supports #RGB, #RRGGBB, #RRGGBBAA formats)
-- CSS named color support (140 colors: “red”, “coral”, “darkblue”, etc.)
+- CSS named color support (148 colors: “red”, “coral”, “darkblue”, etc.)
 - Popup color picker with:
   - 2D saturation/brightness canvas (HSV model)
   - Hue slider (0-359°)
   - Alpha slider (optional)
   - RGB component sliders
-  - Old/New color comparison with hex values
+  - Old/New color comparison with hex values — the “Old” swatch is clickable and resets the working color to the original
+  - **Cancel** and **Apply** buttons at the bottom of the popup
+- Commit/revert semantics for the popup (added in commit `6772468`):
+  - **ESC** (or the Cancel button) reverts to the color the picker opened with, then closes
+  - **Enter** (or the Apply button) keeps the current color, then closes
+  - Clicking **outside** the popup applies the current color and closes
 
 ## Color Model: HSV vs HSL
 
@@ -36,7 +41,7 @@ The `src/utils/color.rs` module provides:
 - `Rgb`, `Rgba`, `Hsl`, `Hsv` structs
 - Conversions: `Rgb::to_hsl()`, `Rgb::to_hsv()`, `Hsl::to_rgb()`, `Hsv::to_rgb()`
 - Hex parsing: `Rgb::from_hex()`, `Rgba::from_hex()`
-- Named colors: `named_color_to_rgb()` with 140 CSS colors
+- Named colors: `named_color_to_rgb()` with 148 CSS colors
 
 ## GPUI Drag System for Sliders
 
@@ -226,7 +231,12 @@ deferred(
 2. User interacts with controls → `update_from_hsv()` or `update_from_rgb()`
 3. Internal state updates: `current_rgb`, `current_hsl`, `current_hsv`, `current_alpha`
 4. `sync_value()` formats hex string and emits `ColorSwatchEvent::Change`
-5. User clicks outside → `close_picker()`
+5. The popup has three distinct exits, not one:
+   - ESC (the `ClosePicker` action) or the **Cancel** button → `cancel_picker()`, which reverts to `original_value` and closes
+   - Enter (the `ApplyPicker` action) or the **Apply** button → `apply_picker()`, which keeps the current value and closes
+   - A click outside the popup → `apply_picker()` as well: the current color is committed, not discarded
+
+`register_keybindings()` binds both actions in the `CcfColorPicker` key context: `escape` → `ClosePicker`, `enter` → `ApplyPicker`.  The bare `close_picker()` still exists and is what a second click on the swatch itself uses — it closes without touching the value.
 
 ## Files
 
