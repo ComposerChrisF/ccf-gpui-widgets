@@ -13,6 +13,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Builder pattern for configuration
 - Feature flags for optional dependencies
 
+`TODO.md` § Open Bugs is the work queue and carries the phase order and process rules; `bugs/` holds the open reports; `docs/` holds the GPUI lessons (`TAB_STOP_SOLUTIONS`, `GPUI-LAYOUT-PATTERNS`, `MOUSE_CAPTURE`, `COLOR_PICKER`); `SECURITY.md` states what validation is not.
+
 ## Build Commands
 
 ```bash
@@ -35,14 +37,7 @@ cargo doc --open
 # Running Clippy
 cargo clippy                 # Default features
 cargo clippy --features full # All features
-
-# Testing Clui with latest `ccf-gpui-widgets` changes
-cd ../clui && cargo check && cargo test
 ```
-
-### Crates dependent on `ccf-gpui-widgets`
-Since clui depends on this library, changes need coordination:                
-  - Test changes with cd ../clui && cargo check && cargo test                   
 
 ## Architecture
 
@@ -233,7 +228,7 @@ impl MyWidget {
 }
 ```
 
-All 17 interactive widgets carry the `enabled` field and the `with_enabled()` / `is_enabled()` / `set_enabled()` trio; a new interactive widget should too.
+Every interactive widget carries the `enabled` field and the `with_enabled()` / `is_enabled()` / `set_enabled()` trio; a new interactive widget should too.
 
 **Naming Convention:**
 - Builder methods that set initial state: `with_*` (e.g., `with_value`, `with_selected_index`)
@@ -296,7 +291,7 @@ cx.subscribe(&widget, |this, _widget, event: &WidgetEvent, cx| {
 ## Theming System
 
 ### Theme Structure
-The `Theme` struct contains 49 semantic color fields as u32 hex values (as of v0.1.2; `tests/doc_claims_consistency.rs` keeps this number honest):
+The `Theme` struct contains 49 semantic color fields as u32 hex values (`tests/doc_claims_consistency.rs` keeps this number honest):
 - Background colors: `bg_primary`, `bg_input`, `bg_hover`, etc.
 - Text colors: `text_primary`, `text_muted`, `text_placeholder`, etc.
 - Border colors: `border_default`, `border_focus`, `border_error`, etc.
@@ -347,7 +342,7 @@ Application::new().run(|cx: &mut App| {
 
 ## Testing
 
-Tests live in eight places, not one — `src/utils/path.rs`, `src/utils/mod.rs`, `src/utils/color.rs` (two modules, including a proptest), `src/widgets/sensitive_string.rs`, `src/widgets/editing_core.rs`, `src/widgets/file_picker.rs`, and `src/widgets/directory_picker.rs` — plus the doc-surface tests under `tests/`.
+Unit tests live beside the code they test — `src/utils/path.rs`, `src/utils/mod.rs`, `src/utils/color.rs` (two modules, including a proptest), `src/widgets/sensitive_string.rs`, `src/widgets/editing_core.rs`, `src/widgets/file_picker.rs`, and `src/widgets/directory_picker.rs` — plus the doc-surface tests under `tests/`.
 
 ```bash
 cargo test                  # default features: skips the feature-gated tests
@@ -356,15 +351,14 @@ cargo test --features full  # runs everything, including the doc-consistency tes
 
 The picker and sensitive-string tests are feature-gated (`file-picker`, `secure-password`), so a bare `cargo test` silently runs a subset.  Always use `--features full` before claiming the suite is green.
 
-Widget testing requires GPUI test support which is complex to set up, so widget _rendering_ and _interaction_ are still verified through the gallery example and integration with consumer applications.  Pure logic (editing, path parsing, color math, validation) is unit-tested directly.
+Widget testing requires GPUI test support which is complex to set up, so widget _rendering_ and _interaction_ are verified through the gallery example and integration with consumer applications.  Pure logic (editing, path parsing, color math, validation) is unit-tested directly.
 
 ## Consumer Projects
 
-This library is currently used by:
-- **clui** (`../clui/`) - CLI wrapper application with form UI
+Consumers (both path-deps on this checkout): **rpview-gpui** (`../rpview-gpui`, active; resolves this crate via its gitignored `.cargo/config.toml` `[patch.crates-io]`, feature `file-picker`) and **clui** (`../clui`, dormant).  After an API change:
 
-When making changes, verify compatibility:
 ```bash
+cd ../rpview-gpui && cargo check && cargo test
 cd ../clui && cargo check && cargo test
 ```
 
