@@ -78,6 +78,11 @@ The library is functional and being used by clui.
 
 ## Completed
 
+### ✅ CI Security Audit cleared again (2026-10-29, v0.1.4)
+- [x] Targeted `cargo update` cleared all 16 RustSec vulnerabilities (rustls, rustls-webpki, quinn-proto, h2, crossbeam-epoch, quick-xml, via xcb/bitflags/wayland-scanner); `cargo audit` reports 0 vulnerabilities
+- [x] Dropped the dead `master` branch from both `branches:` lists in `.github/workflows/ci.yml` (renamed to `main` 2026-10-29)
+- Requested by rpview-gpui's session (effort-coord request r0001)
+
 ### ✅ CI Fixes: fmt, clippy, security audit (2026-04-28)
 - [x] `cargo fmt` reformatted 33 files (enforced by CI Format job)
 - [x] Fixed 2 clippy `collapsible_match` errors (number_stepper.rs, confirmation_dialog.rs) — collapsed inner `if` into match guards
