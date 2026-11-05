@@ -14,7 +14,7 @@ A Claude Code workflow fixing all 80 bugs below was **paused mid-run on 2026-08-
 
 <!-- Resume details, in case the session context is lost:
   Workflow run ID: wf_863fee33-2dc
-  Script: /Users/chris/.claude/projects/-Users-chris-Chris-App-Rust-ccf-gpui-widgets/907ca6ff-ed07-41fd-aa50-e9842af102ce/workflows/scripts/fix-filed-bugs-wf_863fee33-2dc.js
+  Script: fix-filed-bugs-wf_863fee33-2dc.js, in the workflows/scripts folder of session 907ca6ff-ed07-41fd-aa50-e9842af102ce under the Claude Code data folder for this project.  Neither that session nor the script was on this machine on 2026-11-04.
   Resume call: Workflow({scriptPath: <script above>, resumeFromRunId: "wf_863fee33-2dc"})
   If the session itself is unrecoverable, a fresh session cannot reuse the cache; it should instead
   check which reports remain in bugs/, diff the working tree, and relaunch the script from the
@@ -81,7 +81,7 @@ The library is functional and being used by clui.
 ### ✅ CI Security Audit cleared again (2026-10-29, v0.1.4)
 - [x] Targeted `cargo update` cleared all 16 RustSec vulnerabilities (rustls, rustls-webpki, quinn-proto, h2, crossbeam-epoch, quick-xml, via xcb/bitflags/wayland-scanner); `cargo audit` reports 0 vulnerabilities
 - [x] Dropped the dead `master` branch from both `branches:` lists in `.github/workflows/ci.yml` (renamed to `main` 2026-10-29)
-- Requested by rpview-gpui's session (effort-coord request r0001)
+- Requested by rpview-gpui’s session (effort-coord request r0001)
 
 ### ✅ CI Fixes: fmt, clippy, security audit (2026-04-28)
 - [x] `cargo fmt` reformatted 33 files (enforced by CI Format job)
